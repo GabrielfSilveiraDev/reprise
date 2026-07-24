@@ -129,11 +129,52 @@ número.
   TMDB só preenche o que está vazio. Quando o valor vem de uma média (e não do episódio),
   `runtime_estimated` marca isso para as estatísticas saberem o que é medido e o que é chute.
 
+## Cliente web
+
+```bash
+pnpm install
+pnpm --filter @reprise/web dev      # http://localhost:5173
+```
+
+O Vite faz proxy de `/api` para a API, então em desenvolvimento não há CORS para manter.
+
+**O cliente TypeScript é gerado, não escrito à mão.** Depois de mexer em qualquer endpoint:
+
+```bash
+curl -s http://localhost:5156/openapi/v1.json -o packages/shared/openapi.json
+pnpm --filter @reprise/shared generate
+```
+
+Os endpoints usam `TypedResults`/`Results<Ok<T>, NotFound>` de propósito: `IResult` puro não
+declara o tipo da resposta e o OpenAPI sairia sem schema nenhum.
+
+### Desenho
+
+Editorial e tipográfico, não uma grade de pôsteres com selo colorido. Duas densidades na
+lista (linha compacta para varrer o acervo, cartão expandido para navegar sem pressa) e,
+no detalhe, a **trilha de blocos**: um bloco por episódio, altura proporcional a quantas
+vezes você assistiu. A escala é relativa à própria série — numa série vista uma vez só, uma
+exibição já enche o bloco; numa que você reassistiu 17 vezes, uma exibição é um traço baixo.
+
+### Acessibilidade
+
+Requisito, não verniz. Verificado no navegador contra os dados reais:
+
+- **Contraste AA nos dois temas** — 11 pares medidos, texto ≥ 4,5:1 e objeto gráfico ≥ 3:1.
+- **Nenhum estado só por cor** — a contagem de exibições aparece como texto (`16×`), o não
+  assistido ganha contorno tracejado além do tom, e o item de navegação ativo combina peso,
+  cor e sublinhado.
+- **Teclado** — foco visível sempre, link de pular para o conteúdo, e a lista de episódios usa
+  foco itinerante: uma parada de tab para a lista toda, setas entre as linhas.
+  <kbd>M</kbd> marca (de novo = rewatch) · <kbd>U</kbd> desmarca · <kbd>A</kbd> marca até ali.
+- **Alvos de toque ≥ 44px** em todos os controles.
+- `prefers-reduced-motion` respeitado — nenhuma animação carrega significado.
+
 ## Roadmap
 
 1. ~~**Modelo + importador** com relatório de conferência + enriquecimento TMDB~~ ✅
 2. ~~API de leitura + endpoints de marcação~~ ✅
-3. Web: lista, detalhe com trilha de episódios, marcação
+3. ~~Web: lista, detalhe com trilha de episódios, marcação~~ ✅
 4. Web: estatísticas
 5. Mobile: paridade essencial + offline
 6. Fase 2: estreias/notificações, rewatch como sessão, filmes, export próprio em JSON

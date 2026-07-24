@@ -1,0 +1,95 @@
+.episodes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.episode {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr 5rem 3.5rem 7rem auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.episode:hover {
+  background: var(--bg-hover);
+}
+
+.episode__code {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+
+.episode__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.episode[data-watched='false'] .episode__title {
+  color: var(--fg-muted);
+}
+
+.episode__untitled {
+  color: var(--fg-subtle);
+  font-style: italic;
+}
+
+.episode__meta,
+.episode__when {
+  font-size: var(--text-sm);
+  color: var(--fg-subtle);
+}
+
+.episode__count {
+  font-size: var(--text-sm);
+  font-weight: 650;
+  text-align: right;
+  color: var(--fg-subtle);
+}
+
+.episode__count[data-watched='true'] {
+  color: var(--accent);
+}
+
+.episode__actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+/* Em telas estreitas a grade vira duas linhas — nada de scroll horizontal. */
+@media (max-width: 52rem) {
+  .episode {
+    grid-template-columns: 4.5rem 1fr 3rem;
+    grid-template-areas:
+      'code title count'
+      'actions actions actions';
+    row-gap: var(--space-2);
+    padding-block: var(--space-3);
+  }
+
+  .episode__code {
+    grid-area: code;
+  }
+  .episode__title {
+    grid-area: title;
+  }
+  .episode__count {
+    grid-area: count;
+  }
+  .episode__actions {
+    grid-area: actions;
+    justify-content: flex-start;
+  }
+  .episode__meta,
+  .episode__when {
+    display: none;
+  }
+}

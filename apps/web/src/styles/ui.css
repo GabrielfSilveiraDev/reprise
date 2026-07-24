@@ -1,0 +1,113 @@
+/* Primitivos de UI reutilizados pelas páginas. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 560;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+
+/* Ação secundária dentro de linhas densas: menor, mas ainda com 44px de alvo. */
+.btn--quiet {
+  padding-inline: var(--space-3);
+  background: transparent;
+  border-color: transparent;
+  color: var(--fg-muted);
+}
+
+.btn--quiet:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.btn--danger:hover:not(:disabled) {
+  color: var(--danger);
+}
+
+/* --- Barra de progresso: número primeiro, barra como reforço --- */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.progress__bar {
+  flex: 1;
+  height: 4px;
+  min-width: 4rem;
+  background: var(--track-empty);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress__fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.progress__text {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* --- Estados de carregamento / vazio / erro --- */
+.state {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--fg-muted);
+}
+
+.state__title {
+  font-size: var(--text-lg);
+  color: var(--fg);
+  margin-bottom: var(--space-2);
+}
+
+.state--error .state__title {
+  color: var(--danger);
+}
+
+/* --- Etiqueta de seção --- */
+.eyebrow {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--fg-subtle);
+  font-weight: 640;
+}
+
+.divider {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin-block: var(--space-6);
+}
