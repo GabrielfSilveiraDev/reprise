@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: reprise-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-reprise}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reprise}
+      POSTGRES_DB: ${POSTGRES_DB:-reprise}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - reprise-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-reprise} -d ${POSTGRES_DB:-reprise}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # A API entra aqui na Fase 2 (imagem construída a partir de apps/api).
+  # api:
+  #   build: ./apps/api
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   environment:
+  #     ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-reprise};Username=${POSTGRES_USER:-reprise};Password=${POSTGRES_PASSWORD:-reprise}"
+  #   ports:
+  #     - "8080:8080"
+
+volumes:
+  reprise-pgdata:

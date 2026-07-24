@@ -1,0 +1,14 @@
+{
+  "name": "reprise",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Reprise — rastreador pessoal de séries (substituto do TV Time). Uma exibição é um evento, não um booleano.",
+  "workspaces": [
+    "apps/web",
+    "apps/mobile",
+    "packages/shared"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
+}

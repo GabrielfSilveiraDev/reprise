@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="Reprise.Api/Reprise.Api.csproj" />
+  <Project Path="Reprise.Application/Reprise.Application.csproj" />
+  <Project Path="Reprise.Domain/Reprise.Domain.csproj" />
+  <Project Path="Reprise.Importer/Reprise.Importer.csproj" />
+  <Project Path="Reprise.Infrastructure/Reprise.Infrastructure.csproj" />
+  <Project Path="Reprise.Tests/Reprise.Tests.csproj" />
+</Solution>
