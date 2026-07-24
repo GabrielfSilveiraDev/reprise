@@ -1,0 +1,6 @@
+key,s_id,runtime,s_no,ep_no,created_at,bulk_type,series_name,is_followed,is_archived,is_for_later,followed_at,series_follow_count,ep_watch_count,total_series_runtime
+watch-episode-aaaa1111-0000-0000-0000-000000000001-bbbb1111-0000-0000-0000-000000000001,100,1800,1,1,2026-02-10 20:00:00,,Sintética,,,,,,,
+watch-episode-aaaa1111-0000-0000-0000-000000000001-bbbb1111-0000-0000-0000-000000000002,100,1800,1,2,2026-02-11 20:00:00,,Sintética,,,,,,,
+rewatch-episode-aaaa1111-0000-0000-0000-000000000001-bbbb1111-0000-0000-0000-000000000001-1,100,1800,1,1,2026-03-01 20:00:00,,Sintética,,,,,,,
+user-series-aaaa1111-0000-0000-0000-000000000001,100,,,,,,Sintética,true,false,false,1766977962497301,,,
+tracking-stats,,,,,,,,,,,,1,5,99999
