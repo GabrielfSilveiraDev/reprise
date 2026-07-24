@@ -25,6 +25,7 @@ services:
   #       condition: service_healthy
   #   environment:
   #     ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-reprise};Username=${POSTGRES_USER:-reprise};Password=${POSTGRES_PASSWORD:-reprise}"
+  #     Tmdb__ApiKey: ${Tmdb__ApiKey:?defina Tmdb__ApiKey no .env}
   #   ports:
   #     - "8080:8080"
 

@@ -10,6 +10,9 @@ public interface ITmdbClient
     /// <summary>Casa uma série pelo id do TheTVDB via <c>find/{id}?external_source=tvdb_id</c>.</summary>
     Task<TmdbShow?> FindShowByTvdbIdAsync(int tvdbId, CancellationToken cancellationToken = default);
 
+    /// <summary>Busca a série direto pelo id do TMDB — caminho de um <c>SeriesMatchOverride</c> manual.</summary>
+    Task<TmdbShow?> GetShowAsync(int tmdbId, CancellationToken cancellationToken = default);
+
     /// <summary>Episódios da série (todas as temporadas, incluindo especiais).</summary>
     Task<IReadOnlyList<TmdbEpisode>> GetEpisodesAsync(int tmdbId, CancellationToken cancellationToken = default);
 }

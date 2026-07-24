@@ -43,22 +43,96 @@ Pré-requisitos: .NET 10 SDK, Node 22+, Docker.
 ```bash
 cp .env.example .env      # preencha Tmdb__ApiKey e Jwt__Secret
 docker compose up -d db   # sobe o Postgres
-# (migrations e API entram na Fase 1/2)
+dotnet run --project apps/api/Reprise.Api
 ```
+
+A API sobe em `http://localhost:5156` (definido em `launchSettings.json`) e publica o
+OpenAPI em `/openapi/v1.json`.
+
+### Segredos
+
+A chave do TMDB **nunca** entra no repositório. Em desenvolvimento:
+
+```bash
+dotnet user-secrets set "Tmdb:ApiKey" "<sua-chave-v3>" --project apps/api/Reprise.Api
+```
+
+Fora do dev, use a variável de ambiente `Tmdb__ApiKey` (é o que o Compose e a CLI leem).
 
 ## Importando o export do TV Time
 
-> Passo a passo detalhado entra na Fase 1, quando o importador existir.
+O export vem do pedido de GDPR do TV Time. A fonte da verdade é
+`tracking-prod-records-v2.csv` — os demais arquivos do zip são ignorados, e os de
+rastreamento/credenciais (`ip_address`, `refresh_token`, `ad_identifier`, `auth-prod-login`,
+`user_connection`, …) **nunca** são lidos. **O export com seus dados pessoais não vai para o
+repositório** (ver `.gitignore`).
 
-A fonte da verdade do export é `tracking-prod-records-v2.csv`. O importador é idempotente
-(chave natural = o `key` original de cada linha), casa séries por **TheTVDB id via TMDB**,
-e emite um relatório de conferência ao final. **O export com seus dados pessoais nunca vai
-para o repositório** (ver `.gitignore`).
+```bash
+# 1. conferência, sem gravar nada
+dotnet run --project apps/api/Reprise.Importer -- caminho/do/export.zip --dry-run
+
+# 2. importação de verdade (idempotente — pode rodar de novo sem duplicar)
+dotnet run --project apps/api/Reprise.Importer -- caminho/do/export.zip
+```
+
+A idempotência usa como chave natural o `key` original de cada linha do CSV, guardado em
+`watch_events.source_key` sob um índice único parcial. Reexecutar só cria o que falta.
+
+O relatório final separa **invariantes duros** (nossa contabilidade: toda linha lida foi
+classificada) de uma **conferência contra o `tracking-stats` do fornecedor**, que é apenas
+informativa — o cache de estatísticas do TV Time não bate nem com os próprios registros dele,
+então divergência ali é registrada, não é motivo para abortar.
+
+## Enriquecendo o catálogo pelo TMDB
+
+O export só contém episódios que você assistiu. Sem este passo não existe "próximo a assistir"
+nem percentual de progresso — toda série aparece como 100% completa.
+
+```bash
+export Tmdb__ApiKey=<sua-chave-v3>
+
+dotnet run --project apps/api/Reprise.Importer -- enrich              # só as séries ainda sem metadados
+dotnet run --project apps/api/Reprise.Importer -- enrich --force      # reprocessa todas
+dotnet run --project apps/api/Reprise.Importer -- enrich --tvdb 75760 # uma série só
+```
+
+O casamento é por **id do TheTVDB** (`find/{id}?external_source=tvdb_id`), nunca por nome.
+Série que o TMDB não resolver aparece no relatório e pode ser resolvida à mão inserindo um
+`SeriesMatchOverride` (`tvdb_id` → `tmdb_id`).
+
+### Numeração incompatível: alinhamento por ordem
+
+TVDB (fonte do TV Time) e TMDB frequentemente discordam de como repartir uma série em temporadas.
+Anime longo é o caso extremo: o TVDB fatia Naruto Shippuden em 22 temporadas, o TMDB usa outra
+numeração. Casar por `(temporada, episódio)` ali não acha nada — e tratar o não-achado como
+"faltando" fabricaria um catálogo paralelo, afundando o progresso e apontando como "próximo"
+episódio já assistido.
+
+Quando mais de 20% dos episódios locais não acham par, o enriquecimento troca de estratégia e
+alinha pela **ordem de exibição**: o 1º episódio local vira o 1º do TMDB, o 2º vira o 2º, e assim
+por diante. Os episódios existentes são *reposicionados* — mesma linha, mesmo `id`, mesmo
+histórico de exibições —, só as coordenadas mudam.
+
+A posição vem do *número* do episódio, não da contagem de linhas: o export só contém o que foi
+assistido, então contar linhas comprimiria os buracos. Quem viu do 1 ao 50 e depois do 71 ao 90
+mantém os 20 pulados como pulo. Especiais ficam fora da ordem linear e continuam casando por
+número.
+
+### Garantias do passo, cobertas por teste
+
+- **Nada é apagado.** Episódio que existe localmente e não tem posição no TMDB fica intocado e é
+  contado no relatório. Removê-lo derrubaria em cascata os `watch_events` dele — ou seja, o log
+  que é a fonte da verdade.
+- **Identidade preservada.** Nem no reposicionamento o `id` do episódio muda, então nenhuma
+  exibição se desprende.
+- **O runtime do export prevalece.** É com ele que suas estatísticas sempre foram contadas; o
+  TMDB só preenche o que está vazio. Quando o valor vem de uma média (e não do episódio),
+  `runtime_estimated` marca isso para as estatísticas saberem o que é medido e o que é chute.
 
 ## Roadmap
 
-1. **Modelo + importador** com relatório de conferência ← maior risco, valida a modelagem
-2. API de leitura + endpoints de marcação
+1. ~~**Modelo + importador** com relatório de conferência + enriquecimento TMDB~~ ✅
+2. ~~API de leitura + endpoints de marcação~~ ✅
 3. Web: lista, detalhe com trilha de episódios, marcação
 4. Web: estatísticas
 5. Mobile: paridade essencial + offline
