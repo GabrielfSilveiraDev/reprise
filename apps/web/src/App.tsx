@@ -1,4 +1,8 @@
+import { useCallback, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
+import { Auth } from './api/auth';
+import { WebSession } from './api/session';
+import { LoginPage } from './pages/LoginPage';
 import { NextUpPage } from './pages/NextUpPage';
 import { SeriesDetailPage } from './pages/SeriesDetailPage';
 import { SeriesListPage } from './pages/SeriesListPage';
@@ -6,6 +10,15 @@ import { StatsPage } from './pages/StatsPage';
 import './App.css';
 
 export function App() {
+  /**
+   * Sem sessão, nem a barra de navegação é montada: a API devolve 401 em tudo, e mostrar um
+   * esqueleto de aplicativo que só sabe dar erro seria pior do que pedir a senha.
+   */
+  const [session, setSession] = useState(() => WebSession.read());
+  const signedIn = useCallback(() => setSession(WebSession.read()), []);
+
+  if (!session) return <LoginPage onSignedIn={signedIn} />;
+
   return (
     <>
       <a className="skip-link" href="#conteudo">
@@ -36,6 +49,20 @@ export function App() {
               </li>
             </ul>
           </nav>
+
+          <div className="app-bar__account">
+            <span className="app-bar__who">{session.displayName}</span>
+            <button
+              className="btn btn--quiet"
+              type="button"
+              onClick={async () => {
+                await Auth.logout();
+                setSession(null);
+              }}
+            >
+              Sair
+            </button>
+          </div>
         </div>
       </header>
 

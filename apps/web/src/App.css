@@ -65,3 +65,17 @@
   margin-inline: auto;
   padding: var(--space-6) var(--space-4) var(--space-10);
 }
+
+/* Identidade e saída, à direita da navegação. */
+.app-bar__account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.app-bar__who {
+  font-size: var(--text-sm);
+  font-weight: 640;
+  color: var(--fg-muted);
+}

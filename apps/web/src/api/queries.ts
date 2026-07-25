@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createRepriseClient } from '@reprise/shared';
+import { Auth } from './auth';
+import { WebSession } from './session';
 import type {
   CalendarDayDto,
   NextUpItem,
@@ -12,7 +14,19 @@ export type StatsOverview = StatsOverviewDto;
 export type CalendarDay = CalendarDayDto;
 
 // Em dev o Vite faz proxy de /api para a API; em produção a var de ambiente aponta direto.
-const client = createRepriseClient(import.meta.env.VITE_API_URL ?? '/api');
+const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
+
+/**
+ * Um cliente por requisição, com o token do momento.
+ *
+ * Renova ANTES de usar quando o acesso está por vencer, em vez de esperar o 401 e repetir: uma
+ * marcação repetida seria uma exibição a mais no log, e o log é a fonte da verdade deste app.
+ */
+async function client() {
+  let session = WebSession.read();
+  if (session && WebSession.isExpired(session)) session = await Auth.refresh();
+  return createRepriseClient(BASE_URL, { bearerToken: session?.accessToken });
+}
 
 export const keys = {
   series: ['series'] as const,
@@ -31,7 +45,7 @@ function unwrap<T>(result: { data?: T; error?: unknown }): T {
 export function useSeriesList() {
   return useQuery({
     queryKey: keys.series,
-    queryFn: async (): Promise<SeriesListItem[]> => unwrap(await client.GET('/series')),
+    queryFn: async (): Promise<SeriesListItem[]> => unwrap(await (await client()).GET('/series')),
   });
 }
 
@@ -39,14 +53,14 @@ export function useSeriesDetail(id: number) {
   return useQuery({
     queryKey: keys.seriesDetail(id),
     queryFn: async (): Promise<SeriesDetail> =>
-      unwrap(await client.GET('/series/{id}', { params: { path: { id } } })),
+      unwrap(await (await client()).GET('/series/{id}', { params: { path: { id } } })),
   });
 }
 
 export function useNextUp() {
   return useQuery({
     queryKey: keys.nextUp,
-    queryFn: async (): Promise<NextUpItem[]> => unwrap(await client.GET('/next-up')),
+    queryFn: async (): Promise<NextUpItem[]> => unwrap(await (await client()).GET('/next-up')),
   });
 }
 
@@ -71,7 +85,7 @@ export function useMarkEpisode(seriesId?: number) {
   return useMutation({
     mutationFn: async (episodeId: number) =>
       unwrap(
-        await client.POST('/episodes/{id}/watch', {
+        await (await client()).POST('/episodes/{id}/watch', {
           params: { path: { id: episodeId } },
           body: { watchedAt: null, clientKey: null },
         }),
@@ -85,7 +99,7 @@ export function useUnmarkEpisode(seriesId?: number) {
   return useMutation({
     mutationFn: async (episodeId: number) =>
       unwrap(
-        await client.DELETE('/episodes/{id}/watch', { params: { path: { id: episodeId } } }),
+        await (await client()).DELETE('/episodes/{id}/watch', { params: { path: { id: episodeId } } }),
       ),
     onSuccess: invalidate,
   });
@@ -96,7 +110,7 @@ export function useMarkSeason(seriesId: number) {
   return useMutation({
     mutationFn: async (seasonNumber: number) =>
       unwrap(
-        await client.POST('/series/{id}/seasons/{seasonNumber}/watch', {
+        await (await client()).POST('/series/{id}/seasons/{seasonNumber}/watch', {
           params: { path: { id: seriesId, seasonNumber } },
           body: { watchedAt: null, clientKey: null },
         }),
@@ -110,7 +124,7 @@ export function useMarkUpTo(seriesId: number) {
   return useMutation({
     mutationFn: async (target: { seasonNumber: number; episodeNumber: number }) =>
       unwrap(
-        await client.POST('/series/{id}/watch-up-to', {
+        await (await client()).POST('/series/{id}/watch-up-to', {
           params: { path: { id: seriesId } },
           // `clientKey` é a chave de idempotência do app offline; o web marca online e não precisa.
           body: { ...target, watchedAt: null, clientKey: null },
@@ -124,7 +138,7 @@ export function useStatsOverview(includeBackfill: boolean) {
   return useQuery({
     queryKey: keys.stats(includeBackfill),
     queryFn: async (): Promise<StatsOverview> =>
-      unwrap(await client.GET('/stats/overview', { params: { query: { includeBackfill } } })),
+      unwrap(await (await client()).GET('/stats/overview', { params: { query: { includeBackfill } } })),
   });
 }
 
@@ -132,6 +146,6 @@ export function useCalendar(year: number, includeBackfill: boolean) {
   return useQuery({
     queryKey: keys.calendar(year, includeBackfill),
     queryFn: async (): Promise<CalendarDay[]> =>
-      unwrap(await client.GET('/stats/calendar', { params: { query: { year, includeBackfill } } })),
+      unwrap(await (await client()).GET('/stats/calendar', { params: { query: { year, includeBackfill } } })),
   });
 }
