@@ -2,3 +2,16 @@ packages:
   - "apps/web"
   - "apps/mobile"
   - "packages/shared"
+
+# O Metro resolve o pacote de entrada a partir da RAIZ do monorepo (é ela que o servidor de
+# desenvolvimento serve), e no layout isolado do pnpm a raiz não tem `node_modules/` de verdade —
+# cada pacote tem o seu, com links. Resultado: o bundle não compila pelo servidor, mesmo com
+# `expo export` funcionando. O autolinking nativo do React Native esbarra no mesmo problema.
+#
+# Isto mora aqui, e não num `.npmrc`: a partir do pnpm 10 a configuração de workspace foi movida
+# para este arquivo, e um `.npmrc` na raiz é lido como configuração de projeto — para workspace,
+# vira letra morta (conferível em `node_modules/.modules.yaml`, campo `nodeLinker`).
+#
+# Custo: perde-se o isolamento estrito, e um pacote passa a enxergar dependências que não
+# declarou. É o preço de um app React Native num monorepo pnpm.
+nodeLinker: hoisted

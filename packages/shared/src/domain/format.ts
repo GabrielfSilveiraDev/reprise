@@ -31,8 +31,64 @@ export function formatPercent(ratio: number): string {
   return `${Math.round(ratio * 100)}%`;
 }
 
-const RELATIVE = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' });
-const ABSOLUTE = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+/**
+ * Distância em dias, por extenso.
+ *
+ * Isto era `Intl.RelativeTimeFormat`, que **não existe no Hermes** — o motor JavaScript do
+ * Android implementa `Collator`, `DateTimeFormat` e `NumberFormat`, e para por aí. Construído no
+ * escopo do módulo, ele derrubava o app inteiro já na importação.
+ *
+ * Escrito à mão em vez de trazer o polyfill: o `@formatjs/intl-relativetimeformat` exige mais
+ * três pacotes de pré-requisito e os dados de locale, tudo para produzir as sete frases abaixo.
+ * Fazer o polyfill só no Android também não serve — web e celular passariam a dizer coisas
+ * diferentes sobre o mesmo dado, que é justamente o que este módulo existe para impedir.
+ */
+function formatRelativeDays(days: number): string {
+  switch (days) {
+    case 0:
+      return 'hoje';
+    case -1:
+      return 'ontem';
+    case -2:
+      return 'anteontem';
+    case 1:
+      return 'amanhã';
+    case 2:
+      return 'depois de amanhã';
+    default:
+      return days < 0 ? `há ${-days} dias` : `em ${days} dias`;
+  }
+}
+
+/**
+ * O formatador de data absoluta, criado sob demanda e à prova de ambiente sem `Intl` completo.
+ *
+ * Preguiçoso de propósito: o `Intl.DateTimeFormat` é suportado pelo Hermes, mas construí-lo no
+ * escopo do módulo significa que qualquer motor que não o tenha derruba o aplicativo antes da
+ * primeira tela — que foi exatamente o defeito daqui. Falha de formatação deve degradar o texto,
+ * nunca impedir o app de abrir.
+ */
+let absoluteFormatter: Intl.DateTimeFormat | null | undefined;
+
+function formatAbsoluteDate(date: Date): string {
+  if (absoluteFormatter === undefined) {
+    try {
+      absoluteFormatter = new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      absoluteFormatter = null;
+    }
+  }
+
+  if (absoluteFormatter) return absoluteFormatter.format(date);
+
+  const dia = String(date.getDate()).padStart(2, '0');
+  const mes = String(date.getMonth() + 1).padStart(2, '0');
+  return `${dia}/${mes}/${date.getFullYear()}`;
+}
 
 /**
  * Datas recentes em linguagem relativa, o resto em data absoluta. O corte em 30 dias
@@ -44,10 +100,7 @@ export function formatWatchedAt(iso: string | null | undefined, now: Date = new 
   if (Number.isNaN(date.getTime())) return 'nunca';
 
   const days = Math.round((date.getTime() - now.getTime()) / 86_400_000);
-  if (Math.abs(days) < 30) {
-    return days === 0 ? 'hoje' : RELATIVE.format(days, 'day');
-  }
-  return ABSOLUTE.format(date);
+  return Math.abs(days) < 30 ? formatRelativeDays(days) : formatAbsoluteDate(date);
 }
 
 /**

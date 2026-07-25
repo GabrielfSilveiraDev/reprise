@@ -100,7 +100,7 @@ export default function SettingsScreen() {
           <TextInput
             value={token}
             onChangeText={setToken}
-            placeholder={tokenSalvo ? 'um token está salvo — digite para trocar' : 'sem token'}
+            placeholder={tokenSalvo ? 'já há um token ativo — digite para trocar' : 'sem token'}
             placeholderTextColor={t.fgSubtle}
             autoCapitalize="none"
             autoCorrect={false}

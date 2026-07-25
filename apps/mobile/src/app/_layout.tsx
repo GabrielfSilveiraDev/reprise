@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { Stack } from 'expo-router';
+// O tema de navegação vem do React Navigation, não do expo-router: o reexport que existe nas
+// versões mais novas não está no expo-router 6, e depender dele prenderia o app a um SDK.
+// Declarado explicitamente no package.json em vez de contar com o hoisting do pnpm.
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useIsDark, useTheme } from '@/hooks/use-theme';
 

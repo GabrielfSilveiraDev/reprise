@@ -45,14 +45,24 @@ export class ApiEndpoint {
  * de verdade chegar, é aqui que o refresh token vai morar também.
  */
 export class AccessToken {
+  /**
+   * Valor inicial vindo do ambiente, para sessões de teste em que o túnel já sobe com um token
+   * conhecido — digitar 64 caracteres hexadecimais numa tela de celular é um convite ao erro.
+   *
+   * Só faz sentido em desenvolvimento: `EXPO_PUBLIC_*` é embutido no bundle, e o bundle é
+   * servido pelo mesmo túnel que a API. Um token guardado no cofre sempre tem precedência.
+   */
+  private static readonly fromEnvironment = process.env.EXPO_PUBLIC_API_TOKEN ?? null;
+
   static async read(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+      const stored = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+      if (stored) return stored;
     } catch {
-      // Cofre indisponível (aparelho sem tela de bloqueio, por exemplo): sem token é melhor
-      // do que derrubar o app — a API na LAN nem pede.
-      return null;
+      // Cofre indisponível (aparelho sem tela de bloqueio, por exemplo): seguir para o
+      // valor de ambiente é melhor do que derrubar o app.
     }
+    return AccessToken.fromEnvironment;
   }
 
   static async write(token: string): Promise<void> {
