@@ -9,7 +9,13 @@
     "noEmit": true,
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    // Os testes rodam no executor nativo do Node (`node --test`), que carrega `.ts` direto por
+    // type-stripping — sem Jest, sem Vitest, sem passo de build. Em troca, os imports entre
+    // arquivos de teste precisam da extensão explícita, que é o que estas duas linhas liberam.
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "types": ["node"]
   },
   "include": ["src"]
 }

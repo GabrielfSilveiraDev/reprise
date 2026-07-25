@@ -1,4 +1,4 @@
-import { formatEpisodeCode, formatWatchCount } from './format';
+import { formatEpisodeCode, formatWatchCount } from './format.ts';
 
 /** O mínimo que a trilha precisa saber de um episódio. */
 export interface TrackEpisode {

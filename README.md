@@ -192,11 +192,78 @@ Requisito, não verniz. Verificado no navegador contra os dados reais:
 - **Alvos de toque ≥ 44px** em todos os controles.
 - `prefers-reduced-motion` respeitado — nenhuma animação carrega significado.
 
+## App Android
+
+```bash
+pnpm --filter @reprise/mobile start          # Metro; leia o QR no Expo Go
+pnpm --filter @reprise/mobile android        # abre direto no aparelho/emulador
+```
+
+O celular **não enxerga o `localhost` do PC**. Suba a API escutando na rede e aponte o app para
+o IP da máquina:
+
+```bash
+dotnet run --project apps/api/Reprise.Api --urls http://0.0.0.0:5156
+```
+
+O endereço é configurável **em tempo de execução**, na aba Ajustes — trocar de rede não pode
+exigir recompilar. `EXPO_PUBLIC_API_URL` serve de valor inicial.
+
+O alvo é o Android. O alvo web do Expo não é suportado: o `expo-sqlite` lá roda em WebAssembly e
+não resolve dentro deste monorepo pnpm — e o cliente web do Reprise já é uma aplicação própria.
+
+### Offline não é cache, é fila
+
+O problema central não é guardar leitura — é **escrita repetida**. Num CRUD comum, reenviar uma
+requisição que já chegou é inofensivo. Aqui não: marcar duas vezes o mesmo episódio *significa*
+que você assistiu duas vezes. Um POST que o servidor processou mas cuja resposta se perdeu no
+elevador viraria, na retentativa, um rewatch que nunca aconteceu.
+
+Por isso o app gera um **UUID por ação enfileirada**, antes da primeira tentativa, e reenvia a
+mesma chave em cada retentativa. A API registra a chave em `processed_actions` no mesmo
+`SaveChanges` que grava o evento: ou os dois existem ou nenhum. O `watchedAt` também é carimbado
+no toque, não no envio — a exibição aconteceu quando o dedo tocou a tela, não quando o wi-fi voltou.
+
+A fila é enviada **em ordem estrita** e para no primeiro erro de rede: marcar e depois desmarcar
+não é o mesmo que o contrário. Um 4xx (episódio que sumiu num reprocessamento do catálogo) não
+pode travar a fila para sempre, então vira **carta morta** — sai do envio mas fica visível em
+Ajustes. Descartar em silêncio seria mentir sobre o que foi registrado.
+
+Uma fusão, e só uma, acontece na fila: desmarcar um episódio cuja marcação ainda **não saiu**
+anula as duas. Não é economia de rede, é correção — enviando as duas, o servidor removeria "a
+exibição mais recente", que pode ser um rewatch antigo e legítimo.
+
+### O que a tela mostra sem rede
+
+O número exibido é o do servidor **mais** a projeção da fila (`OutboxPlanner.project`). Sem isso,
+tocar "assisti" no metrô não mudaria nada e o app pareceria quebrado. A projeção é descartável de
+propósito: quando a fila esvazia, quem manda volta a ser a contagem derivada pelo servidor — o app
+nunca guarda um "assistido" próprio.
+
+O banco local guarda três coisas e só três: respostas da API como vieram, a fila, e o endereço da
+API. **Não é uma réplica** do banco do servidor: espelhar séries/episódios duplicaria a derivação
+que é a fonte única do projeto.
+
+### Testes
+
+```bash
+pnpm --filter @reprise/shared test    # OutboxPlanner puro
+pnpm --filter @reprise/mobile test    # fila e cache contra SQLite real + API real
+```
+
+Rodam no executor nativo do Node (`node --test`), que carrega `.ts` direto — sem Jest, sem
+Vitest, sem passo de build. O `node:sqlite` faz o papel do `expo-sqlite`: mesmo motor, mesmo
+dialeto e **o mesmo schema**, importado de `sql-database.ts` em vez de recopiado. Os testes de
+entrega usam a API rodando e se pulam sozinhos quando ela não está no ar.
+
+É por isso que `Outbox` e `ResponseCache` recebem o banco de fora em vez de importar o módulo
+nativo: sem essa inversão, a peça mais arriscada do app só seria conferível com o celular na mão.
+
 ## Roadmap
 
 1. ~~**Modelo + importador** com relatório de conferência + enriquecimento TMDB~~ ✅
 2. ~~API de leitura + endpoints de marcação~~ ✅
 3. ~~Web: lista, detalhe com trilha de episódios, marcação~~ ✅
 4. ~~Web: estatísticas~~ ✅
-5. Mobile: paridade essencial + offline
+5. ~~Mobile: paridade essencial + offline~~ ✅
 6. Fase 2: estreias/notificações, rewatch como sessão, filmes, export próprio em JSON

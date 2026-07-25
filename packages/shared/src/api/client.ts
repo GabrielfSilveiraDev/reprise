@@ -1,5 +1,5 @@
 import createClient from 'openapi-fetch';
-import type { components, paths } from './schema';
+import type { components, paths } from './schema.ts';
 
 /**
  * Cliente tipado da API, gerado a partir do OpenAPI que a própria API publica.
