@@ -110,6 +110,13 @@
               "type": "integer",
               "format": "int64"
             }
+          },
+          {
+            "name": "clientKey",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -525,7 +532,8 @@
       },
       "MarkBody": {
         "required": [
-          "watchedAt"
+          "watchedAt",
+          "clientKey"
         ],
         "type": "object",
         "properties": {
@@ -535,6 +543,12 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "clientKey": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -542,7 +556,8 @@
         "required": [
           "seasonNumber",
           "episodeNumber",
-          "watchedAt"
+          "watchedAt",
+          "clientKey"
         ],
         "type": "object",
         "properties": {
@@ -568,6 +583,12 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "clientKey": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

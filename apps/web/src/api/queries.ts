@@ -73,7 +73,7 @@ export function useMarkEpisode(seriesId?: number) {
       unwrap(
         await client.POST('/episodes/{id}/watch', {
           params: { path: { id: episodeId } },
-          body: { watchedAt: null },
+          body: { watchedAt: null, clientKey: null },
         }),
       ),
     onSuccess: invalidate,
@@ -98,7 +98,7 @@ export function useMarkSeason(seriesId: number) {
       unwrap(
         await client.POST('/series/{id}/seasons/{seasonNumber}/watch', {
           params: { path: { id: seriesId, seasonNumber } },
-          body: { watchedAt: null },
+          body: { watchedAt: null, clientKey: null },
         }),
       ),
     onSuccess: invalidate,
@@ -112,7 +112,8 @@ export function useMarkUpTo(seriesId: number) {
       unwrap(
         await client.POST('/series/{id}/watch-up-to', {
           params: { path: { id: seriesId } },
-          body: { ...target, watchedAt: null },
+          // `clientKey` é a chave de idempotência do app offline; o web marca online e não precisa.
+          body: { ...target, watchedAt: null, clientKey: null },
         }),
       ),
     onSuccess: invalidate,

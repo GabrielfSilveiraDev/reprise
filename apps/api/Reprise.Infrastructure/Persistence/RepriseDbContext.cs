@@ -25,6 +25,7 @@ public class RepriseDbContext : DbContext, IRepriseDbContext
     public DbSet<WatchEvent> WatchEvents => Set<WatchEvent>();
     public DbSet<ImportRun> ImportRuns => Set<ImportRun>();
     public DbSet<SeriesMatchOverride> SeriesMatchOverrides => Set<SeriesMatchOverride>();
+    public DbSet<ProcessedAction> ProcessedActions => Set<ProcessedAction>();
 
     // Referenciado pelos filtros globais de tenant; reavaliado a cada query.
     private Guid CurrentUserId => _currentUser.UserId;
@@ -107,6 +108,17 @@ public class RepriseDbContext : DbContext, IRepriseDbContext
         {
             e.HasKey(x => x.TvdbId);
             e.Property(x => x.TvdbId).ValueGeneratedNever();
+        });
+
+        b.Entity<ProcessedAction>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ClientKey).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Kind).HasMaxLength(40).IsRequired();
+            // A garantia de idempotência mora AQUI, não no if do serviço: duas retentativas
+            // concorrentes chegam juntas e é o banco que decide qual delas aplicou.
+            e.HasIndex(x => new { x.UserId, x.ClientKey }).IsUnique();
+            e.HasQueryFilter(x => x.UserId == CurrentUserId);
         });
     }
 }

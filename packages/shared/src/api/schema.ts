@@ -114,7 +114,9 @@ export interface paths {
         /** Remove a exibição mais recente do episódio (decrementa o rewatch). */
         delete: {
             parameters: {
-                query?: never;
+                query?: {
+                    clientKey?: string;
+                };
                 header?: never;
                 path: {
                     id: number;
@@ -433,6 +435,7 @@ export interface components {
         MarkBody: {
             /** Format: date-time */
             watchedAt: null | string;
+            clientKey: null | string;
         };
         MarkUpToBody: {
             /** Format: int32 */
@@ -441,6 +444,7 @@ export interface components {
             episodeNumber: number;
             /** Format: date-time */
             watchedAt: null | string;
+            clientKey: null | string;
         };
         NextUpItemDto: {
             /** Format: int64 */
