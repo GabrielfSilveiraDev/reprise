@@ -1,6 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
 import { createRepriseClient } from '@reprise/shared';
 import type { RepriseClient } from '@reprise/shared';
+import { Auth } from './auth';
+import { AuthSession } from './session';
 import { LocalStore } from '@/offline/local-store';
 
 const API_URL_SETTING = 'apiUrl';
@@ -76,7 +78,21 @@ export class AccessToken {
   }
 }
 
+/**
+ * O cliente da API, já autenticado.
+ *
+ * Renova o token **antes** de usá-lo quando ele está por vencer, em vez de esperar o 401 e
+ * repetir a requisição. Numa fila de sincronização isso importa: a alternativa duplicaria cada
+ * envio no momento em que o token expira, e envio duplicado é justamente o que a chave de
+ * idempotência existe para tolerar — melhor não gerar.
+ */
 export async function openClient(): Promise<RepriseClient> {
-  const [baseUrl, token] = await Promise.all([ApiEndpoint.read(), AccessToken.read()]);
-  return createRepriseClient(baseUrl, token);
+  const [baseUrl, gateToken] = await Promise.all([ApiEndpoint.read(), AccessToken.read()]);
+
+  let session = await AuthSession.read();
+  if (session && AuthSession.isExpired(session)) {
+    session = await Auth.refresh();
+  }
+
+  return createRepriseClient(baseUrl, { gateToken, bearerToken: session?.accessToken });
 }

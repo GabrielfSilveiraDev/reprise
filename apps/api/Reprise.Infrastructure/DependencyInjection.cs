@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Reprise.Domain.Entities;
 using Reprise.Application.Abstractions;
 using Reprise.Application.Enrichment;
 using Reprise.Application.Features.Stats;
@@ -17,7 +19,8 @@ public static class DependencyInjection
 
         services.AddScoped<IRepriseDbContext>(sp => sp.GetRequiredService<RepriseDbContext>());
 
-        // Single-user por ora; na API isto passa a ler o sub do JWT.
+        // Padrão para quem não tem HTTP: a CLI de importação e o design-time do EF.
+        // A API sobrescreve isto por AddRepriseAuth, que lê o sub do JWT.
         services.AddScoped<ICurrentUser, SeedCurrentUser>();
 
         // Estatística é SQL cru sobre o DbContext — por isso mora na Infrastructure.
@@ -25,6 +28,28 @@ public static class DependencyInjection
 
         return services;
     }
+
+    /// <summary>
+    /// Só o núcleo do Identity: <see cref="UserManager{TUser}"/> e o hash de senha, sem nada de
+    /// HTTP. Existe para a CLI poder criar conta e definir senha sem levantar um servidor —
+    /// a API usa <c>AddRepriseAuth</c>, que acrescenta JWT e o tenant vindo do token.
+    /// </summary>
+    public static IdentityBuilder AddRepriseIdentityCore(this IServiceCollection services)
+        => services.AddIdentityCore<User>(o =>
+            {
+                o.User.RequireUniqueEmail = true;
+                // Comprimento faz mais pelo custo de quebra do que exigir símbolo, e exigir
+                // símbolo empurra as pessoas para senhas curtas e decoradas. 10 caracteres.
+                //
+                // Esta política vive AQUI e em nenhum outro lugar: a CLI e a API a compartilham,
+                // porque duas cópias de uma regra de senha divergem no primeiro ajuste — e aí a
+                // CLI aceita o que a API recusa, ou pior, o contrário.
+                o.Password.RequiredLength = 10;
+                o.Password.RequireNonAlphanumeric = false;
+                o.Password.RequireUppercase = false;
+                o.Password.RequireDigit = false;
+            })
+            .AddEntityFrameworkStores<RepriseDbContext>();
 
     /// <summary>
     /// Registra o cliente do TMDB. Fica separado de <see cref="AddRepriseInfrastructure"/> de propósito:
@@ -46,3 +71,4 @@ public static class DependencyInjection
         return services;
     }
 }
+

@@ -1,10 +1,18 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Reprise.Application.Abstractions;
 using Reprise.Domain.Entities;
 
 namespace Reprise.Infrastructure.Persistence;
 
-public class RepriseDbContext : DbContext, IRepriseDbContext
+/// <summary>
+/// O contexto herda de <see cref="IdentityDbContext{TUser,TRole,TKey}"/> para que o ASP.NET
+/// Identity governe a autenticação — mas <c>users</c> continua sendo a MESMA tabela de sempre,
+/// com os mesmos ids. É o que mantém o histórico ligado ao seu dono.
+/// </summary>
+public class RepriseDbContext
+    : IdentityDbContext<User, IdentityRole<Guid>, Guid>, IRepriseDbContext
 {
     private readonly ICurrentUser _currentUser;
 
@@ -17,7 +25,7 @@ public class RepriseDbContext : DbContext, IRepriseDbContext
         _currentUser = currentUser;
     }
 
-    public DbSet<User> Users => Set<User>();
+    // `Users` já vem do IdentityDbContext; não redeclarar.
     public DbSet<Series> Series => Set<Series>();
     public DbSet<Season> Seasons => Set<Season>();
     public DbSet<Episode> Episodes => Set<Episode>();
@@ -26,6 +34,7 @@ public class RepriseDbContext : DbContext, IRepriseDbContext
     public DbSet<ImportRun> ImportRuns => Set<ImportRun>();
     public DbSet<SeriesMatchOverride> SeriesMatchOverrides => Set<SeriesMatchOverride>();
     public DbSet<ProcessedAction> ProcessedActions => Set<ProcessedAction>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     // Referenciado pelos filtros globais de tenant; reavaliado a cada query.
     private Guid CurrentUserId => _currentUser.UserId;
@@ -36,17 +45,31 @@ public class RepriseDbContext : DbContext, IRepriseDbContext
 
         b.Entity<User>(e =>
         {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.Email).HasMaxLength(320).IsRequired();
-            e.HasIndex(x => x.Email).IsUnique();
+            // A tabela continua `users`: o Identity nomearia `asp_net_users`, e renomear
+            // desconectaria o tenant de tudo o que já aponta para cá.
+            e.ToTable("users");
             e.Property(x => x.DisplayName).HasMaxLength(200);
-            e.HasData(new User
-            {
-                Id = SeedUserId,
-                Email = "me@reprise.local",
-                DisplayName = "Reprise",
-                CreatedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)
-            });
+        });
+
+        // As demais tabelas do Identity ganham nomes no estilo do resto do schema.
+        b.Entity<IdentityRole<Guid>>().ToTable("roles");
+        b.Entity<IdentityUserRole<Guid>>().ToTable("user_roles");
+        b.Entity<IdentityUserClaim<Guid>>().ToTable("user_claims");
+        b.Entity<IdentityUserLogin<Guid>>().ToTable("user_logins");
+        b.Entity<IdentityUserToken<Guid>>().ToTable("user_tokens");
+        b.Entity<IdentityRoleClaim<Guid>>().ToTable("role_claims");
+
+        b.Entity<RefreshToken>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Device).HasMaxLength(200);
+            e.HasOne(x => x.User).WithMany(u => u.RefreshTokens)
+                .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            // A busca na renovação é pelo hash; único porque dois tokens iguais seria colisão
+            // de 32 bytes aleatórios — se acontecer, é bug, e o índice avisa.
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => new { x.UserId, x.ExpiresAt });
         });
 
         b.Entity<Series>(e =>

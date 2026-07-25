@@ -12,10 +12,21 @@ export const ACCESS_TOKEN_HEADER = 'X-Reprise-Token';
  * Nada de tipos escritos à mão que silenciosamente desalinham do servidor: rode
  * `pnpm --filter @reprise/shared generate` depois de mexer nos endpoints.
  */
-export function createRepriseClient(baseUrl: string, accessToken?: string | null) {
+export interface RepriseClientOptions {
+  /** Token do cadeado de acesso da instância (ver `AccessTokenGate` no servidor). */
+  readonly gateToken?: string | null;
+  /** JWT do usuário autenticado. */
+  readonly bearerToken?: string | null;
+}
+
+export function createRepriseClient(baseUrl: string, options: RepriseClientOptions = {}) {
+  const headers: Record<string, string> = {};
+  if (options.gateToken) headers[ACCESS_TOKEN_HEADER] = options.gateToken;
+  if (options.bearerToken) headers.Authorization = `Bearer ${options.bearerToken}`;
+
   return createClient<paths>({
     baseUrl,
-    headers: accessToken ? { [ACCESS_TOKEN_HEADER]: accessToken } : undefined,
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
   });
 }
 

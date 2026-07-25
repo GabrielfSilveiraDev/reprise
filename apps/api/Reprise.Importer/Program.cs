@@ -2,9 +2,11 @@ using System.Security.Cryptography;
 using Microsoft.Extensions.DependencyInjection;
 using Reprise.Application;
 using Reprise.Application.Enrichment;
+using Microsoft.AspNetCore.Identity;
 using Reprise.Application.Features.Watching;
 using Reprise.Application.Import;
 using Reprise.Importer;
+using Reprise.Domain.Entities;
 using Reprise.Infrastructure;
 
 // CLI do Reprise. Idempotente e reexecutável nos dois modos.
@@ -12,6 +14,9 @@ using Reprise.Infrastructure;
 //   reprise-import enrich [--force] [--tvdb <id>]      casa as séries no TMDB e completa o catálogo
 //   reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]
 //       recoloca exibições que aconteceram mas o export perdeu, com data inferida dos vizinhos
+//   reprise-import passwd --email <e> --password <p> [--name <nome>]
+//       define a senha de uma conta (cria se não existir). É como o dono entra na própria conta
+//       depois que a autenticação passou a existir.
 
 var positional = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
 
@@ -20,6 +25,7 @@ if (positional.Length == 0)
     Console.Error.WriteLine("Uso: reprise-import <caminho-do-export.zip|.csv> [--dry-run]");
     Console.Error.WriteLine("     reprise-import enrich [--force] [--tvdb <id>]");
     Console.Error.WriteLine("     reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]");
+    Console.Error.WriteLine("     reprise-import passwd --email <e> --password <p> [--name <nome>]");
     return 1;
 }
 
@@ -30,8 +36,84 @@ return positional[0].ToLowerInvariant() switch
 {
     "enrich" => await RunEnrichAsync(args, positional, conn),
     "backfill" => await RunBackfillAsync(args, conn),
+    "passwd" => await RunPasswdAsync(args, conn),
     _ => await RunImportAsync(args, positional, conn)
 };
+
+/// <summary>
+/// Define a senha de uma conta, criando-a se necessário.
+///
+/// Existe porque a autenticação chegou depois dos dados: o usuário-semente é dono de dezenas de
+/// milhares de exibições e nunca teve senha. Trocar isso pelo endpoint de cadastro criaria uma
+/// conta NOVA, com id novo — e o histórico continuaria pendurado na antiga. Aqui a conta é a
+/// mesma; só ganha credencial.
+/// </summary>
+static async Task<int> RunPasswdAsync(string[] args, string conn)
+{
+    static string? Flag(string[] a, string name)
+    {
+        var i = Array.IndexOf(a, name);
+        return i >= 0 && i + 1 < a.Length ? a[i + 1] : null;
+    }
+
+    var email = Flag(args, "--email");
+    var password = Flag(args, "--password");
+    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+    {
+        Console.Error.WriteLine("passwd exige --email e --password.");
+        return 1;
+    }
+
+    var services = new ServiceCollection();
+    services.AddLogging();
+    services.AddRepriseInfrastructure(conn);
+    services.AddRepriseIdentityCore();
+    await using var provider = services.BuildServiceProvider();
+    using var scope = provider.CreateScope();
+
+    var users = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+    var user = await users.FindByEmailAsync(email);
+
+    if (user is null)
+    {
+        user = new User
+        {
+            Id = Guid.CreateVersion7(),
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true,
+            DisplayName = Flag(args, "--name") ?? email.Split('@')[0],
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        var created = await users.CreateAsync(user, password);
+        if (!created.Succeeded)
+        {
+            Console.Error.WriteLine(string.Join(' ', created.Errors.Select(e => e.Description)));
+            return 1;
+        }
+        Console.WriteLine($"Conta criada: {email} ({user.Id})");
+        return 0;
+    }
+
+    // Conta existente: remove a senha antiga (se houver) e põe a nova. O token de reset seria
+    // cerimônia inútil numa CLI que só roda na máquina do dono.
+    if (await users.HasPasswordAsync(user)) await users.RemovePasswordAsync(user);
+    var result = await users.AddPasswordAsync(user, password);
+    if (!result.Succeeded)
+    {
+        Console.Error.WriteLine(string.Join(' ', result.Errors.Select(e => e.Description)));
+        return 1;
+    }
+
+    if (Flag(args, "--name") is { Length: > 0 } nome)
+    {
+        user.DisplayName = nome;
+        await users.UpdateAsync(user);
+    }
+
+    Console.WriteLine($"Senha definida para {email} ({user.Id}).");
+    return 0;
+}
 
 /// <summary>
 /// Recoloca exibições perdidas pelo export. Existe como comando, e não como SQL avulso, porque

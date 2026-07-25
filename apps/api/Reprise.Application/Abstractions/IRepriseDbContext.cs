@@ -19,6 +19,7 @@ public interface IRepriseDbContext
     DbSet<ImportRun> ImportRuns { get; }
     DbSet<SeriesMatchOverride> SeriesMatchOverrides { get; }
     DbSet<ProcessedAction> ProcessedActions { get; }
+    DbSet<RefreshToken> RefreshTokens { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

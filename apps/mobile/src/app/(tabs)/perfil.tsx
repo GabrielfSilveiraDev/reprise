@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Alert } from 'react-native';
+import { Auth } from '@/api/auth';
 import { formatPercent, formatRuntime, formatTotalTime, formatWatchedAt } from '@reprise/shared';
 import type { Profile, StatsOverviewDto } from '@reprise/shared';
+import { useQueryClient } from '@tanstack/react-query';
 import { useProfile, useStatsOverview } from '@/api/queries';
 import { BarChart } from '@/components/bar-chart';
 import { QueryState } from '@/components/query-state';
@@ -23,6 +26,34 @@ export default function ProfileScreen() {
   const t = useTheme();
   const status = useAutoSync();
   const profile = useProfile();
+  const qc = useQueryClient();
+
+  /**
+   * Sair avisa antes quando há coisa na fila: as ações pendentes ficam no SQLite do aparelho e
+   * não sobem sem sessão. Descobrir isso depois seria descobrir tarde.
+   */
+  const sair = () => {
+    const pendentes = status.pending;
+    const seguir = async () => {
+      await Auth.logout();
+      qc.clear();
+      router.replace('/login');
+    };
+
+    if (pendentes === 0) {
+      void seguir();
+      return;
+    }
+
+    Alert.alert(
+      'Sair com marcações pendentes?',
+      `${pendentes} ${pendentes === 1 ? 'marcação ainda não chegou' : 'marcações ainda não chegaram'} ao servidor. Elas ficam guardadas neste aparelho até você entrar de novo.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sair mesmo assim', style: 'destructive', onPress: () => void seguir() },
+      ],
+    );
+  };
 
   /**
    * As marcações em massa ficam fora por padrão — são as que o TV Time gravou todas na mesma
@@ -54,6 +85,17 @@ export default function ProfileScreen() {
         <QueryState query={stats}>
           {(data) => <Stats data={data} includeBackfill={includeBackfill} />}
         </QueryState>
+
+        <View style={[styles.divider, { backgroundColor: t.border }]} />
+
+        <Pressable
+          onPress={sair}
+          style={[styles.signOut, { borderColor: t.danger }]}
+          accessibilityRole="button"
+          accessibilityLabel="Sair da conta"
+        >
+          <Text style={[styles.signOutText, { color: t.danger }]}>Sair da conta</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -235,4 +277,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   linkText: { fontSize: FontSize.sm, fontWeight: '700' },
+  signOut: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    minHeight: TouchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutText: { fontSize: FontSize.sm, fontWeight: '700' },
 });

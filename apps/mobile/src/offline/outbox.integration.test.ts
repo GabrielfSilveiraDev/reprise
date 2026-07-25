@@ -235,8 +235,12 @@ describe('ResponseCache contra SQLite real', () => {
  */
 describe('Entrega contra a API real', () => {
   const baseUrl = process.env.REPRISE_API_URL ?? 'http://localhost:5156';
-  // Quando o cadeado de acesso está ligado (API exposta por túnel), sem isto tudo volta 401 e
-  // os testes se pulam em silêncio — passando a impressão de suíte verde sem ter testado nada.
+
+  /**
+   * Dois segredos, dois papéis. O `X-Reprise-Token` é o cadeado da instância (a porta do prédio);
+   * o JWT diz quem é a pessoa. Sem os dois, tudo volta 401 e os testes se pulam em silêncio —
+   * suíte verde sem ter testado nada, que é pior do que suíte vermelha.
+   */
   const headers: Record<string, string> = process.env.REPRISE_API_TOKEN
     ? { 'X-Reprise-Token': process.env.REPRISE_API_TOKEN }
     : {};
@@ -247,8 +251,22 @@ describe('Entrega contra a API real', () => {
   before(async () => {
     try {
       const ping = await fetch(baseUrl, { headers, signal: AbortSignal.timeout(2000) });
-      disponivel = ping.ok;
-      if (!disponivel) return;
+      if (!ping.ok) return;
+
+      const email = process.env.REPRISE_API_EMAIL;
+      const password = process.env.REPRISE_API_PASSWORD;
+      if (!email || !password) return;
+
+      const login = await fetch(`${baseUrl}/auth/login`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!login.ok) return;
+
+      const session = (await login.json()) as { accessToken: string };
+      headers.Authorization = `Bearer ${session.accessToken}`;
+      disponivel = true;
       // Um episódio qualquer serve — o teste desfaz o que fizer.
       const series = (await (await fetch(`${baseUrl}/series`, { headers })).json()) as { id: number }[];
       seriesId = series[0]!.id;
@@ -262,7 +280,7 @@ describe('Entrega contra a API real', () => {
   });
 
   it('a mesma clientKey enviada três vezes cria uma exibição só', async (t) => {
-    if (!disponivel || episodeId === null) return t.skip('API fora do ar');
+    if (!disponivel || episodeId === null) return t.skip('API fora do ar ou sem credenciais');
 
     const antes = await watchCount(baseUrl, seriesId!, episodeId, headers);
     const clientKey = randomUUID();
@@ -292,7 +310,7 @@ describe('Entrega contra a API real', () => {
   });
 
   it('chaves diferentes criam rewatch de verdade', async (t) => {
-    if (!disponivel || episodeId === null) return t.skip('API fora do ar');
+    if (!disponivel || episodeId === null) return t.skip('API fora do ar ou sem credenciais');
 
     const antes = await watchCount(baseUrl, seriesId!, episodeId, headers);
     for (let i = 0; i < 2; i += 1) {
@@ -314,7 +332,7 @@ describe('Entrega contra a API real', () => {
   });
 
   it('desmarcar com a mesma chave remove uma exibição só', async (t) => {
-    if (!disponivel || episodeId === null) return t.skip('API fora do ar');
+    if (!disponivel || episodeId === null) return t.skip('API fora do ar ou sem credenciais');
 
     const antes = await watchCount(baseUrl, seriesId!, episodeId, headers);
     await fetch(`${baseUrl}/episodes/${episodeId}/watch`, {
