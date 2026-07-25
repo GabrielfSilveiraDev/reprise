@@ -157,3 +157,9 @@ kbd {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+
+/* "completa" no lugar do botão: mesma informação que o app dá escondendo o controle. */
+.season__done {
+  font-size: var(--text-xs);
+  color: var(--fg-subtle);
+}

@@ -5,6 +5,8 @@ import { WebSession } from './session';
 import type {
   CalendarDayDto,
   NextUpItem,
+  Premiere,
+  Profile,
   SeriesDetail,
   SeriesListItem,
   StatsOverviewDto,
@@ -32,6 +34,8 @@ export const keys = {
   series: ['series'] as const,
   seriesDetail: (id: number) => ['series', id] as const,
   nextUp: ['next-up'] as const,
+  premieres: ['premieres'] as const,
+  profile: ['me'] as const,
   stats: (includeBackfill: boolean) => ['stats', includeBackfill] as const,
   calendar: (year: number, includeBackfill: boolean) => ['calendar', year, includeBackfill] as const,
 };
@@ -155,6 +159,22 @@ export function useSetSeriesStatus(seriesId: number) {
         qc.invalidateQueries({ queryKey: keys.nextUp }),
       ]);
     },
+  });
+}
+
+/** O que ainda vai ao ar nas séries acompanhadas. Existia só no app. */
+export function usePremieres() {
+  return useQuery({
+    queryKey: keys.premieres,
+    queryFn: async (): Promise<Premiere[]> => unwrap(await (await client()).GET('/premieres')),
+  });
+}
+
+/** Identidade e tamanho do acervo. Existia só no app. */
+export function useProfile() {
+  return useQuery({
+    queryKey: keys.profile,
+    queryFn: async (): Promise<Profile> => unwrap(await (await client()).GET('/me')),
   });
 }
 

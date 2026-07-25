@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { formatEpisodeCode, formatWatchedAt } from '@reprise/shared';
-import { useMarkEpisode, useNextUp } from '../api/queries';
+import { useMarkEpisode, useNextUp, usePremieres } from '../api/queries';
+import { PremiereStrip } from '../components/PremiereStrip';
 import { QueryState } from '../components/QueryState';
 import './NextUpPage.css';
 
@@ -11,6 +12,7 @@ import './NextUpPage.css';
 export function NextUpPage() {
   const query = useNextUp();
   const mark = useMarkEpisode();
+  const premieres = usePremieres();
 
   return (
     <QueryState
@@ -21,6 +23,9 @@ export function NextUpPage() {
     >
       {(items) => (
         <>
+          {/* Falha em silêncio: não ter estreias não é motivo para a tela principal dar erro. */}
+          <PremiereStrip premieres={premieres.data ?? []} />
+
           <header className="page-head">
             {/* "Próximos" nos dois clientes: a aba do app, o item de menu daqui e o rótulo da
                 página passam a ser a mesma palavra. O h1 conta o resto. */}

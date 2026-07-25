@@ -4,6 +4,7 @@ import type {
   PendingAction,
   PendingActionDraft,
   Premiere,
+  CalendarDayDto,
   Profile,
   SeriesDetail,
   SeriesListItem,
@@ -24,6 +25,7 @@ export const keys = {
   nextUp: ['next-up'] as const,
   profile: ['me'] as const,
   premieres: ['premieres'] as const,
+  calendar: (year: number, includeBackfill: boolean) => ['calendar', year, includeBackfill] as const,
   stats: (includeBackfill: boolean) => ['stats', includeBackfill] as const,
   pending: ['pending'] as const,
   deadLetters: ['dead-letters'] as const,
@@ -104,6 +106,19 @@ export function useStatsOverview(includeBackfill: boolean) {
       const sync = await syncEngine();
       return sync.fetchWithCache(`stats/${includeBackfill}`, async (c) =>
         unwrap(await c.GET('/stats/overview', { params: { query: { includeBackfill } } })),
+      );
+    },
+  });
+}
+
+/** Exibições por dia de um ano, para o calendário. Só dias com atividade voltam. */
+export function useCalendar(year: number, includeBackfill: boolean) {
+  return useQuery({
+    queryKey: keys.calendar(year, includeBackfill),
+    queryFn: async (): Promise<CalendarDayDto[]> => {
+      const sync = await syncEngine();
+      return sync.fetchWithCache(`calendar/${year}/${includeBackfill}`, async (c) =>
+        unwrap(await c.GET('/stats/calendar', { params: { query: { year, includeBackfill } } })),
       );
     },
   });

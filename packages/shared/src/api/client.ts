@@ -45,6 +45,7 @@ export type WatchState = Schemas['WatchStateDto'];
 export type BulkMarkResult = Schemas['BulkMarkResult'];
 export type Profile = Schemas['ProfileDto'];
 export type Premiere = Schemas['PremiereDto'];
+export type RewatchSession = Schemas['RewatchSessionDto'];
 export type ExportDocument = Schemas['ExportDocument'];
 
 export type StatsOverviewDto = Schemas['StatsOverviewDto'];

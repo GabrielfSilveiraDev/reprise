@@ -7,8 +7,9 @@ import { Auth } from '@/api/auth';
 import { formatPercent, formatRuntime, formatTotalTime, formatWatchedAt } from '@reprise/shared';
 import type { Profile, StatsOverviewDto } from '@reprise/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useProfile, useStatsOverview } from '@/api/queries';
+import { useCalendar, useProfile, useStatsOverview } from '@/api/queries';
 import { BarChart } from '@/components/bar-chart';
+import { CalendarHeatmap } from '@/components/calendar-heatmap';
 import { QueryState } from '@/components/query-state';
 import { SyncBar } from '@/components/sync-bar';
 import { EyebrowStyle, FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
@@ -191,6 +192,12 @@ function Stats({ data, includeBackfill }: { data: StatsOverviewDto; includeBackf
             format={(v) => formatTotalTime(v)}
           />
 
+          <View style={[styles.divider, { backgroundColor: t.border }]} />
+          <Calendar
+            year={data.availableYears[0] ?? new Date().getFullYear()}
+            includeBackfill={includeBackfill}
+          />
+
           {data.topSeries.length > 0 ? (
             <Pressable
               onPress={() => router.push(`/series/${data.topSeries[0]!.seriesId}`)}
@@ -207,6 +214,14 @@ function Stats({ data, includeBackfill }: { data: StatsOverviewDto; includeBackf
       )}
     </View>
   );
+}
+
+/** O calendário vem de outro endpoint; carregar à parte evita segurar os números do topo. */
+function Calendar({ year, includeBackfill }: { year: number; includeBackfill: boolean }) {
+  const query = useCalendar(year, includeBackfill);
+  const days = query.data;
+  if (!days) return null;
+  return <CalendarHeatmap year={year} days={days} />;
 }
 
 function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {

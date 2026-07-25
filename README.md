@@ -302,5 +302,9 @@ para a folha de compartilhamento — salvar na pasta privada do aplicativo seria
 3. ~~Web: lista, detalhe com trilha de episódios, marcação~~ ✅
 4. ~~Web: estatísticas~~ ✅
 5. ~~Mobile: paridade essencial + offline~~ ✅
-6. Fase 2 — parcial: ~~export próprio em JSON~~ ✅, ~~calendário de estreias~~ ✅,
-   ~~autenticação multiusuário~~ ✅. Faltam: notificações de estreia, rewatch como sessão, filmes.
+6. ~~Fase 2: export em JSON, calendário de estreias, notificações, rewatch como sessão
+   e autenticação multiusuário~~ ✅
+
+**Fora de escopo:** filmes. O modelo inteiro assume série → temporada → episódio, e acomodá-los
+exigiria tornar `watch_events.episode_id` polimórfico — mexer na tabela que é a fonte da verdade
+do projeto. Não é impossível, é desproporcional ao que um rastreador de séries precisa ser.

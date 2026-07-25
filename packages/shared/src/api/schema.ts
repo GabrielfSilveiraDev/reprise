@@ -941,6 +941,22 @@ export interface components {
             password: string;
             displayName: string;
         };
+        RewatchSessionDto: {
+            /** Format: int32 */
+            ordinal: number;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            endedAt: string;
+            /** Format: int32 */
+            exhibitions: number;
+            /** Format: int32 */
+            distinctEpisodes: number;
+            /** Format: int64 */
+            totalSeconds: number;
+            /** Format: int32 */
+            spanDays: number;
+        };
         SeasonDto: {
             /** Format: int32 */
             seasonNumber: number;
@@ -968,6 +984,9 @@ export interface components {
             /** Format: double */
             completionRatio: number;
             seasons: components["schemas"]["SeasonDto"][];
+            sessions: components["schemas"]["RewatchSessionDto"][];
+            /** Format: int32 */
+            backfillExhibitions: number;
         };
         SeriesListItemDto: {
             /** Format: int64 */

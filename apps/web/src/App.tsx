@@ -4,6 +4,7 @@ import { Auth } from './api/auth';
 import { WebSession } from './api/session';
 import { LoginPage } from './pages/LoginPage';
 import { NextUpPage } from './pages/NextUpPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { SeriesDetailPage } from './pages/SeriesDetailPage';
 import { SeriesListPage } from './pages/SeriesListPage';
 import { StatsPage } from './pages/StatsPage';
@@ -47,6 +48,11 @@ export function App() {
                   Estatísticas
                 </NavLink>
               </li>
+              <li>
+                <NavLink to="/perfil" className="nav__link">
+                  Perfil
+                </NavLink>
+              </li>
             </ul>
           </nav>
 
@@ -72,6 +78,7 @@ export function App() {
           <Route path="/series" element={<SeriesListPage />} />
           <Route path="/series/:id" element={<SeriesDetailPage />} />
           <Route path="/estatisticas" element={<StatsPage />} />
+          <Route path="/perfil" element={<ProfilePage />} />
           <Route
             path="*"
             element={

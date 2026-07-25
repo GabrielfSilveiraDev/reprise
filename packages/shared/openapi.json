@@ -1362,6 +1362,68 @@
           }
         }
       },
+      "RewatchSessionDto": {
+        "required": [
+          "ordinal",
+          "startedAt",
+          "endedAt",
+          "exhibitions",
+          "distinctEpisodes",
+          "totalSeconds",
+          "spanDays"
+        ],
+        "type": "object",
+        "properties": {
+          "ordinal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "exhibitions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "distinctEpisodes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "totalSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "spanDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "SeasonDto": {
         "required": [
           "seasonNumber",
@@ -1410,7 +1472,9 @@
           "episodesTotal",
           "episodesWatched",
           "completionRatio",
-          "seasons"
+          "seasons",
+          "sessions",
+          "backfillExhibitions"
         ],
         "type": "object",
         "properties": {
@@ -1497,6 +1561,20 @@
             "items": {
               "$ref": "#/components/schemas/SeasonDto"
             }
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RewatchSessionDto"
+            }
+          },
+          "backfillExhibitions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

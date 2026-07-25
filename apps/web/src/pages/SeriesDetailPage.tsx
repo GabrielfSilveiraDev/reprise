@@ -20,6 +20,7 @@ import {
 import { EpisodeList } from '../components/EpisodeList';
 import { EpisodeTrack } from '../components/EpisodeTrack';
 import { QueryState } from '../components/QueryState';
+import { RewatchSessions } from '../components/RewatchSessions';
 import './SeriesDetailPage.css';
 
 export function SeriesDetailPage() {
@@ -109,6 +110,13 @@ export function SeriesDetailPage() {
               </div>
             </header>
 
+            {/* Antes das temporadas: "quantas vezes eu percorri isto" vem antes de "onde eu
+                estou nesta passada". */}
+            <RewatchSessions
+              sessions={series.sessions}
+              backfillExhibitions={series.backfillExhibitions}
+            />
+
             <p className="shortcuts">
               Na lista de episódios: <kbd>↑</kbd> <kbd>↓</kbd> navegam · <kbd>M</kbd> marca (de novo
               = rewatch) · <kbd>U</kbd> desmarca · <kbd>A</kbd> marca até ali.
@@ -191,6 +199,7 @@ function SeasonSection({
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const watched = season.episodes.filter((e) => e.watchCount > 0).length;
+  const unseen = season.episodes.length - watched;
   const title = season.isSpecials ? 'Especiais' : `Temporada ${season.seasonNumber}`;
   const headingId = `season-${season.seasonNumber}`;
 
@@ -203,20 +212,19 @@ function SeasonSection({
         <span className="season__count tabular">
           {watched}/{season.episodes.length}
         </span>
-        <button
-          type="button"
-          className="btn"
-          onClick={onMarkSeason}
-          disabled={markingSeason || watched === season.episodes.length}
-        >
-          {/* "Marcar N" nos dois clientes, com N = quantos faltam. O rótulo genérico não dizia
-              quantos episódios o clique ia criar, que é a informação que importa antes de agir. */}
-          Marcar {season.episodes.length - watched}
-          <span className="sr-only">
-            {' '}
-            episódios não vistos de {title}
-          </span>
-        </button>
+        {/*
+          "Marcar N" nos dois clientes, com N = quantos faltam: o rótulo genérico não dizia
+          quantos episódios o clique ia criar. E o botão SOME quando não há o que marcar, como
+          no app — desabilitado com "Marcar 0" é um controle que ocupa espaço para não fazer nada.
+        */}
+        {unseen > 0 ? (
+          <button type="button" className="btn" onClick={onMarkSeason} disabled={markingSeason}>
+            Marcar {unseen}
+            <span className="sr-only"> episódios não vistos de {title}</span>
+          </button>
+        ) : (
+          <span className="season__done">completa</span>
+        )}
       </header>
 
       <EpisodeTrack

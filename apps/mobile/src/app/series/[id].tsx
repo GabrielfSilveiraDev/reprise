@@ -25,6 +25,7 @@ import {
 } from '@/api/queries';
 import { QueryState } from '@/components/query-state';
 import { EpisodeRow } from '@/components/episode-row';
+import { RewatchSessions } from '@/components/rewatch-sessions';
 import { CompletionBadge, ProgressBar } from '@/components/series-card';
 import { SyncBar } from '@/components/sync-bar';
 import { EyebrowStyle, FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
@@ -142,6 +143,13 @@ function Detail({ series }: { series: SeriesDetail }) {
       ) : null}
 
       <StatusPicker seriesId={series.id} current={series.status} />
+
+      {/* Antes das temporadas: "quantas vezes eu percorri isto" vem antes de "onde eu estou
+          nesta passada". Mesma ordem do web. */}
+      <RewatchSessions
+        sessions={series.sessions}
+        backfillExhibitions={series.backfillExhibitions}
+      />
 
       {/*
         Uma temporada aberta, o resto fechado. Séries longas — Two and a Half Men tem 262
