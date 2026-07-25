@@ -171,7 +171,9 @@ function Field({
   const t = useTheme();
   return (
     <View style={styles.field}>
-      <Text style={[styles.label, { color: t.fgSubtle }]}>{label.toUpperCase()}</Text>
+      {/* Caixa alta pelo estilo, não por `toUpperCase()`: o rótulo que o leitor de tela associa
+          ao campo tem de continuar sendo "Senha", não "S-E-N-H-A". */}
+      <Text style={[styles.label, { color: t.fgSubtle }]}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChange}
@@ -198,7 +200,7 @@ const styles = StyleSheet.create({
 
   form: { gap: Spacing[4] },
   field: { gap: Spacing[1] },
-  label: { fontSize: 10, letterSpacing: 1, fontWeight: '700' },
+  label: { fontSize: 10, letterSpacing: 1, fontWeight: '700', textTransform: 'uppercase' },
   input: {
     borderWidth: 1,
     borderRadius: Radius.md,

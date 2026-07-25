@@ -209,8 +209,13 @@ function SeasonSection({
           onClick={onMarkSeason}
           disabled={markingSeason || watched === season.episodes.length}
         >
-          Marcar temporada
-          <span className="sr-only"> {title} inteira</span>
+          {/* "Marcar N" nos dois clientes, com N = quantos faltam. O rótulo genérico não dizia
+              quantos episódios o clique ia criar, que é a informação que importa antes de agir. */}
+          Marcar {season.episodes.length - watched}
+          <span className="sr-only">
+            {' '}
+            episódios não vistos de {title}
+          </span>
         </button>
       </header>
 

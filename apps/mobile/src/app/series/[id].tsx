@@ -27,7 +27,7 @@ import { QueryState } from '@/components/query-state';
 import { EpisodeRow } from '@/components/episode-row';
 import { CompletionBadge, ProgressBar } from '@/components/series-card';
 import { SyncBar } from '@/components/sync-bar';
-import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { EyebrowStyle, FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -176,7 +176,7 @@ function StatusPicker({ seriesId, current }: { seriesId: number; current: string
 
   return (
     <View style={styles.statusBlock}>
-      <Text style={[styles.statusTitle, { color: t.fgSubtle }]}>ESTADO</Text>
+      <Text style={[styles.statusTitle, { color: t.fgSubtle }]}>Estado</Text>
       <View style={styles.statusRow}>
         {SERIES_STATUSES.map((status) => {
           const active = status === current;
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   completionLabel: { flex: 1, fontSize: FontSize.xs },
   overview: { paddingHorizontal: Spacing[4], fontSize: FontSize.sm, lineHeight: 21 },
   statusBlock: { paddingHorizontal: Spacing[4], paddingTop: Spacing[4], gap: Spacing[2] },
-  statusTitle: { fontSize: 10, letterSpacing: 1, fontWeight: '700' },
+  statusTitle: EyebrowStyle,
   statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing[2] },
   statusChip: {
     borderWidth: 1,

@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { formatEpisodeCode, formatWatchedAt } from '@reprise/shared';
 import type { Premiere } from '@reprise/shared';
 import { EpisodeThumb } from '@/components/episode-thumb';
-import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { EyebrowStyle, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -24,7 +24,7 @@ export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] })
   return (
     <View style={styles.block}>
       <View style={styles.head}>
-        <Text style={[styles.title, { color: t.fgSubtle }]}>ESTREIAS</Text>
+        <Text style={[styles.title, { color: t.fgSubtle }]}>Estreias</Text>
         <Text style={[styles.count, { color: t.fgSubtle }]}>
           {premieres.length} {premieres.length === 1 ? 'episódio' : 'episódios'}
         </Text>
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing[4],
   },
-  title: { fontSize: FontSize.xs, letterSpacing: 1.2, fontWeight: '700' },
+  title: EyebrowStyle,
   count: { fontSize: FontSize.xs },
   strip: { gap: Spacing[3], paddingHorizontal: Spacing[4], paddingBottom: Spacing[2] },
   card: {

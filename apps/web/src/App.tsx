@@ -34,7 +34,7 @@ export function App() {
             <ul className="nav" role="list">
               <li>
                 <NavLink to="/" end className="nav__link">
-                  Próximo
+                  Próximos
                 </NavLink>
               </li>
               <li>

@@ -6,6 +6,8 @@
  * Claro e escuro são nativos: cada tema tem seus próprios valores, nenhum deriva do outro.
  */
 
+import type { TextStyle } from 'react-native';
+
 /**
  * O contrato de um tema. Declarado antes da tabela para que claro e escuro sejam o **mesmo**
  * tipo — sem isso, `as const` daria a cada tema um tipo de literais próprios e trocar de tema
@@ -97,6 +99,21 @@ export const Spacing = {
 } as const;
 
 export const Radius = { sm: 2, md: 4, lg: 8 } as const;
+
+/**
+ * O rótulo pequeno em versalete que abre cada tela ("Próximos", "Acervo", "Perfil").
+ *
+ * A caixa alta vem do **estilo**, nunca do texto. Escrever `PRÓXIMOS` no JSX mudaria o conteúdo
+ * de verdade, e leitor de tela costuma soletrar palavra inteiramente maiúscula — "P-R-Ó-X..." em
+ * vez de "próximos". O web já fazia certo com `text-transform: uppercase` no CSS; isto é o
+ * equivalente aqui, e é o que mantém as duas plataformas dizendo a mesma coisa.
+ */
+export const EyebrowStyle: TextStyle = {
+  fontSize: 12,
+  letterSpacing: 1.2,
+  fontWeight: '700',
+  textTransform: 'uppercase',
+};
 
 export const FontSize = {
   xs: 12,

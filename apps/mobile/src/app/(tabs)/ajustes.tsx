@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatEpisodeCode, formatWatchedAt } from '@reprise/shared';
 import { AccessToken, ApiEndpoint } from '@/api/client';
 import { DataExport } from '@/api/export';
-import { syncEngine, useDeadLetters, usePendingActions } from '@/api/queries';
-import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { syncEngine, useDeadLetters, usePendingActions, usePremieres } from '@/api/queries';
+import { Reminders } from '@/offline/reminders';
+import { EyebrowStyle, FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -29,6 +30,9 @@ export default function SettingsScreen() {
   const [tokenSalvo, setTokenSalvo] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [exportado, setExportado] = useState<string | null>(null);
+  const [avisos, setAvisos] = useState(false);
+  const [avisosNota, setAvisosNota] = useState<string | null>(null);
+  const premieres = usePremieres();
   const pending = usePendingActions();
   const deadLetters = useDeadLetters();
 
@@ -40,6 +44,7 @@ export default function SettingsScreen() {
     // O token nunca é lido de volta para a tela — só se sabe se existe. Reexibir um segredo
     // para conferência é o tipo de conveniência que acaba num print de tela em algum lugar.
     AccessToken.has().then(setTokenSalvo);
+    Reminders.isEnabled().then(setAvisos);
   }, []);
 
   const save = async () => {
@@ -60,7 +65,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: t.bg }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>AJUSTES</Text>
+        <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>Ajustes</Text>
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: t.fg }]}>Endereço da API</Text>
@@ -140,6 +145,44 @@ export default function SettingsScreen() {
               </Pressable>
             ) : null}
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: t.fg }]}>Avisos de estreia</Text>
+          <Text style={[styles.hint, { color: t.fgMuted }]}>
+            Avisa às 19h do dia em que um episódio das séries que você acompanha vai ao ar. É
+            agendado no próprio aparelho: funciona com o app fechado e sem internet.
+          </Text>
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: t.fg }]}>Receber avisos</Text>
+            <Switch
+              value={avisos}
+              onValueChange={async (ligar) => {
+                if (!ligar) {
+                  await Reminders.disable();
+                  setAvisos(false);
+                  setAvisosNota(null);
+                  return;
+                }
+                const ok = await Reminders.enable();
+                setAvisos(ok);
+                if (!ok) {
+                  setAvisosNota('O Android negou a permissão. Libere nas configurações do sistema.');
+                  return;
+                }
+                const estado = await Reminders.sync(premieres.data ?? []);
+                setAvisosNota(
+                  estado.scheduled === 0
+                    ? 'Nenhuma estreia à vista para agendar.'
+                    : `${estado.scheduled} ${estado.scheduled === 1 ? 'aviso agendado' : 'avisos agendados'}.`,
+                );
+              }}
+              accessibilityLabel="Receber avisos de estreia"
+            />
+          </View>
+          {avisosNota ? (
+            <Text style={[styles.hint, { color: t.fgSubtle }]}>{avisosNota}</Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -262,7 +305,7 @@ function describe(action: { kind: string; [k: string]: unknown }): string {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { padding: Spacing[4], paddingBottom: Spacing[8], gap: Spacing[5] },
-  eyebrow: { fontSize: FontSize.xs, letterSpacing: 1.2, fontWeight: '700' },
+  eyebrow: EyebrowStyle,
   section: { gap: Spacing[2] },
   sectionTitle: { fontSize: FontSize.lg, fontWeight: '700' },
   hint: { fontSize: FontSize.sm, lineHeight: 20 },

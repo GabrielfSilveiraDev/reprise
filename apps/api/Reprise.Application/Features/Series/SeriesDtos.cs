@@ -53,7 +53,30 @@ public sealed record SeriesDetailDto(
     int EpisodesTotal,
     int EpisodesWatched,
     double CompletionRatio,
-    IReadOnlyList<SeasonDto> Seasons);
+    IReadOnlyList<SeasonDto> Seasons,
+    /// <summary>
+    /// Cada vez que você percorreu esta série, derivada do log por silêncio entre exibições.
+    /// A contagem por episódio diz QUANTO; isto diz QUANDO — que é a pergunta do nome do app.
+    ///
+    /// <para>
+    /// <b>Sem as marcações em massa.</b> Uma sessão é uma afirmação sobre <i>quando</i>, e o
+    /// backfill do TV Time não tem quando: todas as exibições importadas carregam a data da
+    /// importação. Incluí-las produziria uma sessão gigante e falsa — HIMYM apareceria como
+    /// 2.851 exibições em 24 dias. Fora delas, o que sobra é curto mas verdadeiro.
+    /// </para>
+    /// </summary>
+    IReadOnlyList<RewatchSessionDto> Sessions,
+    /// <summary>Quantas exibições ficaram de fora das sessões por serem marcação em massa.</summary>
+    int BackfillExhibitions);
+
+public sealed record RewatchSessionDto(
+    int Ordinal,
+    DateTimeOffset StartedAt,
+    DateTimeOffset EndedAt,
+    int Exhibitions,
+    int DistinctEpisodes,
+    long TotalSeconds,
+    int SpanDays);
 
 public sealed record NextUpItemDto(
     long SeriesId,

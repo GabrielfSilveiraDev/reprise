@@ -140,7 +140,9 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
                 onClick={() => onMark(episode)}
                 disabled={busy}
               >
-                {watched ? 'Revi' : 'Marcar'}
+                {/* "Assisti" / "Revi": primeira pessoa, passado, iguais no app. "Marcar" descrevia
+                    a mecânica da interface em vez do que a pessoa fez. */}
+                {watched ? 'Revi' : 'Assisti'}
                 <span className="sr-only">
                   {' '}
                   {formatEpisodeCode(episode.seasonNumber, episode.episodeNumber)}

@@ -8,6 +8,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ActivityIndicator, View } from 'react-native';
 import { AuthSession } from '@/api/session';
+import { Reminders } from '@/offline/reminders';
 import { useIsDark, useTheme } from '@/hooks/use-theme';
 
 /**
@@ -18,6 +19,10 @@ import { useIsDark, useTheme } from '@/hooks/use-theme';
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
+
+// Como o aviso se comporta com o app aberto. No escopo do módulo porque precisa valer antes de
+// qualquer notificação chegar, inclusive a que abriu o app.
+Reminders.configure();
 
 export default function RootLayout() {
   const t = useTheme();

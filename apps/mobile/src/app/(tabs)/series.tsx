@@ -8,7 +8,7 @@ import { QueryState } from '@/components/query-state';
 import { SeriesPoster, SeriesRow } from '@/components/series-card';
 import { SyncBar } from '@/components/sync-bar';
 import { LocalStore } from '@/offline/local-store';
-import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { EyebrowStyle, FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -139,7 +139,7 @@ function SeriesBrowser({
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={
         <View style={styles.head}>
-          <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>ACERVO</Text>
+          <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>Acervo</Text>
           <Text style={[styles.title, { color: t.fg }]}>
             {shown.length === all.length
               ? `${all.length} séries`
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   list: { paddingBottom: Spacing[8] },
   head: { paddingHorizontal: Spacing[4], paddingTop: Spacing[5], paddingBottom: Spacing[4], gap: Spacing[3] },
-  eyebrow: { fontSize: FontSize.xs, letterSpacing: 1.2, fontWeight: '700' },
+  eyebrow: EyebrowStyle,
   title: { fontSize: FontSize.xl, fontWeight: '700' },
   search: {
     borderWidth: 1,

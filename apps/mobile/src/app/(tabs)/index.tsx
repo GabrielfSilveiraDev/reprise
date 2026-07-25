@@ -8,7 +8,7 @@ import { useMarkEpisode, useNextUp, usePremieres } from '@/api/queries';
 import { PremiereStrip } from '@/components/premiere-strip';
 import { QueryState } from '@/components/query-state';
 import { SyncBar } from '@/components/sync-bar';
-import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { EyebrowStyle, FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -42,7 +42,7 @@ export default function NextUpScreen() {
               <View>
                 <PremiereStrip premieres={premieres.data ?? []} />
                 <View style={styles.head}>
-                  <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>PRÓXIMOS</Text>
+                  <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>Próximos</Text>
                   <Text style={[styles.title, { color: t.fg }]}>Onde você parou</Text>
                 </View>
               </View>
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   list: { paddingBottom: Spacing[8] },
   head: { paddingHorizontal: Spacing[4], paddingTop: Spacing[5], paddingBottom: Spacing[4] },
-  eyebrow: { fontSize: FontSize.xs, letterSpacing: 1.2, fontWeight: '700' },
+  eyebrow: EyebrowStyle,
   title: { fontSize: FontSize.xl, fontWeight: '700', marginTop: Spacing[1] },
   empty: { padding: Spacing[4], fontSize: FontSize.base, lineHeight: 22 },
   separator: { height: StyleSheet.hairlineWidth, marginLeft: Spacing[4] },

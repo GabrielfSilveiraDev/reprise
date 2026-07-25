@@ -11,7 +11,7 @@ import { useProfile, useStatsOverview } from '@/api/queries';
 import { BarChart } from '@/components/bar-chart';
 import { QueryState } from '@/components/query-state';
 import { SyncBar } from '@/components/sync-bar';
-import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { EyebrowStyle, FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -67,7 +67,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={[styles.screen, { backgroundColor: t.bg }]} edges={['top']}>
       <SyncBar status={status} />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>PERFIL</Text>
+        <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>Perfil</Text>
 
         <QueryState query={profile}>{(p) => <Identity profile={p} />}</QueryState>
 
@@ -213,7 +213,7 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
   const t = useTheme();
   return (
     <View style={[styles.tile, { backgroundColor: t.bgRaised, borderColor: t.border }]}>
-      <Text style={[styles.tileLabel, { color: t.fgSubtle }]}>{label.toUpperCase()}</Text>
+      <Text style={[styles.tileLabel, { color: t.fgSubtle }]}>{label}</Text>
       <Text style={[styles.tileValue, { color: t.fg }]}>{value}</Text>
       {hint ? <Text style={[styles.tileHint, { color: t.fgSubtle }]}>{hint}</Text> : null}
     </View>
@@ -223,7 +223,7 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { padding: Spacing[4], paddingBottom: Spacing[8], gap: Spacing[4] },
-  eyebrow: { fontSize: FontSize.xs, letterSpacing: 1.2, fontWeight: '700' },
+  eyebrow: EyebrowStyle,
   divider: { height: StyleSheet.hairlineWidth, marginVertical: Spacing[2] },
 
   identity: { flexDirection: 'row', gap: Spacing[3], alignItems: 'center' },
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     borderWidth: 1,
   },
-  tileLabel: { fontSize: 10, letterSpacing: 0.8, fontWeight: '700' },
+  tileLabel: { fontSize: 10, letterSpacing: 0.8, fontWeight: '700', textTransform: 'uppercase' },
   tileValue: { fontSize: FontSize.lg, fontWeight: '700', marginTop: 2 },
   tileHint: { fontSize: 10 },
 

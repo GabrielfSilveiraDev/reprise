@@ -22,7 +22,9 @@ export function NextUpPage() {
       {(items) => (
         <>
           <header className="page-head">
-            <p className="eyebrow">Próximo a assistir</p>
+            {/* "Próximos" nos dois clientes: a aba do app, o item de menu daqui e o rótulo da
+                página passam a ser a mesma palavra. O h1 conta o resto. */}
+            <p className="eyebrow">Próximos</p>
             <h1>
               {items.length} {items.length === 1 ? 'série' : 'séries'} esperando
             </h1>
@@ -52,7 +54,7 @@ export function NextUpPage() {
                   onClick={() => mark.mutate(item.episode.id)}
                   disabled={mark.isPending}
                 >
-                  Marcar
+                  Assisti
                   <span className="sr-only">
                     {' '}
                     {formatEpisodeCode(item.episode.seasonNumber, item.episode.episodeNumber)} de{' '}

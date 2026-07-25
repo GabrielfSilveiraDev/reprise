@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Reprise.Application.Abstractions;
+using Reprise.Application.Features.Watching;
 using Reprise.Domain.Enums;
 
 namespace Reprise.Application.Features.Series;
@@ -103,9 +104,26 @@ public sealed class SeriesQueries
         var watched = regular.Count(e => e.WatchCount > 0);
         var ratio = total == 0 ? 0d : (double)watched / total;
 
+        // As sessões precisam do runtime junto da data — daí buscar os eventos, e não só contar.
+        var sessionEvents = await _db.WatchEvents
+            .Where(w => w.Episode.SeriesId == seriesId)
+            .Select(w => new { w.WatchedAt, w.EpisodeId, w.Episode.RuntimeSeconds, w.IsBackfill })
+            .ToListAsync(ct);
+
+        var backfillCount = sessionEvents.Count(e => e.IsBackfill);
+
+        var sessions = RewatchSessionCalculator
+            .Compute(sessionEvents
+                .Where(e => !e.IsBackfill)
+                .Select(e => new SessionEvent(e.WatchedAt, e.EpisodeId, e.RuntimeSeconds)))
+            .Select(s => new RewatchSessionDto(
+                s.Ordinal, s.StartedAt, s.EndedAt, s.Exhibitions, s.DistinctEpisodes, s.TotalSeconds, s.SpanDays))
+            .ToList();
+
         return new SeriesDetailDto(
             series.Id, series.TvdbId, series.Name, series.OriginalName, series.Overview, series.PosterPath,
-            status, series.Status, series.FirstAirDate, total, watched, ratio, seasons);
+            status, series.Status, series.FirstAirDate, total, watched, ratio, seasons,
+            sessions, backfillCount);
     }
 
     /// <summary>Próximo episódio não visto de cada série ACOMPANHADA, ordenado por atividade recente.</summary>
