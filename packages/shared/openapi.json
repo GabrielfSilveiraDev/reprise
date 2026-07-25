@@ -236,6 +236,29 @@
         }
       }
     },
+    "/me": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Perfil do dono dos dados e o tamanho do acervo dele.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/series": {
       "get": {
         "tags": [
@@ -631,6 +654,88 @@
           }
         }
       },
+      "ProfileDto": {
+        "required": [
+          "displayName",
+          "email",
+          "memberSince",
+          "seriesTracked",
+          "seriesFollowing",
+          "seriesFinished",
+          "seriesArchived",
+          "catalogEpisodes",
+          "seriesWithoutMetadata",
+          "lastImportedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "memberSince": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "seriesTracked": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "seriesFollowing": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "seriesFinished": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "seriesArchived": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "catalogEpisodes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "seriesWithoutMetadata": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "lastImportedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "SeasonDto": {
         "required": [
           "seasonNumber",
@@ -674,6 +779,8 @@
           "overview",
           "posterPath",
           "status",
+          "productionStatus",
+          "firstAirDate",
           "episodesTotal",
           "episodesWatched",
           "completionRatio",
@@ -722,6 +829,19 @@
           "status": {
             "type": "string"
           },
+          "productionStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "firstAirDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
           "episodesTotal": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
@@ -761,6 +881,7 @@
           "name",
           "posterPath",
           "status",
+          "productionStatus",
           "episodesTotal",
           "episodesWatched",
           "completionRatio",
@@ -797,6 +918,12 @@
           },
           "status": {
             "type": "string"
+          },
+          "productionStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "episodesTotal": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -1127,6 +1254,9 @@
     },
     {
       "name": "Watching"
+    },
+    {
+      "name": "Profile"
     },
     {
       "name": "Stats"

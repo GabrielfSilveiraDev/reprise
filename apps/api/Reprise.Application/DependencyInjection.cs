@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Reprise.Application.Features.Profile;
 using Reprise.Application.Features.Series;
 using Reprise.Application.Features.Watching;
 using Reprise.Application.Import;
@@ -20,6 +21,7 @@ public static class DependencyInjection
         // Leitura e marcação
         services.AddScoped<SeriesQueries>();
         services.AddScoped<WatchingService>();
+        services.AddScoped<ProfileQueries>();
 
         return services;
     }

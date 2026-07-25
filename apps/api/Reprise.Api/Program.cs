@@ -27,6 +27,7 @@ app.MapGet("/", () => Results.Ok(new { name = "Reprise API", openapi = "/openapi
 app.MapSeriesEndpoints();
 app.MapWatchingEndpoints();
 app.MapStatsEndpoints();
+app.MapProfileEndpoints();
 
 // Auth (ASP.NET Identity + JWT) entra como fatia dedicada na Fase 3, quando o cliente web precisar de login.
 // Por ora, ICurrentUser resolve para o usuário-semente (single-user local).

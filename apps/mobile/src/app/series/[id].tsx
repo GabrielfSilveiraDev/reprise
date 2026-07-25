@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import {
   OutboxPlanner,
+  SeriesCompletion,
   formatEpisodeCode,
   formatPercent,
   formatRuntime,
@@ -21,6 +22,7 @@ import {
   useUnmarkEpisode,
 } from '@/api/queries';
 import { QueryState } from '@/components/query-state';
+import { CompletionBadge, ProgressBar } from '@/components/series-card';
 import { SyncBar } from '@/components/sync-bar';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
@@ -86,6 +88,12 @@ function Detail({ series }: { series: SeriesDetail }) {
     0,
   );
 
+  const completion = SeriesCompletion.of({
+    productionStatus: series.productionStatus,
+    episodesTotal: total,
+    episodesWatched: watched,
+  });
+
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.header}>
@@ -105,6 +113,16 @@ function Detail({ series }: { series: SeriesDetail }) {
           <Text style={[styles.meta, { color: t.fgMuted }]}>
             {formatSeriesStatus(series.status)} · {watched}/{total} · {formatPercent(ratio)}
           </Text>
+
+          {/* Conclusão calculada sobre a contagem PROJETADA: marcar sem rede já muda o selo. */}
+          <View style={styles.completionRow}>
+            <CompletionBadge completion={completion} />
+            <Text style={[styles.completionLabel, { color: t.fgSubtle }]} numberOfLines={2}>
+              {completion.label}
+            </Text>
+          </View>
+
+          <ProgressBar completion={completion} theme={t} height={4} />
         </View>
       </View>
 
@@ -293,6 +311,8 @@ const styles = StyleSheet.create({
   name: { fontSize: FontSize.lg, fontWeight: '700' },
   original: { fontSize: FontSize.sm },
   meta: { fontSize: FontSize.sm, marginTop: Spacing[1] },
+  completionRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing[2], marginTop: Spacing[2] },
+  completionLabel: { flex: 1, fontSize: FontSize.xs },
   overview: { paddingHorizontal: Spacing[4], fontSize: FontSize.sm, lineHeight: 21 },
 
   season: { marginTop: Spacing[5] },

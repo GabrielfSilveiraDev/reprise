@@ -8,6 +8,12 @@ public sealed record SeriesListItemDto(
     string Name,
     string? PosterPath,
     string Status,
+    /// <summary>
+    /// Situação da PRODUÇÃO, vinda do TMDB ("Ended", "Canceled", "Returning Series"…), que é coisa
+    /// diferente de <paramref name="Status"/> — este é a relação do usuário com a série. É a
+    /// combinação dos dois que responde "já acabou e eu terminei?".
+    /// </summary>
+    string? ProductionStatus,
     int EpisodesTotal,
     int EpisodesWatched,
     double CompletionRatio,
@@ -38,6 +44,9 @@ public sealed record SeriesDetailDto(
     string? Overview,
     string? PosterPath,
     string Status,
+    /// <summary>Situação da produção no TMDB — ver <see cref="SeriesListItemDto.ProductionStatus"/>.</summary>
+    string? ProductionStatus,
+    DateOnly? FirstAirDate,
     int EpisodesTotal,
     int EpisodesWatched,
     double CompletionRatio,

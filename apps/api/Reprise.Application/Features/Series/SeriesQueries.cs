@@ -54,6 +54,7 @@ public sealed class SeriesQueries
             lastBySeries.TryGetValue(t.SeriesId, out var last);
             result.Add(new SeriesListItemDto(
                 t.SeriesId, t.Series.TvdbId, t.Series.Name, t.Series.PosterPath, t.Status.ToString(),
+                t.Series.Status,
                 progress.EpisodesTotal, progress.EpisodesWatched, progress.CompletionRatio, last, next));
         }
 
@@ -98,7 +99,7 @@ public sealed class SeriesQueries
 
         return new SeriesDetailDto(
             series.Id, series.TvdbId, series.Name, series.OriginalName, series.Overview, series.PosterPath,
-            status, total, watched, ratio, seasons);
+            status, series.Status, series.FirstAirDate, total, watched, ratio, seasons);
     }
 
     /// <summary>Próximo episódio não visto de cada série ACOMPANHADA, ordenado por atividade recente.</summary>

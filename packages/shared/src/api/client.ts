@@ -32,6 +32,7 @@ export type EpisodeRef = Schemas['EpisodeRefDto'];
 export type NextUpItem = Schemas['NextUpItemDto'];
 export type WatchState = Schemas['WatchStateDto'];
 export type BulkMarkResult = Schemas['BulkMarkResult'];
+export type Profile = Schemas['ProfileDto'];
 
 export type StatsOverviewDto = Schemas['StatsOverviewDto'];
 export type StatsSummaryDto = Schemas['StatsSummaryDto'];

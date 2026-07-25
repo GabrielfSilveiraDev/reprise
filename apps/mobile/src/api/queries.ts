@@ -3,8 +3,10 @@ import type {
   NextUpItem,
   PendingAction,
   PendingActionDraft,
+  Profile,
   SeriesDetail,
   SeriesListItem,
+  StatsOverviewDto,
 } from '@reprise/shared';
 import { SyncEngine } from '@/offline/sync-engine';
 
@@ -19,6 +21,8 @@ export const keys = {
   series: ['series'] as const,
   seriesDetail: (id: number) => ['series', id] as const,
   nextUp: ['next-up'] as const,
+  profile: ['me'] as const,
+  stats: (includeBackfill: boolean) => ['stats', includeBackfill] as const,
   pending: ['pending'] as const,
   deadLetters: ['dead-letters'] as const,
 };
@@ -62,6 +66,32 @@ export function useNextUp() {
     queryFn: async (): Promise<NextUpItem[]> => {
       const sync = await syncEngine();
       return sync.fetchWithCache('next-up', async (c) => unwrap(await c.GET('/next-up')));
+    },
+  });
+}
+
+export function useProfile() {
+  return useQuery({
+    queryKey: keys.profile,
+    queryFn: async (): Promise<Profile> => {
+      const sync = await syncEngine();
+      return sync.fetchWithCache('me', async (c) => unwrap(await c.GET('/me')));
+    },
+  });
+}
+
+/**
+ * As estatísticas do servidor. Também passam pelo cache em disco: o painel abre com os números
+ * da última sincronização em vez de uma tela vazia quando não há rede.
+ */
+export function useStatsOverview(includeBackfill: boolean) {
+  return useQuery({
+    queryKey: keys.stats(includeBackfill),
+    queryFn: async (): Promise<StatsOverviewDto> => {
+      const sync = await syncEngine();
+      return sync.fetchWithCache(`stats/${includeBackfill}`, async (c) =>
+        unwrap(await c.GET('/stats/overview', { params: { query: { includeBackfill } } })),
+      );
     },
   });
 }

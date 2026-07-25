@@ -11,3 +11,4 @@ export type { components, paths } from './api/schema.ts';
 export * from './domain/format.ts';
 export * from './domain/watchTrack.ts';
 export * from './domain/outbox.ts';
+export * from './domain/seriesCompletion.ts';

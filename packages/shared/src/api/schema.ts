@@ -233,6 +233,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Perfil do dono dos dados e o tamanho do acervo dele. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProfileDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/series": {
         parameters: {
             query?: never;
@@ -455,6 +498,26 @@ export interface components {
             /** Format: date-time */
             lastActivityAt: null | string;
         };
+        ProfileDto: {
+            displayName: string;
+            email: string;
+            /** Format: date-time */
+            memberSince: string;
+            /** Format: int32 */
+            seriesTracked: number;
+            /** Format: int32 */
+            seriesFollowing: number;
+            /** Format: int32 */
+            seriesFinished: number;
+            /** Format: int32 */
+            seriesArchived: number;
+            /** Format: int32 */
+            catalogEpisodes: number;
+            /** Format: int32 */
+            seriesWithoutMetadata: number;
+            /** Format: date-time */
+            lastImportedAt: null | string;
+        };
         SeasonDto: {
             /** Format: int32 */
             seasonNumber: number;
@@ -472,6 +535,9 @@ export interface components {
             overview: null | string;
             posterPath: null | string;
             status: string;
+            productionStatus: null | string;
+            /** Format: date */
+            firstAirDate: null | string;
             /** Format: int32 */
             episodesTotal: number;
             /** Format: int32 */
@@ -488,6 +554,7 @@ export interface components {
             name: string;
             posterPath: null | string;
             status: string;
+            productionStatus: null | string;
             /** Format: int32 */
             episodesTotal: number;
             /** Format: int32 */

@@ -1,67 +1,139 @@
-import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
-import { router } from 'expo-router';
-import { formatPercent, formatSeriesStatus, formatWatchedAt, posterUrl } from '@reprise/shared';
+import { SeriesCompletion } from '@reprise/shared';
 import type { SeriesListItem } from '@reprise/shared';
 import { useSeriesList } from '@/api/queries';
 import { QueryState } from '@/components/query-state';
+import { SeriesPoster, SeriesRow } from '@/components/series-card';
 import { SyncBar } from '@/components/sync-bar';
+import { LocalStore } from '@/offline/local-store';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
 import { useTheme } from '@/hooks/use-theme';
 
+type Layout = 'poster' | 'list';
+type Filter = 'all' | 'unfinished' | 'finished';
+
+const LAYOUT_SETTING = 'seriesLayout';
+
 /**
- * O acervo. Linha compacta, não grade de pôsteres: com 115 séries, o que se procura é um nome,
- * e nome se lê em lista. O pôster fica como âncora visual pequena.
+ * O acervo, em duas leituras.
  *
- * A busca filtra localmente — o acervo inteiro já está em memória e em cache, então mandar uma
- * consulta ao servidor a cada tecla seria trabalho de rede para responder o que já se sabe.
+ * **Grade de pôsteres** para reconhecer pela capa — é assim que se procura algo para assistir.
+ * **Lista** para varrer 115 nomes procurando um específico, com mais texto por linha. Nenhuma das
+ * duas é "a certa": elas servem a perguntas diferentes, e por isso a escolha fica guardada — ter
+ * de reajustar a cada abertura seria pior do que só ter uma.
  */
 export default function SeriesScreen() {
   const t = useTheme();
   const status = useAutoSync();
   const query = useSeriesList();
+
+  const [layout, setLayout] = useState<Layout>('poster');
+  const [filter, setFilter] = useState<Filter>('all');
   const [term, setTerm] = useState('');
+
+  useEffect(() => {
+    LocalStore.open().then(async (store) => {
+      const saved = await store.getSetting(LAYOUT_SETTING);
+      if (saved === 'poster' || saved === 'list') setLayout(saved);
+    });
+  }, []);
+
+  const chooseLayout = (next: Layout) => {
+    setLayout(next);
+    LocalStore.open().then((store) => store.setSetting(LAYOUT_SETTING, next));
+  };
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: t.bg }]} edges={['top']}>
       <SyncBar status={status} />
-
       <QueryState query={query}>
-        {(all) => <SeriesList all={all} term={term} setTerm={setTerm} loading={query.isFetching} onRefresh={query.refetch} />}
+        {(all) => (
+          <SeriesBrowser
+            all={all}
+            layout={layout}
+            onLayout={chooseLayout}
+            filter={filter}
+            onFilter={setFilter}
+            term={term}
+            onTerm={setTerm}
+            loading={query.isFetching}
+            onRefresh={query.refetch}
+          />
+        )}
       </QueryState>
     </SafeAreaView>
   );
 }
 
-function SeriesList({
+function SeriesBrowser({
   all,
+  layout,
+  onLayout,
+  filter,
+  onFilter,
   term,
-  setTerm,
+  onTerm,
   loading,
   onRefresh,
 }: {
   all: SeriesListItem[];
+  layout: Layout;
+  onLayout: (l: Layout) => void;
+  filter: Filter;
+  onFilter: (f: Filter) => void;
   term: string;
-  setTerm: (v: string) => void;
+  onTerm: (v: string) => void;
   loading: boolean;
   onRefresh: () => void;
 }) {
   const t = useTheme();
+  const { width } = useWindowDimensions();
+
+  // Colunas pela largura, não fixas: o mesmo código serve telefone em pé, deitado e tablet.
+  const columns = layout === 'poster' ? Math.max(2, Math.floor(width / 170)) : 1;
+  const gutter = Spacing[3];
+  const posterWidth = (width - gutter * (columns + 1)) / columns;
 
   const shown = useMemo(() => {
     const needle = term.trim().toLowerCase();
-    if (!needle) return all;
-    return all.filter((s) => s.name.toLowerCase().includes(needle));
-  }, [all, term]);
+    return all.filter((s) => {
+      if (needle && !s.name.toLowerCase().includes(needle)) return false;
+      if (filter === 'all') return true;
+      const finished = SeriesCompletion.of({
+        productionStatus: s.productionStatus,
+        episodesTotal: s.episodesTotal,
+        episodesWatched: s.episodesWatched,
+      }).isFinished;
+      return filter === 'finished' ? finished : !finished;
+    });
+  }, [all, term, filter]);
+
+  const finishedCount = useMemo(
+    () =>
+      all.filter(
+        (s) =>
+          SeriesCompletion.of({
+            productionStatus: s.productionStatus,
+            episodesTotal: s.episodesTotal,
+            episodesWatched: s.episodesWatched,
+          }).isFinished,
+      ).length,
+    [all],
+  );
 
   return (
     <FlatList
+      // A key força a remontagem ao trocar o número de colunas — o FlatList não aceita
+      // `numColumns` mudando no mesmo componente.
+      key={`${layout}-${columns}`}
       data={shown}
       keyExtractor={(s) => String(s.id)}
-      contentContainerStyle={styles.list}
+      numColumns={columns}
+      columnWrapperStyle={columns > 1 ? { gap: gutter, paddingHorizontal: gutter } : undefined}
+      contentContainerStyle={[styles.list, columns > 1 ? { gap: gutter } : null]}
       refreshing={loading}
       onRefresh={onRefresh}
       keyboardShouldPersistTaps="handled"
@@ -69,11 +141,14 @@ function SeriesList({
         <View style={styles.head}>
           <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>ACERVO</Text>
           <Text style={[styles.title, { color: t.fg }]}>
-            {all.length} {all.length === 1 ? 'série' : 'séries'}
+            {shown.length === all.length
+              ? `${all.length} séries`
+              : `${shown.length} de ${all.length} séries`}
           </Text>
+
           <TextInput
             value={term}
-            onChangeText={setTerm}
+            onChangeText={onTerm}
             placeholder="Buscar por nome"
             placeholderTextColor={t.fgSubtle}
             style={[
@@ -84,65 +159,96 @@ function SeriesList({
             autoCorrect={false}
             clearButtonMode="while-editing"
           />
+
+          <View style={styles.controls}>
+            <Segmented
+              label="Exibição"
+              options={[
+                { value: 'poster', label: 'Pôsteres' },
+                { value: 'list', label: 'Lista' },
+              ]}
+              value={layout}
+              onChange={(v) => onLayout(v as Layout)}
+            />
+            <Segmented
+              label="Filtro"
+              options={[
+                { value: 'all', label: 'Todas' },
+                { value: 'unfinished', label: 'Em aberto' },
+                { value: 'finished', label: `Finalizadas ${finishedCount}` },
+              ]}
+              value={filter}
+              onChange={(v) => onFilter(v as Filter)}
+            />
+          </View>
         </View>
       }
       ListEmptyComponent={
-        <Text style={[styles.empty, { color: t.fgMuted }]}>Nenhuma série com esse nome.</Text>
+        <Text style={[styles.empty, { color: t.fgMuted }]}>Nenhuma série com esses critérios.</Text>
       }
-      renderItem={({ item }) => <SeriesRow item={item} />}
-      ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: t.border }]} />}
+      renderItem={({ item }) =>
+        layout === 'poster' ? (
+          <SeriesPoster item={item} width={posterWidth} />
+        ) : (
+          <SeriesRow item={item} />
+        )
+      }
+      ItemSeparatorComponent={
+        columns === 1
+          ? () => <View style={[styles.separator, { backgroundColor: t.border }]} />
+          : undefined
+      }
     />
   );
 }
 
-function SeriesRow({ item }: { item: SeriesListItem }) {
+/**
+ * Grupo de escolha exclusiva. O selecionado combina fundo, peso e sublinhado — nunca só cor,
+ * porque quem não distingue os dois tons precisa saber qual está ativo.
+ */
+function Segmented({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const t = useTheme();
-  const poster = posterUrl(item.posterPath, 'w154');
-  const complete = item.completionRatio >= 1;
-
   return (
-    <Pressable
-      style={styles.row}
-      onPress={() => router.push(`/series/${item.id}`)}
-      accessibilityRole="button"
-      accessibilityLabel={`${item.name}. ${item.episodesWatched} de ${item.episodesTotal} episódios, ${formatPercent(item.completionRatio)}. ${formatSeriesStatus(item.status)}.`}
-    >
-      {poster ? (
-        <Image source={poster} style={styles.poster} contentFit="cover" transition={120} />
-      ) : (
-        <View style={[styles.poster, { backgroundColor: t.bgSunken }]} />
-      )}
-
-      <View style={styles.rowText}>
-        <Text style={[styles.name, { color: t.fg }]} numberOfLines={2}>
-          {item.name}
-        </Text>
-        <Text style={[styles.meta, { color: t.fgMuted }]}>
-          {item.episodesWatched}/{item.episodesTotal} · {formatSeriesStatus(item.status)}
-        </Text>
-        <Text style={[styles.meta, { color: t.fgSubtle }]}>
-          {formatWatchedAt(item.lastWatchedAt)}
-        </Text>
-
-        {/* Barra de progresso com o número ao lado: a cor/comprimento nunca é o único canal. */}
-        <View style={styles.progressRow}>
-          <View style={[styles.progressTrack, { backgroundColor: t.trackEmpty }]}>
-            <View
+    <View style={styles.segmented} accessibilityRole="radiogroup" accessibilityLabel={label}>
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            onPress={() => onChange(o.value)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={`${label}: ${o.label}`}
+            style={[
+              styles.segment,
+              {
+                backgroundColor: active ? t.accentQuiet : 'transparent',
+                borderColor: active ? t.accent : t.border,
+              },
+            ]}
+          >
+            <Text
               style={[
-                styles.progressFill,
-                {
-                  backgroundColor: complete ? t.accent : t.track[1],
-                  width: `${Math.round(item.completionRatio * 100)}%`,
-                },
+                styles.segmentText,
+                { color: active ? t.fg : t.fgMuted, fontWeight: active ? '700' : '500' },
               ]}
-            />
-          </View>
-          <Text style={[styles.percent, { color: t.fgMuted }]}>
-            {formatPercent(item.completionRatio)}
-          </Text>
-        </View>
-      </View>
-    </Pressable>
+            >
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -159,24 +265,16 @@ const styles = StyleSheet.create({
     fontSize: FontSize.base,
     minHeight: TouchTarget,
   },
+  controls: { gap: Spacing[2] },
+  segmented: { flexDirection: 'row', gap: Spacing[2], flexWrap: 'wrap' },
+  segment: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing[3],
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  segmentText: { fontSize: FontSize.sm },
   empty: { padding: Spacing[4], fontSize: FontSize.base },
   separator: { height: StyleSheet.hairlineWidth, marginLeft: Spacing[4] },
-
-  row: {
-    flexDirection: 'row',
-    gap: Spacing[3],
-    paddingHorizontal: Spacing[4],
-    paddingVertical: Spacing[3],
-    minHeight: TouchTarget,
-    alignItems: 'center',
-  },
-  poster: { width: 44, height: 66, borderRadius: Radius.sm },
-  rowText: { flex: 1, gap: 2 },
-  name: { fontSize: FontSize.base, fontWeight: '700' },
-  meta: { fontSize: FontSize.xs },
-
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing[2], marginTop: Spacing[1] },
-  progressTrack: { flex: 1, height: 4, borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: '100%' },
-  percent: { fontSize: FontSize.xs, fontVariant: ['tabular-nums'], minWidth: 36, textAlign: 'right' },
 });

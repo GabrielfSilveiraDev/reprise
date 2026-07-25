@@ -5,7 +5,7 @@ import { FontSize } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
- * Três abas, sem ícone.
+ * Quatro abas, sem ícone.
  *
  * Ícone abstrato num app de nicho custa mais do que rende — "próximos" e "séries" não têm
  * pictograma óbvio, e um mal escolhido só ocupa espaço acima do rótulo que resolve. Rótulo em
@@ -32,6 +32,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="series"
         options={{ title: 'Séries', tabBarIcon: () => null, tabBarLabel: label('Séries') }}
+      />
+      <Tabs.Screen
+        name="perfil"
+        options={{ title: 'Perfil', tabBarIcon: () => null, tabBarLabel: label('Perfil') }}
       />
       <Tabs.Screen
         name="ajustes"
