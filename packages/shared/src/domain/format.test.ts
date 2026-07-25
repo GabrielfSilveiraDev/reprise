@@ -41,6 +41,47 @@ describe('formatWatchedAt', () => {
     assert.equal(formatWatchedAt('isso não é data', AGORA), 'nunca');
   });
 
+  /**
+   * O defeito que os testes acima não pegaram, e por quê.
+   *
+   * Todos eles deslocam múltiplos exatos de 24 h a partir do mesmo instante, então a hora do dia
+   * nunca varia — e era justamente a hora do dia que quebrava o rótulo. A conta antiga media
+   * milissegundos decorridos e arredondava: um episódio marcado às 8h aparecia como "ontem" às
+   * 22h do MESMO dia, porque 14 horas arredondam para um dia.
+   *
+   * As datas abaixo são montadas em hora local de propósito. A pessoa lê a tela no calendário do
+   * aparelho dela, então é esse calendário que o teste tem de reproduzir — fixar um fuso aqui
+   * testaria uma coisa que ninguém vê.
+   */
+  describe('a hora do dia não muda o dia', () => {
+    const local = (ano: number, mes: number, dia: number, hora: number, min = 0) =>
+      new Date(ano, mes - 1, dia, hora, min);
+
+    it('o que foi marcado de manhã continua sendo "hoje" à noite', () => {
+      const noite = local(2026, 7, 25, 22, 0);
+      const manha = local(2026, 7, 25, 8, 0);
+      assert.equal(formatWatchedAt(manha.toISOString(), noite), 'hoje');
+    });
+
+    it('ontem à noite é "ontem" mesmo faltando dez horas para as 24', () => {
+      const agora = local(2026, 7, 25, 8, 0);
+      const ontemTarde = local(2026, 7, 24, 22, 30);
+      assert.equal(formatWatchedAt(ontemTarde.toISOString(), agora), 'ontem');
+    });
+
+    it('um minuto depois da meia-noite já é outro dia', () => {
+      const agora = local(2026, 7, 25, 0, 1);
+      const ontemQuaseMeiaNoite = local(2026, 7, 24, 23, 59);
+      assert.equal(formatWatchedAt(ontemQuaseMeiaNoite.toISOString(), agora), 'ontem');
+    });
+
+    it('conta dias de calendário, e não períodos de 24 h', () => {
+      const agora = local(2026, 7, 25, 23, 59);
+      // 3 dias e 23 horas atrás: a conta por duração diria "há 4 dias".
+      assert.equal(formatWatchedAt(local(2026, 7, 22, 0, 30).toISOString(), agora), 'há 3 dias');
+    });
+  });
+
   it('não depende de Intl.RelativeTimeFormat — o Hermes não tem', () => {
     const original = Reflect.get(Intl, 'RelativeTimeFormat');
     Reflect.deleteProperty(Intl, 'RelativeTimeFormat');

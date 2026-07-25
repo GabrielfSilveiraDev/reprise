@@ -91,15 +91,35 @@ function formatAbsoluteDate(date: Date): string {
 }
 
 /**
+ * Meia-noite local do dia em que o instante cai.
+ *
+ * <b>É daqui que sai "ontem".</b> "Ontem" é uma pergunta de calendário, não de duração: um
+ * episódio marcado hoje às 8h e outro marcado ontem às 22h30 estão a 10 horas um do outro, e
+ * mesmo assim são dias diferentes. Reduzir cada instante ao seu dia local antes de subtrair é o
+ * que separa os dois — e é por isso que a diferença tem de ser calculada entre meias-noites, e
+ * nunca entre os instantes originais.
+ *
+ * O construtor com ano/mês/dia (e não `setHours`) monta a data no fuso do aparelho, que é o
+ * calendário que a pessoa tem na cabeça quando lê a tela.
+ */
+function startOfLocalDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+/**
  * Datas recentes em linguagem relativa, o resto em data absoluta. O corte em 30 dias
  * existe porque "há 8 meses" é menos informativo do que "12 de nov. de 2025".
+ *
+ * O `Math.round` sobre a diferença de meias-noites não é preciosismo: em dia de mudança de
+ * horário o dia local tem 23 ou 25 horas, e dividir por 24 daria 0,96 ou 1,04. Arredondar
+ * devolve o número inteiro de dias que o calendário diz.
  */
 export function formatWatchedAt(iso: string | null | undefined, now: Date = new Date()): string {
   if (!iso) return 'nunca';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return 'nunca';
 
-  const days = Math.round((date.getTime() - now.getTime()) / 86_400_000);
+  const days = Math.round((startOfLocalDay(date) - startOfLocalDay(now)) / 86_400_000);
   return Math.abs(days) < 30 ? formatRelativeDays(days) : formatAbsoluteDate(date);
 }
 
