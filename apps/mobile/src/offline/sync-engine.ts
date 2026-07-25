@@ -137,6 +137,12 @@ export class SyncEngine {
           body: { watchedAt: action.watchedAt, clientKey: action.clientKey },
         });
 
+      case 'set-status':
+        return client.PATCH('/series/{id}/status', {
+          params: { path: { id: action.seriesId } },
+          body: { status: action.status },
+        });
+
       case 'watch-up-to':
         return client.POST('/series/{id}/watch-up-to', {
           params: { path: { id: action.seriesId } },

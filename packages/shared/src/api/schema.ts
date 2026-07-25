@@ -357,6 +357,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/series/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Muda o estado da série: Following, Archived, ForLater ou Finished. */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StatusBody"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrackingUpdateResult"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/series/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Muda o estado de várias séries de uma vez. Definir um valor é idempotente. */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TrackingChange"][];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrackingUpdateResult"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/stats/overview": {
         parameters: {
             query?: never;
@@ -591,6 +673,9 @@ export interface components {
             /** Format: date-time */
             lastWatchedAt: null | string;
         };
+        StatusBody: {
+            status: string;
+        };
         StreaksDto: {
             /** Format: int32 */
             longestDays: number;
@@ -618,6 +703,16 @@ export interface components {
             distinctEpisodes: number;
             /** Format: int64 */
             seconds: number;
+        };
+        TrackingChange: {
+            /** Format: int64 */
+            seriesId: number;
+            status: string;
+        };
+        TrackingUpdateResult: {
+            /** Format: int32 */
+            updated: number;
+            notFound: number[];
         };
         WatchStateDto: {
             /** Format: int64 */

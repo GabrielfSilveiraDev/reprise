@@ -11,6 +11,7 @@ import {
   formatSeriesStatus,
   formatWatchCount,
   posterUrl,
+  SERIES_STATUSES,
 } from '@reprise/shared';
 import type { Episode, ProjectableEpisode, Season, SeriesDetail } from '@reprise/shared';
 import {
@@ -19,6 +20,7 @@ import {
   useMarkUpTo,
   usePendingActions,
   useSeriesDetail,
+  useSetSeriesStatus,
   useUnmarkEpisode,
 } from '@/api/queries';
 import { QueryState } from '@/components/query-state';
@@ -130,6 +132,8 @@ function Detail({ series }: { series: SeriesDetail }) {
         <Text style={[styles.overview, { color: t.fgMuted }]}>{series.overview}</Text>
       ) : null}
 
+      <StatusPicker seriesId={series.id} current={series.status} />
+
       {series.seasons.map((season) => (
         <SeasonBlock
           key={season.seasonNumber}
@@ -143,6 +147,52 @@ function Detail({ series }: { series: SeriesDetail }) {
         />
       ))}
     </ScrollView>
+  );
+}
+
+/**
+ * Estado de acompanhamento. Fica no detalhe porque é uma decisão sobre a série inteira, e é o
+ * que tira uma série de "Próximos" sem apagar um único evento do histórico.
+ */
+function StatusPicker({ seriesId, current }: { seriesId: number; current: string }) {
+  const t = useTheme();
+  const setStatus = useSetSeriesStatus();
+
+  return (
+    <View style={styles.statusBlock}>
+      <Text style={[styles.statusTitle, { color: t.fgSubtle }]}>ESTADO</Text>
+      <View style={styles.statusRow}>
+        {SERIES_STATUSES.map((status) => {
+          const active = status === current;
+          return (
+            <Pressable
+              key={status}
+              onPress={() => setStatus.mutate({ seriesId, status })}
+              disabled={active || setStatus.isPending}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`Marcar como ${formatSeriesStatus(status)}`}
+              style={[
+                styles.statusChip,
+                {
+                  backgroundColor: active ? t.accentQuiet : 'transparent',
+                  borderColor: active ? t.accent : t.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusChipText,
+                  { color: active ? t.fg : t.fgMuted, fontWeight: active ? '700' : '500' },
+                ]}
+              >
+                {formatSeriesStatus(status)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -314,6 +364,17 @@ const styles = StyleSheet.create({
   completionRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing[2], marginTop: Spacing[2] },
   completionLabel: { flex: 1, fontSize: FontSize.xs },
   overview: { paddingHorizontal: Spacing[4], fontSize: FontSize.sm, lineHeight: 21 },
+  statusBlock: { paddingHorizontal: Spacing[4], paddingTop: Spacing[4], gap: Spacing[2] },
+  statusTitle: { fontSize: 10, letterSpacing: 1, fontWeight: '700' },
+  statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing[2] },
+  statusChip: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing[3],
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  statusChipText: { fontSize: FontSize.sm },
 
   season: { marginTop: Spacing[5] },
   seasonHead: {

@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<SeriesQueries>();
         services.AddScoped<WatchingService>();
         services.AddScoped<ProfileQueries>();
+        services.AddScoped<TrackingService>();
 
         return services;
     }

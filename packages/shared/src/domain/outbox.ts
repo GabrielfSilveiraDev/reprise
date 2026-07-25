@@ -24,6 +24,17 @@ export type PendingAction =
       readonly seasonNumber: number;
       readonly episodeNumber: number;
       readonly watchedAt: string;
+    }
+  /**
+   * Mudança de estado de acompanhamento. Entra na fila como as demais — tudo o que o usuário faz
+   * sem rede tem de sobreviver —, mas não é uma exibição: não mexe em contagem nenhuma.
+   */
+  | {
+      readonly kind: 'set-status';
+      readonly clientKey: string;
+      readonly seriesId: number;
+      readonly status: string;
+      readonly watchedAt: string;
     };
 
 export type PendingActionKind = PendingAction['kind'];
@@ -131,6 +142,10 @@ export class OutboxPlanner {
               if ((counts.get(e.id) ?? 0) === 0) bump(e.id, +1);
             }
           }
+          break;
+
+        case 'set-status':
+          // Estado de acompanhamento não é exibição: nada a projetar.
           break;
 
         case 'watch-up-to':

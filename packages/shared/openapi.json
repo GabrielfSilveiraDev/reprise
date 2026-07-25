@@ -317,6 +317,81 @@
         }
       }
     },
+    "/series/{id}/status": {
+      "patch": {
+        "tags": [
+          "Series"
+        ],
+        "summary": "Muda o estado da série: Following, Archived, ForLater ou Finished.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingUpdateResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/status": {
+      "patch": {
+        "tags": [
+          "Series"
+        ],
+        "summary": "Muda o estado de várias séries de uma vez. Definir um valor é idempotente.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrackingChange"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingUpdateResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/stats/overview": {
       "get": {
         "tags": [
@@ -1093,6 +1168,17 @@
           }
         }
       },
+      "StatusBody": {
+        "required": [
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "StreaksDto": {
         "required": [
           "longestDays",
@@ -1207,6 +1293,54 @@
               "string"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "TrackingChange": {
+        "required": [
+          "seriesId",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "seriesId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "TrackingUpdateResult": {
+        "required": [
+          "updated",
+          "notFound"
+        ],
+        "type": "object",
+        "properties": {
+          "updated": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "notFound": {
+            "type": "array",
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int64"
+            }
           }
         }
       },

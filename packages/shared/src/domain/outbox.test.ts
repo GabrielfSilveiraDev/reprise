@@ -140,6 +140,41 @@ describe('OutboxPlanner.project', () => {
   });
 });
 
+describe('OutboxPlanner e a mudança de estado', () => {
+  const estado = (clientKey: string, seriesId: number, status: string): PendingAction => ({
+    kind: 'set-status',
+    clientKey,
+    seriesId,
+    status,
+    watchedAt: AGORA,
+  });
+
+  it('entra na fila como qualquer outra ação', () => {
+    const plano = OutboxPlanner.planEnqueue([], estado('k1', 7, 'Finished'));
+    assert.equal(plano.add?.clientKey, 'k1');
+    assert.deepEqual(plano.drop, []);
+  });
+
+  it('não mexe em contagem de exibição — não é uma exibição', () => {
+    const contagens = OutboxPlanner.project(catalogo({ 1: 2 }), [estado('k1', 7, 'Finished')]);
+    assert.equal(contagens.get(1), 2);
+    assert.equal(contagens.get(2), 0);
+  });
+
+  it('não anula nem é anulada por marcações do mesmo episódio', () => {
+    const fila = [ver('k1', 2), estado('k2', 7, 'Archived')];
+    const plano = OutboxPlanner.planEnqueue(fila, desver('k3', 2));
+    assert.deepEqual(plano.drop, ['k1'], 'a marcação pendente ainda é anulada por trás do estado');
+    assert.equal(plano.add, null);
+  });
+
+  it('conta para a série que nomeia', () => {
+    const mapa = new Map([[1, 7]]);
+    assert.equal(OutboxPlanner.countForSeries([estado('k1', 7, 'Finished')], 7, mapa), 1);
+    assert.equal(OutboxPlanner.countForSeries([estado('k1', 7, 'Finished')], 42, mapa), 0);
+  });
+});
+
 describe('OutboxPlanner.countForSeries', () => {
   const deEpisodioParaSerie = new Map([
     [1, 7],

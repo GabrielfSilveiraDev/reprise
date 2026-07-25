@@ -136,6 +136,7 @@ function useEnqueue() {
       // Só vale reler o servidor se algo de fato chegou lá.
       result.sent > 0 ? qc.invalidateQueries({ queryKey: keys.series }) : Promise.resolve(),
       result.sent > 0 ? qc.invalidateQueries({ queryKey: keys.nextUp }) : Promise.resolve(),
+      result.sent > 0 ? qc.invalidateQueries({ queryKey: keys.profile }) : Promise.resolve(),
     ]);
     return result;
   };
@@ -167,6 +168,18 @@ export function useMarkUpTo(seriesId: number) {
   return useMutation({
     mutationFn: (target: { seasonNumber: number; episodeNumber: number }) =>
       enqueue({ kind: 'watch-up-to', seriesId, ...target }),
+  });
+}
+
+/**
+ * Muda o estado de acompanhamento de uma série. Passa pela mesma fila das marcações — tudo o
+ * que se faz sem rede tem de sobreviver —, mas não cria nem apaga exibição nenhuma.
+ */
+export function useSetSeriesStatus() {
+  const enqueue = useEnqueue();
+  return useMutation({
+    mutationFn: (target: { seriesId: number; status: string }) =>
+      enqueue({ kind: 'set-status', ...target }),
   });
 }
 
