@@ -14,3 +14,5 @@ export * from './domain/outbox.ts';
 export * from './domain/seriesCompletion.ts';
 export * from './domain/premiereReminders.ts';
 export * from './domain/sessionSummary.ts';
+
+export * from './brand/logo.ts';

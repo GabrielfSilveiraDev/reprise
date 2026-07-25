@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Auth } from '../api/auth';
+import { Logo } from '../components/Logo';
 import './LoginPage.css';
 
 /** Entrar · criar conta · digitar o código que valida a conta recém-criada. */
@@ -58,7 +59,10 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
     <div className="login">
       <div className="login__panel">
         <header className="login__head">
-          <p className="login__wordmark">Reprise</p>
+          <p className="login__wordmark">
+            <Logo size={34} title="Reprise" />
+            Reprise
+          </p>
           <p className="login__tagline">Uma exibição é um evento, não um booleano.</p>
         </header>
 

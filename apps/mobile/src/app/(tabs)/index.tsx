@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { formatEpisodeCode, formatWatchedAt, posterUrl } from '@reprise/shared';
 import type { NextUpItem } from '@reprise/shared';
 import { useMarkEpisode, useNextUp, usePremieres } from '@/api/queries';
+import { Logo } from '@/components/logo';
 import { PremiereStrip } from '@/components/premiere-strip';
 import { QueryState } from '@/components/query-state';
 import { SyncBar } from '@/components/sync-bar';
@@ -42,7 +43,10 @@ export default function NextUpScreen() {
               <View>
                 <PremiereStrip premieres={premieres.data ?? []} />
                 <View style={styles.head}>
-                  <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>Próximos</Text>
+                  <View style={styles.brandRow}>
+                    <Logo size={18} />
+                    <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>Próximos</Text>
+                  </View>
                   <Text style={[styles.title, { color: t.fg }]}>Onde você parou</Text>
                 </View>
               </View>
@@ -117,6 +121,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   list: { paddingBottom: Spacing[8] },
   head: { paddingHorizontal: Spacing[4], paddingTop: Spacing[5], paddingBottom: Spacing[4] },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing[2] },
   eyebrow: EyebrowStyle,
   title: { fontSize: FontSize.xl, fontWeight: '700', marginTop: Spacing[1] },
   empty: { padding: Spacing[4], fontSize: FontSize.base, lineHeight: 22 },

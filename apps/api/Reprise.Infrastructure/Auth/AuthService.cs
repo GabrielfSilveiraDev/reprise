@@ -96,10 +96,13 @@ public sealed class AuthService
     /// e-mail por confirmar e só entra depois de o código ser conferido.
     /// </summary>
     public async Task<RegistrationResult> RegisterAsync(
-        string email, string password, string displayName, string? userName, CancellationToken ct = default)
+        string? email, string? password, string? displayName, string? userName, CancellationToken ct = default)
     {
         if (!_options.AllowRegistration)
             return new RegistrationResult(AuthFailure.RegistrationClosed);
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(password))
+            return new RegistrationResult(AuthFailure.WeakPassword, Detail: "E-mail e senha são obrigatórios.");
 
         if (await _users.FindByEmailAsync(email) is not null)
             return new RegistrationResult(AuthFailure.EmailTaken);
@@ -155,8 +158,11 @@ public sealed class AuthService
 
     /// <summary>Confere o código e libera a conta, já devolvendo a sessão.</summary>
     public async Task<AuthResult> ConfirmEmailAsync(
-        string email, string code, string? device, CancellationToken ct = default)
+        string? email, string? code, string? device, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code))
+            return AuthResult.Fail(AuthFailure.InvalidCode);
+
         var user = await _users.FindByEmailAsync(email.Trim());
         if (user is null) return AuthResult.Fail(AuthFailure.InvalidCode);
 
@@ -179,8 +185,10 @@ public sealed class AuthService
     /// Manda o código de novo. Responde igual para conta inexistente e conta já confirmada: um
     /// endpoint de reenvio que distingue os casos vira um verificador de quem tem conta.
     /// </summary>
-    public async Task<bool> ResendConfirmationAsync(string email, CancellationToken ct = default)
+    public async Task<bool> ResendConfirmationAsync(string? email, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(email)) return false;
+
         var user = await _users.FindByEmailAsync(email.Trim());
         if (user is null || user.EmailConfirmed) return false;
         return await SendConfirmationCodeAsync(user, ct);
@@ -192,8 +200,14 @@ public sealed class AuthService
     /// dois o formulário quer.
     /// </summary>
     public async Task<AuthResult> LoginAsync(
-        string identifier, string password, string? device, CancellationToken ct = default)
+        string? identifier, string? password, string? device, CancellationToken ct = default)
     {
+        // Campo vazio ou ausente é credencial inválida, não erro do servidor. Sem esta guarda,
+        // um corpo malformado — um cliente desatualizado mandando outro nome de campo, por
+        // exemplo — vira exceção não tratada e HTTP 500. Entrada de fora nunca deve derrubar.
+        if (string.IsNullOrWhiteSpace(identifier) || string.IsNullOrEmpty(password))
+            return AuthResult.Fail(AuthFailure.InvalidCredentials);
+
         var user = await FindByIdentifierAsync(identifier);
 
         // Mesma resposta para "não existe" e "senha errada": distingui-las entrega a lista de
@@ -223,8 +237,11 @@ public sealed class AuthService
     /// A rotação é o que limita o estrago de um token roubado: ele só vale até o dono legítimo
     /// renovar, e a partir daí a apresentação do token velho falha.
     /// </summary>
-    public async Task<AuthResult> RefreshAsync(string refreshToken, string? device, CancellationToken ct = default)
+    public async Task<AuthResult> RefreshAsync(string? refreshToken, string? device, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            return AuthResult.Fail(AuthFailure.InvalidRefreshToken);
+
         var now = _clock.GetUtcNow();
         var hash = RefreshToken.Hash(refreshToken);
 
@@ -241,8 +258,10 @@ public sealed class AuthService
     }
 
     /// <summary>Encerra uma sessão. Idempotente: sair duas vezes não é erro.</summary>
-    public async Task LogoutAsync(string refreshToken, CancellationToken ct = default)
+    public async Task LogoutAsync(string? refreshToken, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(refreshToken)) return;
+
         var hash = RefreshToken.Hash(refreshToken);
         var stored = await _db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash, ct);
         if (stored is { RevokedAt: null })

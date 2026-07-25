@@ -79,3 +79,16 @@
   font-weight: 640;
   color: var(--fg-muted);
 }
+
+/* O símbolo herda a cor do texto ao redor, então acompanha o tema sem uma segunda versão. */
+.logo {
+  display: inline-flex;
+  flex: none;
+  color: var(--accent);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}

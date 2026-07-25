@@ -1,4 +1,3 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { PremiereReminders } from '@reprise/shared';
 import type { Premiere } from '@reprise/shared';
@@ -15,29 +14,42 @@ export interface ReminderState {
 /**
  * Avisos de estreia, agendados **localmente**.
  *
- * <para>
- * Local, e não push. As datas de estreia já estão no aparelho depois do sync, então mandar isso
- * por servidor exigiria infraestrutura de push, chaves e um serviço acordado 24h — para entregar
- * uma informação que o telefone já tem. O sistema operacional dispara sozinho, inclusive com o
- * app fechado e sem rede.
- * </para>
+ * <b>Local, e não push.</b> As datas de estreia já estão no aparelho depois do sync, então mandar
+ * isso por servidor exigiria infraestrutura de push para entregar o que o telefone já tem. O
+ * sistema operacional dispara sozinho, inclusive com o app fechado e sem rede.
  *
- * <para>
- * O que decide o quê e quando mora no <c>PremiereReminders</c>, puro e testado. Aqui fica só a
- * conversa com o sistema — permissão, agendamento e o registro do que já foi agendado.
- * </para>
+ * <b>O módulo é carregado sob demanda.</b> O `expo-notifications` registra um ouvinte de token de
+ * push assim que é importado — e o Expo Go removeu push do Android no SDK 53, então o simples ato
+ * de importar cuspia um erro vermelho na tela de quem nunca ligou notificação. Importar só quando
+ * o recurso é usado resolve isso e, de quebra, não faz ninguém pagar por um módulo nativo que não
+ * pediu.
+ *
+ * O que decide o quê e quando mora no `PremiereReminders`, puro e testado. Aqui fica só a conversa
+ * com o sistema — permissão, agendamento e o registro do que já foi agendado.
  */
 export class Reminders {
-  static configure(): void {
-    // Como o aviso se comporta com o app aberto. Sem isto ele chega e não aparece.
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: false,
-        shouldSetBadge: false,
-      }),
-    });
+  /** O import dinâmico é memorizado: carregar o módulo nativo duas vezes seria desperdício. */
+  private static module: Promise<typeof import('expo-notifications')> | null = null;
+  private static configured = false;
+
+  private static async load() {
+    Reminders.module ??= import('expo-notifications');
+    const Notifications = await Reminders.module;
+
+    if (!Reminders.configured) {
+      // Como o aviso se comporta com o app aberto. Sem isto ele chega e não aparece.
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        }),
+      });
+      Reminders.configured = true;
+    }
+
+    return Notifications;
   }
 
   static async isEnabled(): Promise<boolean> {
@@ -53,10 +65,10 @@ export class Reminders {
    * está ligado sem poder notificar seria mentir na tela.
    */
   static async enable(): Promise<boolean> {
-    const existing = await Notifications.getPermissionsAsync();
-    const granted =
-      existing.granted || (await Notifications.requestPermissionsAsync()).granted;
+    const Notifications = await Reminders.load();
 
+    const existing = await Notifications.getPermissionsAsync();
+    const granted = existing.granted || (await Notifications.requestPermissionsAsync()).granted;
     if (!granted) return false;
 
     if (Platform.OS === 'android') {
@@ -74,24 +86,28 @@ export class Reminders {
   }
 
   static async disable(): Promise<void> {
+    const Notifications = await Reminders.load();
     await Notifications.cancelAllScheduledNotificationsAsync();
+
     const store = await LocalStore.open();
     await store.setSetting(SETTING_ENABLED, 'false');
     await store.setSetting(SETTING_SCHEDULED, '[]');
   }
 
   /**
-   * Agenda o que falta. Idempotente: chamar de novo com a mesma lista não duplica nada, porque
-   * as chaves já agendadas ficam guardadas — e sem isso cada abertura do app empilharia um aviso
-   * a mais para a mesma estreia.
+   * Agenda o que falta. Idempotente: chamar de novo com a mesma lista não duplica nada, porque as
+   * chaves já agendadas ficam guardadas — sem isso, cada abertura do app empilharia um aviso a
+   * mais para a mesma estreia.
    */
   static async sync(premieres: readonly Premiere[]): Promise<ReminderState> {
     const store = await LocalStore.open();
 
+    // Sai antes de carregar o módulo nativo: quem não ligou notificação não deve pagar por ele.
     if ((await store.getSetting(SETTING_ENABLED)) !== 'true') {
       return { enabled: false, scheduled: 0 };
     }
 
+    const Notifications = await Reminders.load();
     const already = Reminders.parseKeys(await store.getSetting(SETTING_SCHEDULED));
 
     const plans = PremiereReminders.plan(

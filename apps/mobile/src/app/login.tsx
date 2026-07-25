@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Auth } from '@/api/auth';
 import { ApiEndpoint } from '@/api/client';
+import { Logo } from '@/components/logo';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -100,7 +101,10 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.head}>
-            <Text style={[styles.wordmark, { color: t.fg }]}>Reprise</Text>
+            <View style={styles.brand}>
+              <Logo size={34} />
+              <Text style={[styles.wordmark, { color: t.fg }]}>Reprise</Text>
+            </View>
             <Text style={[styles.tagline, { color: t.fgMuted }]}>
               Uma exibição é um evento, não um booleano.
             </Text>
@@ -261,6 +265,7 @@ const styles = StyleSheet.create({
   content: { padding: Spacing[5], gap: Spacing[6], flexGrow: 1, justifyContent: 'center' },
 
   head: { gap: Spacing[1] },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: Spacing[3] },
   wordmark: { fontSize: FontSize.xxl, fontWeight: '700', letterSpacing: -0.5 },
   tagline: { fontSize: FontSize.sm },
 

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 import { Auth } from './api/auth';
 import { WebSession } from './api/session';
+import { Logo } from './components/Logo';
 import { LoginPage } from './pages/LoginPage';
 import { NextUpPage } from './pages/NextUpPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -29,6 +30,7 @@ export function App() {
       <header className="app-bar">
         <div className="app-bar__inner">
           <NavLink to="/" className="brand">
+            <Logo size={22} />
             Reprise
           </NavLink>
           <nav aria-label="Principal">
