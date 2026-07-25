@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatEpisodeCode, formatWatchedAt } from '@reprise/shared';
-import { ApiEndpoint } from '@/api/client';
+import { AccessToken, ApiEndpoint } from '@/api/client';
 import { syncEngine, useDeadLetters, usePendingActions } from '@/api/queries';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
@@ -24,6 +24,8 @@ export default function SettingsScreen() {
 
   const [url, setUrl] = useState('');
   const [saved, setSaved] = useState<string | null>(null);
+  const [token, setToken] = useState('');
+  const [tokenSalvo, setTokenSalvo] = useState(false);
   const pending = usePendingActions();
   const deadLetters = useDeadLetters();
 
@@ -32,6 +34,9 @@ export default function SettingsScreen() {
       setUrl(value);
       setSaved(value);
     });
+    // O token nunca é lido de volta para a tela — só se sabe se existe. Reexibir um segredo
+    // para conferência é o tipo de conveniência que acaba num print de tela em algum lugar.
+    AccessToken.has().then(setTokenSalvo);
   }, []);
 
   const save = async () => {
@@ -39,6 +44,13 @@ export default function SettingsScreen() {
     await ApiEndpoint.write(normalized);
     setUrl(normalized);
     setSaved(normalized);
+    await qc.invalidateQueries();
+  };
+
+  const saveToken = async () => {
+    await AccessToken.write(token);
+    setTokenSalvo(token.trim().length > 0);
+    setToken('');
     await qc.invalidateQueries();
   };
 
@@ -77,6 +89,54 @@ export default function SettingsScreen() {
           >
             <Text style={[styles.buttonText, { color: t.accentFg }]}>Salvar</Text>
           </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: t.fg }]}>Token de acesso</Text>
+          <Text style={[styles.hint, { color: t.fgMuted }]}>
+            Só é necessário quando a API está exposta fora da sua rede — por túnel, por exemplo.
+            Em casa, deixe vazio. Fica guardado no cofre do sistema e não é exibido de volta.
+          </Text>
+          <TextInput
+            value={token}
+            onChangeText={setToken}
+            placeholder={tokenSalvo ? 'um token está salvo — digite para trocar' : 'sem token'}
+            placeholderTextColor={t.fgSubtle}
+            autoCapitalize="none"
+            autoCorrect={false}
+            secureTextEntry
+            style={[styles.input, { color: t.fg, borderColor: t.borderStrong, backgroundColor: t.bgRaised }]}
+            accessibilityLabel="Token de acesso da API"
+          />
+          <View style={styles.buttonRow}>
+            <Pressable
+              onPress={saveToken}
+              disabled={token.trim().length === 0}
+              style={[
+                styles.button,
+                styles.buttonGrow,
+                { backgroundColor: t.accent, opacity: token.trim().length === 0 ? 0.5 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Salvar token de acesso"
+            >
+              <Text style={[styles.buttonText, { color: t.accentFg }]}>Salvar token</Text>
+            </Pressable>
+            {tokenSalvo ? (
+              <Pressable
+                onPress={async () => {
+                  await AccessToken.write('');
+                  setTokenSalvo(false);
+                  await qc.invalidateQueries();
+                }}
+                style={[styles.button, styles.buttonGrow, { borderColor: t.borderStrong, borderWidth: 1 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Remover token de acesso"
+              >
+                <Text style={[styles.buttonText, { color: t.fg }]}>Remover</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -185,6 +245,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[4],
   },
   buttonText: { fontSize: FontSize.base, fontWeight: '700' },
+  buttonRow: { flexDirection: 'row', gap: Spacing[2] },
+  buttonGrow: { flex: 1 },
 
   row: {
     flexDirection: 'row',

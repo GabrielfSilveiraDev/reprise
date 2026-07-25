@@ -36,6 +36,16 @@ export interface FlushResult {
  * marcou.
  */
 export class SyncEngine {
+  /**
+   * Status 4xx que **não** são recusa da ação, e sim "tente de novo depois".
+   *
+   * 401 e 403 estão aqui por um motivo concreto: com o cadeado de acesso ligado, um token errado
+   * devolve 401 em tudo. Tratar isso como recusa definitiva mandaria a fila inteira para carta
+   * morta por causa de um campo mal digitado em Ajustes — o erro é de configuração, não da ação,
+   * e some assim que o token for corrigido.
+   */
+  private static readonly TryAgainLater = new Set([401, 403, 408, 429]);
+
   private readonly outbox: Outbox;
   private readonly cache: ResponseCache;
 
@@ -91,8 +101,7 @@ export class SyncEngine {
       if (result.error === undefined) return { outcome: 'sent' };
 
       const status = result.response?.status ?? 0;
-      // 408 e 429 são "volte depois", não recusa.
-      const definitive = status >= 400 && status < 500 && status !== 408 && status !== 429;
+      const definitive = status >= 400 && status < 500 && !SyncEngine.TryAgainLater.has(status);
       const message = `HTTP ${status}`;
       return definitive ? { outcome: 'rejected', error: message } : { outcome: 'retry', error: message };
     } catch (cause) {

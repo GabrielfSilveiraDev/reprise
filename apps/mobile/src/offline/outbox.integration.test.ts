@@ -235,19 +235,24 @@ describe('ResponseCache contra SQLite real', () => {
  */
 describe('Entrega contra a API real', () => {
   const baseUrl = process.env.REPRISE_API_URL ?? 'http://localhost:5156';
+  // Quando o cadeado de acesso está ligado (API exposta por túnel), sem isto tudo volta 401 e
+  // os testes se pulam em silêncio — passando a impressão de suíte verde sem ter testado nada.
+  const headers: Record<string, string> = process.env.REPRISE_API_TOKEN
+    ? { 'X-Reprise-Token': process.env.REPRISE_API_TOKEN }
+    : {};
   let disponivel = false;
   let seriesId: number | null = null;
   let episodeId: number | null = null;
 
   before(async () => {
     try {
-      const ping = await fetch(baseUrl, { signal: AbortSignal.timeout(2000) });
+      const ping = await fetch(baseUrl, { headers, signal: AbortSignal.timeout(2000) });
       disponivel = ping.ok;
       if (!disponivel) return;
       // Um episódio qualquer serve — o teste desfaz o que fizer.
-      const series = (await (await fetch(`${baseUrl}/series`)).json()) as { id: number }[];
+      const series = (await (await fetch(`${baseUrl}/series`, { headers })).json()) as { id: number }[];
       seriesId = series[0]!.id;
-      const detail = (await (await fetch(`${baseUrl}/series/${seriesId}`)).json()) as {
+      const detail = (await (await fetch(`${baseUrl}/series/${seriesId}`, { headers })).json()) as {
         seasons: { episodes: { id: number }[] }[];
       };
       episodeId = detail.seasons[0]?.episodes[0]?.id ?? null;
@@ -259,21 +264,21 @@ describe('Entrega contra a API real', () => {
   it('a mesma clientKey enviada três vezes cria uma exibição só', async (t) => {
     if (!disponivel || episodeId === null) return t.skip('API fora do ar');
 
-    const antes = await watchCount(baseUrl, seriesId!, episodeId);
+    const antes = await watchCount(baseUrl, seriesId!, episodeId, headers);
     const clientKey = randomUUID();
     const body = JSON.stringify({ watchedAt: new Date().toISOString(), clientKey });
 
     for (let i = 0; i < 3; i += 1) {
       const res = await fetch(`${baseUrl}/episodes/${episodeId}/watch`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body,
       });
       assert.equal(res.ok, true, `tentativa ${i + 1} respondeu ${res.status}`);
     }
 
     assert.equal(
-      await watchCount(baseUrl, seriesId!, episodeId),
+      await watchCount(baseUrl, seriesId!, episodeId, headers),
       antes + 1,
       'três entregas da mesma ação = uma exibição',
     );
@@ -281,61 +286,69 @@ describe('Entrega contra a API real', () => {
     // Desfaz, com chave própria.
     await fetch(`${baseUrl}/episodes/${episodeId}/watch?clientKey=${randomUUID()}`, {
       method: 'DELETE',
+      headers,
     });
-    assert.equal(await watchCount(baseUrl, seriesId!, episodeId), antes, 'estado restaurado');
+    assert.equal(await watchCount(baseUrl, seriesId!, episodeId, headers), antes, 'estado restaurado');
   });
 
   it('chaves diferentes criam rewatch de verdade', async (t) => {
     if (!disponivel || episodeId === null) return t.skip('API fora do ar');
 
-    const antes = await watchCount(baseUrl, seriesId!, episodeId);
+    const antes = await watchCount(baseUrl, seriesId!, episodeId, headers);
     for (let i = 0; i < 2; i += 1) {
       await fetch(`${baseUrl}/episodes/${episodeId}/watch`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ watchedAt: new Date().toISOString(), clientKey: randomUUID() }),
       });
     }
-    assert.equal(await watchCount(baseUrl, seriesId!, episodeId), antes + 2);
+    assert.equal(await watchCount(baseUrl, seriesId!, episodeId, headers), antes + 2);
 
     for (let i = 0; i < 2; i += 1) {
       await fetch(`${baseUrl}/episodes/${episodeId}/watch?clientKey=${randomUUID()}`, {
         method: 'DELETE',
+        headers,
       });
     }
-    assert.equal(await watchCount(baseUrl, seriesId!, episodeId), antes, 'estado restaurado');
+    assert.equal(await watchCount(baseUrl, seriesId!, episodeId, headers), antes, 'estado restaurado');
   });
 
   it('desmarcar com a mesma chave remove uma exibição só', async (t) => {
     if (!disponivel || episodeId === null) return t.skip('API fora do ar');
 
-    const antes = await watchCount(baseUrl, seriesId!, episodeId);
+    const antes = await watchCount(baseUrl, seriesId!, episodeId, headers);
     await fetch(`${baseUrl}/episodes/${episodeId}/watch`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify({ watchedAt: new Date().toISOString(), clientKey: randomUUID() }),
     });
-    assert.equal(await watchCount(baseUrl, seriesId!, episodeId), antes + 1);
+    assert.equal(await watchCount(baseUrl, seriesId!, episodeId, headers), antes + 1);
 
     const clientKey = randomUUID();
     for (let i = 0; i < 3; i += 1) {
       await fetch(`${baseUrl}/episodes/${episodeId}/watch?clientKey=${clientKey}`, {
         method: 'DELETE',
+        headers,
       });
     }
-    assert.equal(await watchCount(baseUrl, seriesId!, episodeId), antes, 'três entregas removeram uma só');
+    assert.equal(await watchCount(baseUrl, seriesId!, episodeId, headers), antes, 'três entregas removeram uma só');
   });
 
   after(async () => {
     if (!disponivel || episodeId === null) return;
     // Rede de segurança: se alguma asserção falhou no meio, o episódio não fica sujo.
-    process.stdout.write(`\n  estado final do episódio ${episodeId}: ${await watchCount(baseUrl, seriesId!, episodeId)} exibição(ões)\n`);
+    process.stdout.write(`\n  estado final do episódio ${episodeId}: ${await watchCount(baseUrl, seriesId!, episodeId, headers)} exibição(ões)\n`);
   });
 });
 
 /** A contagem vem do detalhe da série — que é onde o servidor a deriva do log de eventos. */
-async function watchCount(baseUrl: string, seriesId: number, episodeId: number): Promise<number> {
-  const detail = (await (await fetch(`${baseUrl}/series/${seriesId}`)).json()) as {
+async function watchCount(
+  baseUrl: string,
+  seriesId: number,
+  episodeId: number,
+  headers: Record<string, string> = {},
+): Promise<number> {
+  const detail = (await (await fetch(`${baseUrl}/series/${seriesId}`, { headers })).json()) as {
     seasons: { episodes: { id: number; watchCount: number }[] }[];
   };
   for (const season of detail.seasons) {

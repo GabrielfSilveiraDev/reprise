@@ -33,8 +33,9 @@ export function QueryState<T>({
       <View style={styles.center}>
         <Text style={[styles.title, { color: t.fg }]}>Não deu para falar com a API</Text>
         <Text style={[styles.body, { color: t.fgMuted }]}>
-          Nada em cache para mostrar ainda. Confira o endereço da API em Ajustes — o celular
-          precisa do IP da máquina na rede, não de localhost.
+          Nada em cache para mostrar ainda. Confira em Ajustes o endereço da API — o celular
+          precisa do IP da máquina na rede, não de localhost — e, se ela estiver exposta por
+          túnel, o token de acesso.
         </Text>
         <Text style={[styles.detail, { color: t.fgSubtle }]}>{String(query.error)}</Text>
       </View>

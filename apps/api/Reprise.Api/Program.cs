@@ -1,4 +1,5 @@
 using Reprise.Api.Endpoints;
+using Reprise.Api.Security;
 using Reprise.Application;
 using Reprise.Infrastructure;
 
@@ -13,6 +14,10 @@ builder.Services.AddRepriseApplication();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// Primeiro de tudo: quando `Api:AccessToken` está configurado, nada responde sem o token.
+// Desligado por padrão — na LAN não há o que trancar.
+app.UseAccessTokenGate();
 
 // OpenAPI em /openapi/v1.json — fonte do cliente TypeScript gerado (packages/shared).
 app.MapOpenApi();

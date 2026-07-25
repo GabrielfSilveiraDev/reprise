@@ -2,12 +2,21 @@ import createClient from 'openapi-fetch';
 import type { components, paths } from './schema.ts';
 
 /**
+ * Cabeçalho do cadeado de acesso da API (ver `AccessTokenGate` no servidor). Só é exigido
+ * quando a API está configurada com um token — em casa, na LAN, não vai nada aqui.
+ */
+export const ACCESS_TOKEN_HEADER = 'X-Reprise-Token';
+
+/**
  * Cliente tipado da API, gerado a partir do OpenAPI que a própria API publica.
  * Nada de tipos escritos à mão que silenciosamente desalinham do servidor: rode
  * `pnpm --filter @reprise/shared generate` depois de mexer nos endpoints.
  */
-export function createRepriseClient(baseUrl: string) {
-  return createClient<paths>({ baseUrl });
+export function createRepriseClient(baseUrl: string, accessToken?: string | null) {
+  return createClient<paths>({
+    baseUrl,
+    headers: accessToken ? { [ACCESS_TOKEN_HEADER]: accessToken } : undefined,
+  });
 }
 
 export type RepriseClient = ReturnType<typeof createRepriseClient>;
