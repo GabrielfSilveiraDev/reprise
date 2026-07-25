@@ -4,6 +4,7 @@ import {
   formatRuntime,
   formatWatchCount,
   formatWatchedAt,
+  stillUrl,
 } from '@reprise/shared';
 import type { Episode } from '@reprise/shared';
 import './EpisodeList.css';
@@ -88,6 +89,29 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
             tabIndex={index === 0 ? 0 : -1}
             onKeyDown={(e) => handleKey(e, episode, index)}
           >
+            {/*
+              A capa entrou no web depois do app: 8.619 imagens estavam no banco sem ninguém
+              exibi-las aqui. `loading="lazy"` porque uma temporada de 24 linhas não precisa
+              buscar 24 imagens antes de a lista aparecer.
+            */}
+            {stillUrl(episode.stillPath, 'w185') ? (
+              <img
+                className="episode__still"
+                src={stillUrl(episode.stillPath, 'w185') ?? undefined}
+                alt=""
+                loading="lazy"
+                width={80}
+                height={45}
+              />
+            ) : (
+              /* Sem imagem, uma cartela tipográfica — não um retângulo vazio que pareça
+                 carregamento falho. Mesmo raciocínio da versão do app. */
+              <span className="episode__plate" aria-hidden="true">
+                {episode.seasonNumber === 0 ? 'ESP' : `T${episode.seasonNumber}`}
+                <b>{episode.episodeNumber}</b>
+              </span>
+            )}
+
             <span className="episode__code tabular">
               {formatEpisodeCode(episode.seasonNumber, episode.episodeNumber)}
             </span>

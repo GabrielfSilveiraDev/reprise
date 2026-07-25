@@ -93,3 +93,46 @@
     display: none;
   }
 }
+
+/* Miniatura do episódio. Largura fixa para as linhas não dançarem entre com e sem imagem. */
+.episode__still,
+.episode__plate {
+  width: 80px;
+  height: 45px;
+  border-radius: var(--radius-sm);
+  flex: none;
+}
+
+.episode__still {
+  object-fit: cover;
+  background: var(--bg-sunken);
+}
+
+.episode__plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  font-size: 0.5625rem;
+  letter-spacing: var(--tracking-wide);
+  font-weight: 700;
+  color: var(--fg-subtle);
+  line-height: 1;
+}
+
+.episode__plate b {
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+}
+
+/* Numa tela estreita a miniatura sai: o nome do episódio vale mais que a imagem. */
+@media (max-width: 40rem) {
+  .episode__still,
+  .episode__plate {
+    display: none;
+  }
+}

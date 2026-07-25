@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  SeriesCompletion,
   formatEpisodeCode,
   formatPercent,
   formatSeriesStatus,
@@ -13,6 +14,30 @@ import { QueryState } from '../components/QueryState';
 import './SeriesListPage.css';
 
 type Density = 'compact' | 'expanded';
+type Filter = 'all' | 'unfinished' | 'finished';
+
+function completionOf(series: SeriesListItem): SeriesCompletion {
+  return SeriesCompletion.of({
+    productionStatus: series.productionStatus,
+    episodesTotal: series.episodesTotal,
+    episodesWatched: series.episodesWatched,
+  });
+}
+
+/**
+ * Selo de conclusão. Existia só no app até agora, e a ausência aqui era um buraco real: no web,
+ * 52 séries encerradas e terminadas ficavam indistinguíveis das que ainda vão render temporada.
+ * Texto, não cor — "Finalizada" tem de ser legível em preto e branco.
+ */
+function CompletionBadge({ completion }: { completion: SeriesCompletion }) {
+  const badge = completion.badge;
+  if (!badge) return null;
+  return (
+    <span className={`badge badge--${completion.isFinished ? 'finished' : 'uptodate'}`}>
+      {badge}
+    </span>
+  );
+}
 
 /**
  * Lista de séries em duas densidades, como pede o briefing:
@@ -26,6 +51,7 @@ export function SeriesListPage() {
   const query = useSeriesList();
   const [density, setDensity] = useState<Density>('compact');
   const [filter, setFilter] = useState('');
+  const [state, setState] = useState<Filter>('all');
 
   return (
     <>
@@ -46,6 +72,28 @@ export function SeriesListPage() {
               onChange={(e) => setFilter(e.target.value)}
             />
           </label>
+
+          <fieldset className="density">
+            <legend className="sr-only">Filtrar por conclusão</legend>
+            {(
+              [
+                ['all', 'Todas'],
+                ['unfinished', 'Em aberto'],
+                ['finished', 'Finalizadas'],
+              ] as const
+            ).map(([value, label]) => (
+              <label key={value} className="density__option">
+                <input
+                  type="radio"
+                  name="conclusao"
+                  value={value}
+                  checked={state === value}
+                  onChange={() => setState(value)}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </fieldset>
 
           <fieldset className="density">
             <legend className="sr-only">Densidade da lista</legend>
@@ -72,9 +120,11 @@ export function SeriesListPage() {
         emptyHint="Importe seu export do TV Time para começar."
       >
         {(all) => {
-          const items = all.filter((s) =>
-            s.name.toLowerCase().includes(filter.trim().toLowerCase()),
-          );
+          const items = all.filter((s) => {
+            if (!s.name.toLowerCase().includes(filter.trim().toLowerCase())) return false;
+            if (state === 'all') return true;
+            return state === 'finished' ? completionOf(s).isFinished : !completionOf(s).isFinished;
+          });
 
           if (items.length === 0) {
             return (
@@ -133,7 +183,10 @@ function CompactRow({ series }: { series: SeriesListItem }) {
       <Link to={`/series/${series.id}`} className="series__name">
         {series.name}
       </Link>
-      <span className="series__status">{formatSeriesStatus(series.status)}</span>
+      <span className="series__status">
+        <CompletionBadge completion={completionOf(series)} />
+        {formatSeriesStatus(series.status)}
+      </span>
       <Progress series={series} />
       <span className="series__next tabular">
         {series.nextUp

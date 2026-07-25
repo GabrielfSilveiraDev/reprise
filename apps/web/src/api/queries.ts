@@ -134,6 +134,30 @@ export function useMarkUpTo(seriesId: number) {
   });
 }
 
+/**
+ * Muda o estado de acompanhamento. Existia só no app: pelo web não havia como arquivar nada.
+ * Não toca no log de exibições — arquivar não apaga histórico.
+ */
+export function useSetSeriesStatus(seriesId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (status: string) =>
+      unwrap(
+        await (await client()).PATCH('/series/{id}/status', {
+          params: { path: { id: seriesId } },
+          body: { status },
+        }),
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: keys.series }),
+        qc.invalidateQueries({ queryKey: keys.seriesDetail(seriesId) }),
+        qc.invalidateQueries({ queryKey: keys.nextUp }),
+      ]);
+    },
+  });
+}
+
 export function useStatsOverview(includeBackfill: boolean) {
   return useQuery({
     queryKey: keys.stats(includeBackfill),

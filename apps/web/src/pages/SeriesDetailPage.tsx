@@ -8,10 +8,12 @@ import {
   WatchTrack,
 } from '@reprise/shared';
 import type { Episode, Season } from '@reprise/shared';
+import { SERIES_STATUSES } from '@reprise/shared';
 import {
   useMarkEpisode,
   useMarkSeason,
   useMarkUpTo,
+  useSetSeriesStatus,
   useSeriesDetail,
   useUnmarkEpisode,
 } from '../api/queries';
@@ -79,6 +81,8 @@ export function SeriesDetailPage() {
                   <p className="detail-head__original">{series.originalName}</p>
                 ) : null}
 
+                <StatusPicker seriesId={seriesId} current={series.status} />
+
                 <div className="progress detail-head__progress">
                   <span className="progress__text tabular">
                     {series.episodesWatched}/{series.episodesTotal} episódios
@@ -144,6 +148,34 @@ interface SeasonProps {
   onMarkUpTo: (e: Episode) => void;
   onMarkSeason: () => void;
   markingSeason: boolean;
+}
+
+/**
+ * Estado de acompanhamento. `fieldset` + `radio` porque é escolha exclusiva de verdade: o
+ * navegador já dá navegação por setas e o leitor de tela anuncia "1 de 4" sem ajuda nenhuma.
+ * Existia só no app — pelo web não havia como arquivar uma série.
+ */
+function StatusPicker({ seriesId, current }: { seriesId: number; current: string }) {
+  const setStatus = useSetSeriesStatus(seriesId);
+
+  return (
+    <fieldset className="status-picker">
+      <legend className="sr-only">Estado desta série</legend>
+      {SERIES_STATUSES.map((status) => (
+        <label key={status} className="status-picker__option">
+          <input
+            type="radio"
+            name="series-status"
+            value={status}
+            checked={status === current}
+            disabled={setStatus.isPending}
+            onChange={() => setStatus.mutate(status)}
+          />
+          <span>{formatSeriesStatus(status)}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
 }
 
 function SeasonSection({
