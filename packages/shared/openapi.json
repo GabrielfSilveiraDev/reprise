@@ -27,7 +27,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Cria uma conta. Recusado quando o cadastro está fechado (o padrão).",
+        "summary": "Cria a conta e envia o código de validação. Não devolve sessão.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -44,7 +44,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionDto"
+                  "$ref": "#/components/schemas/RegistrationDto"
                 }
               }
             }
@@ -72,12 +72,65 @@
         }
       }
     },
+    "/auth/confirm": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Valida a conta com o código de seis dígitos e já devolve a sessão.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/resend": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Reenvia o código. Responde igual em todos os casos, de propósito.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/auth/login": {
       "post": {
         "tags": [
           "Auth"
         ],
-        "summary": "Autentica e devolve o par de tokens.",
+        "summary": "Autentica por e-mail ou nome de usuário e devolve o par de tokens.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -708,6 +761,21 @@
           }
         }
       },
+      "ConfirmBody": {
+        "required": [
+          "email",
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
       "EpisodeDto": {
         "required": [
           "id",
@@ -1059,12 +1127,12 @@
       },
       "LoginBody": {
         "required": [
-          "email",
+          "identifier",
           "password"
         ],
         "type": "object",
         "properties": {
-          "email": {
+          "identifier": {
             "type": "string"
           },
           "password": {
@@ -1347,7 +1415,8 @@
         "required": [
           "email",
           "password",
-          "displayName"
+          "displayName",
+          "userName"
         ],
         "type": "object",
         "properties": {
@@ -1358,6 +1427,42 @@
             "type": "string"
           },
           "displayName": {
+            "type": "string"
+          },
+          "userName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RegistrationDto": {
+        "required": [
+          "email",
+          "emailSent",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "emailSent": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ResendBody": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
             "type": "string"
           }
         }

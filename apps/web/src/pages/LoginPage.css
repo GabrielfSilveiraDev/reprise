@@ -79,3 +79,12 @@
   min-height: var(--touch-target);
   justify-content: center;
 }
+
+/* Mensagem informativa do passo de validação — distinta do erro, que usa a cor de perigo. */
+.login__info {
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  background: var(--accent-quiet);
+  border-radius: var(--radius-md);
+}

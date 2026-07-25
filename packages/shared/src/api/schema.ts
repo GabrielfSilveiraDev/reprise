@@ -41,7 +41,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cria uma conta. Recusado quando o cadastro está fechado (o padrão). */
+        /** Cria a conta e envia o código de validação. Não devolve sessão. */
         post: {
             parameters: {
                 query?: never;
@@ -61,7 +61,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SessionDto"];
+                        "application/json": components["schemas"]["RegistrationDto"];
                     };
                 };
                 /** @description Bad Request */
@@ -90,6 +90,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Valida a conta com o código de seis dígitos e já devolve a sessão. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmBody"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SessionDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reenvia o código. Responde igual em todos os casos, de propósito. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ResendBody"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -99,7 +177,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Autentica e devolve o par de tokens. */
+        /** Autentica por e-mail ou nome de usuário e devolve o par de tokens. */
         post: {
             parameters: {
                 query?: never;
@@ -789,6 +867,10 @@ export interface components {
             /** Format: int64 */
             seconds: number;
         };
+        ConfirmBody: {
+            email: string;
+            code: string;
+        };
         EpisodeDto: {
             /** Format: int64 */
             id: number;
@@ -870,7 +952,7 @@ export interface components {
             };
         };
         LoginBody: {
-            email: string;
+            identifier: string;
             password: string;
         };
         MarkBody: {
@@ -940,6 +1022,15 @@ export interface components {
             email: string;
             password: string;
             displayName: string;
+            userName: null | string;
+        };
+        RegistrationDto: {
+            email: string;
+            emailSent: boolean;
+            message: string;
+        };
+        ResendBody: {
+            email: string;
         };
         RewatchSessionDto: {
             /** Format: int32 */

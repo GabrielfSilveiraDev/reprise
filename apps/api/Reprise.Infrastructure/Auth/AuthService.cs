@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Reprise.Application.Abstractions;
 using Reprise.Domain.Entities;
 using Reprise.Infrastructure.Persistence;
 
@@ -26,7 +27,11 @@ public enum AuthFailure
     EmailTaken,
     RegistrationClosed,
     WeakPassword,
-    InvalidRefreshToken
+    InvalidRefreshToken,
+    /// <summary>Credenciais certas, mas o e-mail nunca foi validado.</summary>
+    EmailNotConfirmed,
+    /// <summary>Código de validação errado, vencido ou já usado.</summary>
+    InvalidCode
 }
 
 public sealed record AuthResult(AuthTokens? Tokens, AuthFailure Failure, string? Detail = null)
@@ -37,7 +42,20 @@ public sealed record AuthResult(AuthTokens? Tokens, AuthFailure Failure, string?
 }
 
 /// <summary>
-/// Cadastro, login e renovação.
+/// O que o cadastro devolve. Repare que <b>não há tokens</b>: a conta recém-criada ainda não
+/// entra, porque o e-mail não foi validado. Entregar sessão aqui esvaziaria a validação.
+/// </summary>
+public sealed record RegistrationResult(
+    AuthFailure Failure,
+    string? Email = null,
+    bool EmailSent = false,
+    string? Detail = null)
+{
+    public bool Succeeded => Failure == AuthFailure.None;
+}
+
+/// <summary>
+/// Cadastro, login, validação de e-mail e renovação.
 ///
 /// <para>
 /// O hash de senha vem do <see cref="IPasswordHasher{TUser}"/> do Identity, não de código próprio:
@@ -47,35 +65,56 @@ public sealed record AuthResult(AuthTokens? Tokens, AuthFailure Failure, string?
 /// </summary>
 public sealed class AuthService
 {
+    /// <summary>
+    /// Propósito do código, no vocabulário do Identity. Um token gerado para confirmar e-mail não
+    /// vale para redefinir senha — é o próprio Identity que amarra o propósito ao código.
+    /// </summary>
+    private const string ConfirmEmailPurpose = "EmailConfirmation";
+
     private readonly RepriseDbContext _db;
     private readonly UserManager<User> _users;
+    private readonly IEmailSender _email;
     private readonly JwtOptions _options;
     private readonly TimeProvider _clock;
 
     public AuthService(
-        RepriseDbContext db, UserManager<User> users, IOptions<JwtOptions> options, TimeProvider clock)
+        RepriseDbContext db,
+        UserManager<User> users,
+        IEmailSender email,
+        IOptions<JwtOptions> options,
+        TimeProvider clock)
     {
         _db = db;
         _users = users;
+        _email = email;
         _options = options.Value;
         _clock = clock;
     }
 
-    public async Task<AuthResult> RegisterAsync(
-        string email, string password, string displayName, string? device, CancellationToken ct = default)
+    /// <summary>
+    /// Cria a conta e manda o código de validação. <b>Não devolve sessão</b>: a conta nasce com o
+    /// e-mail por confirmar e só entra depois de o código ser conferido.
+    /// </summary>
+    public async Task<RegistrationResult> RegisterAsync(
+        string email, string password, string displayName, string? userName, CancellationToken ct = default)
     {
         if (!_options.AllowRegistration)
-            return AuthResult.Fail(AuthFailure.RegistrationClosed);
+            return new RegistrationResult(AuthFailure.RegistrationClosed);
 
         if (await _users.FindByEmailAsync(email) is not null)
-            return AuthResult.Fail(AuthFailure.EmailTaken);
+            return new RegistrationResult(AuthFailure.EmailTaken);
+
+        var login = string.IsNullOrWhiteSpace(userName) ? email : userName.Trim();
+        if (await _users.FindByNameAsync(login) is not null)
+            return new RegistrationResult(AuthFailure.EmailTaken, Detail: "Este nome de usuário já está em uso.");
 
         var user = new User
         {
             Id = Guid.CreateVersion7(),
-            UserName = email,
+            UserName = login,
             Email = email,
-            DisplayName = string.IsNullOrWhiteSpace(displayName) ? email.Split('@')[0] : displayName.Trim(),
+            EmailConfirmed = false,
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? login : displayName.Trim(),
             CreatedAt = _clock.GetUtcNow()
         };
 
@@ -83,23 +122,99 @@ public sealed class AuthService
         if (!created.Succeeded)
         {
             var detail = string.Join(' ', created.Errors.Select(e => e.Description));
-            return AuthResult.Fail(AuthFailure.WeakPassword, detail);
+            return new RegistrationResult(AuthFailure.WeakPassword, Detail: detail);
         }
+
+        var sent = await SendConfirmationCodeAsync(user, ct);
+        return new RegistrationResult(AuthFailure.None, email, sent);
+    }
+
+    /// <summary>
+    /// Gera e envia um código de seis dígitos.
+    ///
+    /// <para>
+    /// O código vem do <c>EmailTokenProvider</c> do Identity, que é TOTP por baixo: curto,
+    /// numérico, com validade própria e amarrado ao <c>SecurityStamp</c> do usuário — trocar a
+    /// senha invalida os códigos pendentes de graça. Sortear seis dígitos à mão e guardá-los numa
+    /// tabela seria reimplementar isso pior.
+    /// </para>
+    /// </summary>
+    private async Task<bool> SendConfirmationCodeAsync(User user, CancellationToken ct)
+    {
+        var code = await _users.GenerateUserTokenAsync(
+            user, TokenOptions.DefaultEmailProvider, ConfirmEmailPurpose);
+
+        var corpo =
+            $"{code}\n\n" +
+            $"Este é o código para validar a conta {user.UserName} no Reprise.\n" +
+            "Ele vale por poucos minutos e só serve uma vez.\n\n" +
+            "Se não foi você quem criou a conta, ignore esta mensagem.";
+
+        return await _email.SendAsync(user.Email!, "Seu código do Reprise", corpo, ct);
+    }
+
+    /// <summary>Confere o código e libera a conta, já devolvendo a sessão.</summary>
+    public async Task<AuthResult> ConfirmEmailAsync(
+        string email, string code, string? device, CancellationToken ct = default)
+    {
+        var user = await _users.FindByEmailAsync(email.Trim());
+        if (user is null) return AuthResult.Fail(AuthFailure.InvalidCode);
+
+        // Já confirmada: reapresentar o código não é erro, é repetição. Devolver a sessão evita
+        // que um toque duplicado no botão vire tela de erro.
+        if (user.EmailConfirmed) return AuthResult.Ok(await IssueAsync(user, device, ct));
+
+        var valid = await _users.VerifyUserTokenAsync(
+            user, TokenOptions.DefaultEmailProvider, ConfirmEmailPurpose, code.Trim());
+
+        if (!valid) return AuthResult.Fail(AuthFailure.InvalidCode);
+
+        user.EmailConfirmed = true;
+        await _users.UpdateAsync(user);
 
         return AuthResult.Ok(await IssueAsync(user, device, ct));
     }
 
-    public async Task<AuthResult> LoginAsync(
-        string email, string password, string? device, CancellationToken ct = default)
+    /// <summary>
+    /// Manda o código de novo. Responde igual para conta inexistente e conta já confirmada: um
+    /// endpoint de reenvio que distingue os casos vira um verificador de quem tem conta.
+    /// </summary>
+    public async Task<bool> ResendConfirmationAsync(string email, CancellationToken ct = default)
     {
-        var user = await _users.FindByEmailAsync(email);
+        var user = await _users.FindByEmailAsync(email.Trim());
+        if (user is null || user.EmailConfirmed) return false;
+        return await SendConfirmationCodeAsync(user, ct);
+    }
+
+    /// <summary>
+    /// Entra com <b>e-mail ou nome de usuário</b>. Aceitar os dois é o mínimo que se espera de um
+    /// campo chamado "usuário": quem cadastrou um apelido não deveria precisar lembrar qual dos
+    /// dois o formulário quer.
+    /// </summary>
+    public async Task<AuthResult> LoginAsync(
+        string identifier, string password, string? device, CancellationToken ct = default)
+    {
+        var user = await FindByIdentifierAsync(identifier);
 
         // Mesma resposta para "não existe" e "senha errada": distingui-las entrega a lista de
         // quem tem conta a quem só tem a URL.
         if (user is null || !await _users.CheckPasswordAsync(user, password))
             return AuthResult.Fail(AuthFailure.InvalidCredentials);
 
+        // Conta sem e-mail confirmado não entra — é o que dá sentido ao código de validação.
+        // Contas anteriores à verificação já nascem confirmadas, então ninguém fica de fora.
+        if (!user.EmailConfirmed)
+            return AuthResult.Fail(AuthFailure.EmailNotConfirmed, user.Email);
+
         return AuthResult.Ok(await IssueAsync(user, device, ct));
+    }
+
+    private async Task<User?> FindByIdentifierAsync(string identifier)
+    {
+        var trimmed = identifier.Trim();
+        return trimmed.Contains('@')
+            ? await _users.FindByEmailAsync(trimmed)
+            : await _users.FindByNameAsync(trimmed);
     }
 
     /// <summary>

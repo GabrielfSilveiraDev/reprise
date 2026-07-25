@@ -14,7 +14,7 @@ using Reprise.Infrastructure;
 //   reprise-import enrich [--force] [--tvdb <id>]      casa as séries no TMDB e completa o catálogo
 //   reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]
 //       recoloca exibições que aconteceram mas o export perdeu, com data inferida dos vizinhos
-//   reprise-import passwd --email <e> --password <p> [--name <nome>]
+//   reprise-import passwd --email <e> --password <p> [--name <nome>] [--user <usuario>]
 //       define a senha de uma conta (cria se não existir). É como o dono entra na própria conta
 //       depois que a autenticação passou a existir.
 
@@ -25,7 +25,7 @@ if (positional.Length == 0)
     Console.Error.WriteLine("Uso: reprise-import <caminho-do-export.zip|.csv> [--dry-run]");
     Console.Error.WriteLine("     reprise-import enrich [--force] [--tvdb <id>]");
     Console.Error.WriteLine("     reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]");
-    Console.Error.WriteLine("     reprise-import passwd --email <e> --password <p> [--name <nome>]");
+    Console.Error.WriteLine("     reprise-import passwd --email <e> --password <p> [--name <nome>] [--user <usuario>]");
     return 1;
 }
 
@@ -105,11 +105,21 @@ static async Task<int> RunPasswdAsync(string[] args, string conn)
         return 1;
     }
 
+    var mudou = false;
     if (Flag(args, "--name") is { Length: > 0 } nome)
     {
         user.DisplayName = nome;
-        await users.UpdateAsync(user);
+        mudou = true;
     }
+    if (Flag(args, "--user") is { Length: > 0 } login)
+    {
+        // O nome de usuário é a outra forma de entrar (o login aceita e-mail ou usuário), então
+        // precisa do normalizado junto — é por ele que o Identity procura.
+        user.UserName = login;
+        user.NormalizedUserName = users.NormalizeName(login);
+        mudou = true;
+    }
+    if (mudou) await users.UpdateAsync(user);
 
     Console.WriteLine($"Senha definida para {email} ({user.Id}).");
     return 0;

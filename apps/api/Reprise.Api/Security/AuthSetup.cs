@@ -6,6 +6,7 @@ using Reprise.Application.Abstractions;
 using Reprise.Domain.Entities;
 using Reprise.Infrastructure;
 using Reprise.Infrastructure.Auth;
+using Reprise.Infrastructure.Email;
 using Reprise.Infrastructure.Persistence;
 
 namespace Reprise.Api.Security;
@@ -41,7 +42,20 @@ public static class AuthSetup
         });
 
         // A política de senha mora em AddRepriseIdentityCore, compartilhada com a CLI.
-        services.AddRepriseIdentityCore().AddRoles<IdentityRole<Guid>>();
+        // AddDefaultTokenProviders traz o EmailTokenProvider, que gera o código de seis dígitos.
+        services.AddRepriseIdentityCore().AddRoles<IdentityRole<Guid>>().AddDefaultTokenProviders();
+
+        services.Configure<SmtpOptions>(o =>
+        {
+            o.Host = configuration["Smtp:Host"] ?? o.Host;
+            o.Port = configuration.GetValue("Smtp:Port", o.Port);
+            o.User = configuration["Smtp:User"] ?? o.User;
+            o.Password = configuration["Smtp:Password"] ?? o.Password;
+            o.FromAddress = configuration["Smtp:FromAddress"] ?? o.FromAddress;
+            o.FromName = configuration["Smtp:FromName"] ?? o.FromName;
+            o.UseSsl = configuration.GetValue("Smtp:UseSsl", o.UseSsl);
+        });
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
 
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<AuthService>();

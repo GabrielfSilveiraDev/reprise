@@ -18,49 +18,79 @@ import { ApiEndpoint } from '@/api/client';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+/** Entrar · criar conta · digitar o código que valida a conta recém-criada. */
+type Step = 'login' | 'register' | 'confirm';
+
 /**
- * Entrar (ou criar conta).
+ * Autenticação.
  *
  * O endereço da API fica aqui, e não só em Ajustes, porque Ajustes está do outro lado do login:
- * quem chega com o endereço errado ficaria preso numa tela que não tem como consertar. Este é o
- * único lugar do app onde a configuração precisa ser alcançável antes de autenticar.
+ * quem chega com o endereço errado ficaria preso numa tela sem como consertá-la.
  */
 export default function LoginScreen() {
   const t = useTheme();
   const qc = useQueryClient();
 
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [step, setStep] = useState<Step>('login');
+  const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [code, setCode] = useState('');
   const [apiUrl, setApiUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   useEffect(() => {
     ApiEndpoint.read().then(setApiUrl);
   }, []);
+
+  const entrar = async () => {
+    await qc.invalidateQueries();
+    router.replace('/');
+  };
 
   const submit = async () => {
     setBusy(true);
     setError(null);
     try {
       await ApiEndpoint.write(apiUrl);
-      if (mode === 'login') await Auth.login(email.trim(), password);
-      else await Auth.register(email.trim(), password, displayName.trim());
 
-      // A sessão trocou: o cache de quem estava antes não vale mais nada.
-      await qc.invalidateQueries();
-      router.replace('/');
+      if (step === 'login') {
+        await Auth.login(identifier.trim(), password);
+        await entrar();
+        return;
+      }
+
+      if (step === 'register') {
+        const r = await Auth.register(email.trim(), password, displayName.trim(), identifier.trim());
+        setInfo(r.message);
+        setStep('confirm');
+        return;
+      }
+
+      await Auth.confirm(email.trim(), code.trim());
+      await entrar();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Não deu para entrar.');
+      setError(cause instanceof Error ? cause.message : 'Não deu para continuar.');
     } finally {
       setBusy(false);
     }
   };
 
   const podeEnviar =
-    email.trim().length > 3 && password.length >= 10 && (mode === 'login' || displayName.trim().length > 0);
+    step === 'login'
+      ? identifier.trim().length > 2 && password.length >= 10
+      : step === 'register'
+        ? email.trim().includes('@') &&
+          password.length >= 10 &&
+          identifier.trim().length > 2 &&
+          displayName.trim().length > 0
+        : code.trim().length === 6;
+
+  const rotuloBotao =
+    step === 'login' ? 'Entrar' : step === 'register' ? 'Criar conta' : 'Validar conta';
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: t.bg }]}>
@@ -77,25 +107,62 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.form}>
-            <Field
-              label="E-mail"
-              value={email}
-              onChange={setEmail}
-              autoComplete="email"
-              inputMode="email"
-            />
+            {step === 'confirm' ? (
+              <>
+                {info ? (
+                  <View style={[styles.info, { backgroundColor: t.accentQuiet }]}>
+                    <Text style={[styles.infoText, { color: t.fg }]}>{info}</Text>
+                  </View>
+                ) : null}
 
-            {mode === 'register' ? (
-              <Field label="Como quer ser chamado" value={displayName} onChange={setDisplayName} />
-            ) : null}
+                <Field
+                  label="Código de seis dígitos"
+                  value={code}
+                  onChange={setCode}
+                  inputMode="numeric"
+                  hint={`Enviado para ${email}.`}
+                />
 
-            <Field
-              label="Senha"
-              value={password}
-              onChange={setPassword}
-              secure
-              hint={mode === 'register' ? 'Mínimo de 10 caracteres.' : undefined}
-            />
+                <Pressable
+                  onPress={async () => {
+                    await Auth.resend(email.trim());
+                    setInfo('Código reenviado.');
+                  }}
+                  style={styles.switch}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.switchText, { color: t.focus }]}>Reenviar código</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Field
+                  label={step === 'login' ? 'Usuário ou e-mail' : 'Nome de usuário'}
+                  value={identifier}
+                  onChange={setIdentifier}
+                  autoComplete="username"
+                />
+
+                {step === 'register' ? (
+                  <>
+                    <Field label="E-mail" value={email} onChange={setEmail} inputMode="email" />
+                    <Field
+                      label="Como quer ser chamado"
+                      value={displayName}
+                      onChange={setDisplayName}
+                    />
+                  </>
+                ) : null}
+
+                <Field
+                  label="Senha"
+                  value={password}
+                  onChange={setPassword}
+                  secure
+                  hint={step === 'register' ? 'Mínimo de 10 caracteres.' : undefined}
+                />
+              </>
+            )}
 
             {error ? (
               <View style={[styles.error, { backgroundColor: t.bgSunken, borderColor: t.danger }]}>
@@ -111,27 +178,26 @@ export default function LoginScreen() {
                 { backgroundColor: t.accent, opacity: !podeEnviar || busy ? 0.5 : 1 },
               ]}
               accessibilityRole="button"
-              accessibilityLabel={mode === 'login' ? 'Entrar' : 'Criar conta'}
+              accessibilityLabel={rotuloBotao}
             >
               {busy ? (
                 <ActivityIndicator color={t.accentFg} />
               ) : (
-                <Text style={[styles.primaryText, { color: t.accentFg }]}>
-                  {mode === 'login' ? 'Entrar' : 'Criar conta'}
-                </Text>
+                <Text style={[styles.primaryText, { color: t.accentFg }]}>{rotuloBotao}</Text>
               )}
             </Pressable>
 
             <Pressable
               onPress={() => {
-                setMode((m) => (m === 'login' ? 'register' : 'login'));
+                setStep((s) => (s === 'login' ? 'register' : 'login'));
                 setError(null);
+                setInfo(null);
               }}
               style={styles.switch}
               accessibilityRole="button"
             >
               <Text style={[styles.switchText, { color: t.focus }]}>
-                {mode === 'login' ? 'Criar uma conta' : 'Já tenho conta'}
+                {step === 'login' ? 'Criar uma conta' : 'Já tenho conta'}
               </Text>
             </Pressable>
           </View>
@@ -165,8 +231,8 @@ function Field({
   onChange: (v: string) => void;
   secure?: boolean;
   hint?: string;
-  autoComplete?: 'email';
-  inputMode?: 'email' | 'url';
+  autoComplete?: 'username';
+  inputMode?: 'email' | 'url' | 'numeric';
 }) {
   const t = useTheme();
   return (
@@ -209,6 +275,9 @@ const styles = StyleSheet.create({
     minHeight: TouchTarget,
   },
   hint: { fontSize: FontSize.xs },
+
+  info: { padding: Spacing[3], borderRadius: Radius.md },
+  infoText: { fontSize: FontSize.sm, lineHeight: 20 },
 
   error: { borderLeftWidth: 3, borderRadius: Radius.md, padding: Spacing[3] },
   errorText: { fontSize: FontSize.sm },

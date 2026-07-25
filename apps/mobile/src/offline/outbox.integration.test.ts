@@ -260,7 +260,8 @@ describe('Entrega contra a API real', () => {
       const login = await fetch(`${baseUrl}/auth/login`, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        // `identifier`: o login aceita e-mail ou nome de usuário.
+        body: JSON.stringify({ identifier: email, password }),
       });
       if (!login.ok) return;
 

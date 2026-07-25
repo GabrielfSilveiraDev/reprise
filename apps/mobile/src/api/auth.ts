@@ -11,24 +11,40 @@ import type { StoredSession } from './session';
  * dispararia renovar.
  */
 export class Auth {
-  static async login(email: string, password: string): Promise<StoredSession> {
-    const session = await Auth.post<StoredSession>('/auth/login', { email, password });
+  /** `identifier` é e-mail ou nome de usuário — o servidor aceita os dois. */
+  static async login(identifier: string, password: string): Promise<StoredSession> {
+    const session = await Auth.post<StoredSession>('/auth/login', { identifier, password });
     await AuthSession.write(session);
     return session;
   }
 
+  /**
+   * Cria a conta. <b>Não devolve sessão</b>: a conta nasce por confirmar, e é o código enviado
+   * por e-mail que a libera. Devolver sessão aqui esvaziaria a validação.
+   */
   static async register(
     email: string,
     password: string,
     displayName: string,
-  ): Promise<StoredSession> {
-    const session = await Auth.post<StoredSession>('/auth/register', {
+    userName: string,
+  ): Promise<RegistrationResponse> {
+    return Auth.post<RegistrationResponse>('/auth/register', {
       email,
       password,
       displayName,
+      userName,
     });
+  }
+
+  /** Confere o código de seis dígitos e já entra. */
+  static async confirm(email: string, code: string): Promise<StoredSession> {
+    const session = await Auth.post<StoredSession>('/auth/confirm', { email, code });
     await AuthSession.write(session);
     return session;
+  }
+
+  static async resend(email: string): Promise<void> {
+    await Auth.post('/auth/resend', { email });
   }
 
   static async logout(): Promise<void> {
@@ -98,6 +114,13 @@ export class Auth {
 }
 
 /** Erro com o status HTTP preservado — a tela precisa dele para dizer o que houve. */
+export interface RegistrationResponse {
+  readonly email: string;
+  /** Falso quando o servidor não tem SMTP — o código foi para o log dele. */
+  readonly emailSent: boolean;
+  readonly message: string;
+}
+
 export class AuthError extends Error {
   readonly status: number;
 
@@ -110,9 +133,9 @@ export class AuthError extends Error {
 function Auth_message(status: number): string {
   switch (status) {
     case 401:
-      return 'E-mail ou senha incorretos.';
+      return 'Usuário ou senha incorretos.';
     case 403:
-      return 'O cadastro está fechado nesta instância.';
+      return 'Confirme seu e-mail antes de entrar, ou o cadastro está fechado nesta instância.';
     case 409:
       return 'Já existe uma conta com este e-mail.';
     case 400:

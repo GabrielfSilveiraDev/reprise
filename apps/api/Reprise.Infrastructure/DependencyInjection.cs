@@ -49,6 +49,9 @@ public static class DependencyInjection
                 o.Password.RequireUppercase = false;
                 o.Password.RequireDigit = false;
             })
+            // Sem AddDefaultTokenProviders: eles vivem no pacote de Identity do ASP.NET, que esta
+            // camada não referencia — e a CLI não gera código de validação. Ela roda na máquina do
+            // dono e cria contas já confirmadas; quem valida e-mail é a API.
             .AddEntityFrameworkStores<RepriseDbContext>();
 
     /// <summary>
