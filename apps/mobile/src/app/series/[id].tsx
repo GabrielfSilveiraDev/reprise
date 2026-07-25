@@ -97,6 +97,14 @@ function Detail({ series }: { series: SeriesDetail }) {
     episodesWatched: watched,
   });
 
+  // A primeira temporada regular com episódio por assistir. Especiais nunca disputam esse posto:
+  // ninguém retoma uma série por um especial.
+  const seasonToOpen =
+    series.seasons.find((s) => !s.isSpecials && s.episodes.some((e) => countOf(e) === 0))
+      ?.seasonNumber ??
+    series.seasons.find((s) => !s.isSpecials)?.seasonNumber ??
+    series.seasons[0]?.seasonNumber;
+
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.header}>
@@ -135,6 +143,12 @@ function Detail({ series }: { series: SeriesDetail }) {
 
       <StatusPicker seriesId={series.id} current={series.status} />
 
+      {/*
+        Uma temporada aberta, o resto fechado. Séries longas — Two and a Half Men tem 262
+        episódios em 12 temporadas — viravam uma rolagem infinita em que achar onde você parou
+        custava mais do que marcar. Abrir sozinha a temporada do próximo episódio responde à
+        pergunta com que se entra na tela; se não há próximo (série terminada), abre a primeira.
+      */}
       {series.seasons.map((season) => (
         <SeasonBlock
           key={season.seasonNumber}
@@ -142,6 +156,7 @@ function Detail({ series }: { series: SeriesDetail }) {
           seriesId={series.id}
           countOf={countOf}
           peak={peak}
+          initiallyOpen={season.seasonNumber === seasonToOpen}
           onMarkUpTo={(e) =>
             markUpTo.mutate({ seasonNumber: e.seasonNumber, episodeNumber: e.episodeNumber })
           }
@@ -229,24 +244,46 @@ function SeasonBlock({
   seriesId,
   countOf,
   peak,
+  initiallyOpen,
   onMarkUpTo,
 }: {
   season: Season;
   seriesId: number;
   countOf: (e: Episode) => number;
   peak: number;
+  initiallyOpen: boolean;
   onMarkUpTo: (e: Episode) => void;
 }) {
   const t = useTheme();
+  const [open, setOpen] = useState(initiallyOpen);
   const markSeason = useMarkSeason(seriesId);
-  const unseen = season.episodes.filter((e) => countOf(e) === 0).length;
+
+  const total = season.episodes.length;
+  const watched = season.episodes.filter((e) => countOf(e) > 0).length;
+  const unseen = total - watched;
+  const nome = season.isSpecials ? 'Especiais' : `Temporada ${season.seasonNumber}`;
 
   return (
     <View style={styles.season}>
       <View style={[styles.seasonHead, { borderBottomColor: t.border }]}>
-        <Text style={[styles.seasonTitle, { color: t.fg }]}>
-          {season.isSpecials ? 'Especiais' : `Temporada ${season.seasonNumber}`}
-        </Text>
+        <Pressable
+          style={styles.seasonToggle}
+          onPress={() => setOpen((v) => !v)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={`${nome}, ${watched} de ${total} assistidos. ${open ? 'Recolher' : 'Expandir'}.`}
+        >
+          {/* Seta em texto: o estado aberto/fechado não depende só da rotação de um ícone. */}
+          <Text style={[styles.seasonChevron, { color: t.fgSubtle }]}>{open ? '▾' : '▸'}</Text>
+          <View style={styles.seasonTitleBlock}>
+            <Text style={[styles.seasonTitle, { color: t.fg }]}>{nome}</Text>
+            {/* O progresso fica no cabeçalho para ser legível com a temporada fechada. */}
+            <Text style={[styles.seasonMeta, { color: t.fgSubtle }]}>
+              {watched}/{total}
+              {unseen === 0 ? ' · completa' : ''}
+            </Text>
+          </View>
+        </Pressable>
 
         {unseen > 0 ? (
           <Pressable
@@ -254,22 +291,24 @@ function SeasonBlock({
             disabled={markSeason.isPending}
             style={[styles.seasonAction, { borderColor: t.borderStrong }]}
             accessibilityRole="button"
-            accessibilityLabel={`Marcar os ${unseen} episódios não vistos da ${season.isSpecials ? 'lista de especiais' : `temporada ${season.seasonNumber}`}`}
+            accessibilityLabel={`Marcar os ${unseen} episódios não vistos de ${nome}`}
           >
             <Text style={[styles.seasonActionText, { color: t.fg }]}>Marcar {unseen}</Text>
           </Pressable>
         ) : null}
       </View>
 
-      {season.episodes.map((episode) => (
-        <SeasonEpisode
-          key={episode.id}
-          episode={episode}
-          count={countOf(episode)}
-          peak={peak}
-          onMarkUpTo={() => onMarkUpTo(episode)}
-        />
-      ))}
+      {open
+        ? season.episodes.map((episode) => (
+            <SeasonEpisode
+              key={episode.id}
+              episode={episode}
+              count={countOf(episode)}
+              peak={peak}
+              onMarkUpTo={() => onMarkUpTo(episode)}
+            />
+          ))
+        : null}
     </View>
   );
 }
@@ -309,7 +348,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     minHeight: TouchTarget,
   },
+  seasonToggle: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing[2], minHeight: TouchTarget },
+  seasonChevron: { fontSize: FontSize.base, width: 14 },
+  seasonTitleBlock: { flex: 1 },
   seasonTitle: { fontSize: FontSize.base, fontWeight: '700' },
+  seasonMeta: { fontSize: FontSize.xs, fontVariant: ['tabular-nums'] },
   seasonAction: {
     borderWidth: 1,
     borderRadius: Radius.md,

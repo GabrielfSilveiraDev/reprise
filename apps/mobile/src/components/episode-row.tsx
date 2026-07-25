@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
 import {
   formatEpisodeCode,
   formatRuntime,
   formatWatchCount,
   formatWatchedAt,
-  stillUrl,
 } from '@reprise/shared';
 import type { Episode } from '@reprise/shared';
+import { EpisodeThumb, THUMB_HEIGHT, THUMB_WIDTH } from '@/components/episode-thumb';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -52,7 +51,6 @@ export function EpisodeRow({
   const level = watched ? Math.max(1, Math.ceil((count / Math.max(1, peak)) * MAX_LEVEL)) : 0;
   const color = watched ? (t.track[level - 1] ?? t.accent) : t.trackEmpty;
   const code = formatEpisodeCode(episode.seasonNumber, episode.episodeNumber);
-  const still = stillUrl(episode.stillPath, 'w185');
 
   return (
     <View style={[styles.wrapper, { borderBottomColor: t.border }]}>
@@ -65,21 +63,12 @@ export function EpisodeRow({
           accessibilityLabel={`${code}${episode.name ? `, ${episode.name}` : ''}. ${formatWatchCount(count)}. Toque para mais ações.`}
         >
           <View style={styles.thumb}>
-            {still ? (
-              <Image
-                source={still}
-                style={[styles.still, { backgroundColor: t.bgSunken }]}
-                contentFit="cover"
-                transition={120}
-                // Episódio não visto fica dessaturado: a capa vira informação de estado em vez
-                // de enfeite, e a diferença aparece antes de ler qualquer texto.
-                {...(watched ? {} : { tintColor: undefined })}
-              />
-            ) : (
-              <View style={[styles.still, styles.stillEmpty, { backgroundColor: t.bgSunken }]}>
-                <Text style={[styles.stillEmptyText, { color: t.fgSubtle }]}>{code}</Text>
-              </View>
-            )}
+            <EpisodeThumb
+              seasonNumber={episode.seasonNumber}
+              episodeNumber={episode.episodeNumber}
+              stillPath={episode.stillPath}
+              watched={watched}
+            />
 
             {/* Segundo canal da intensidade: altura junto com o tom. */}
             <View style={[styles.levelTrack, { backgroundColor: t.trackEmpty }]}>
@@ -175,10 +164,7 @@ const styles = StyleSheet.create({
     minHeight: TouchTarget,
   },
 
-  thumb: { position: 'relative', width: 88 },
-  still: { width: 88, height: 50, borderRadius: Radius.sm },
-  stillEmpty: { alignItems: 'center', justifyContent: 'center' },
-  stillEmptyText: { fontSize: FontSize.xs, fontWeight: '700' },
+  thumb: { position: 'relative', width: THUMB_WIDTH },
   unseenRing: {
     position: 'absolute',
     inset: 0,
@@ -191,7 +177,7 @@ const styles = StyleSheet.create({
     left: 0,
     bottom: 0,
     width: 4,
-    height: 50,
+    height: THUMB_HEIGHT,
     borderBottomLeftRadius: Radius.sm,
     justifyContent: 'flex-end',
     overflow: 'hidden',

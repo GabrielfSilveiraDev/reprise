@@ -85,7 +85,10 @@ public sealed class SeriesQueries
 
         var seasons = epRows
             .GroupBy(e => e.SeasonNumber)
-            .OrderBy(g => g.Key)
+            // Especiais por último. A temporada 0 é uma convenção de numeração, não uma ordem de
+            // exibição: ninguém assiste os especiais antes do piloto. Ordenar aqui, e não em cada
+            // cliente, faz web e app concordarem sem combinar.
+            .OrderBy(g => g.Key == 0 ? int.MaxValue : g.Key)
             .Select(g => new SeasonDto(
                 g.Key, Name: null, IsSpecials: g.Key == 0,
                 g.OrderBy(e => e.EpisodeNumber)
