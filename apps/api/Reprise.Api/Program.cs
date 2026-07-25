@@ -40,5 +40,7 @@ secured.MapSeriesEndpoints();
 secured.MapWatchingEndpoints();
 secured.MapStatsEndpoints();
 secured.MapProfileEndpoints();
+secured.MapExportEndpoints();
+secured.MapPremiereEndpoints();
 
 app.Run();

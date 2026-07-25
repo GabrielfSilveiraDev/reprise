@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatEpisodeCode, formatWatchedAt } from '@reprise/shared';
 import { AccessToken, ApiEndpoint } from '@/api/client';
+import { DataExport } from '@/api/export';
 import { syncEngine, useDeadLetters, usePendingActions } from '@/api/queries';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
@@ -26,6 +27,8 @@ export default function SettingsScreen() {
   const [saved, setSaved] = useState<string | null>(null);
   const [token, setToken] = useState('');
   const [tokenSalvo, setTokenSalvo] = useState(false);
+  const [exportando, setExportando] = useState(false);
+  const [exportado, setExportado] = useState<string | null>(null);
   const pending = usePendingActions();
   const deadLetters = useDeadLetters();
 
@@ -137,6 +140,39 @@ export default function SettingsScreen() {
               </Pressable>
             ) : null}
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: t.fg }]}>Seus dados</Text>
+          <Text style={[styles.hint, { color: t.fgMuted }]}>
+            Baixa tudo em JSON — perfil, séries e cada exibição com data e origem — e passa para o
+            sistema guardar onde você quiser. É o que o TV Time não fez.
+          </Text>
+          <Pressable
+            onPress={async () => {
+              setExportando(true);
+              setExportado(null);
+              try {
+                const r = await DataExport.download();
+                setExportado(`${r.watchEvents.toLocaleString('pt-BR')} exibições em ${r.fileName}`);
+              } catch (cause) {
+                setExportado(cause instanceof Error ? cause.message : 'Não deu para exportar.');
+              } finally {
+                setExportando(false);
+              }
+            }}
+            disabled={exportando}
+            style={[styles.button, { backgroundColor: t.accent, opacity: exportando ? 0.5 : 1 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Exportar meus dados"
+          >
+            <Text style={[styles.buttonText, { color: t.accentFg }]}>
+              {exportando ? 'Preparando…' : 'Exportar meus dados'}
+            </Text>
+          </Pressable>
+          {exportado ? (
+            <Text style={[styles.hint, { color: t.fgSubtle }]}>{exportado}</Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>

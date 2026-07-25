@@ -259,6 +259,42 @@ entrega usam a API rodando e se pulam sozinhos quando ela não está no ar.
 É por isso que `Outbox` e `ResponseCache` recebem o banco de fora em vez de importar o módulo
 nativo: sem essa inversão, a peça mais arriscada do app só seria conferível com o celular na mão.
 
+## Autenticação
+
+Multiusuário: cada pessoa com login próprio e histórico separado. O `User` é a identidade do
+ASP.NET Identity **na mesma tabela `users`** de sempre — o `Id` é a chave de tenant de
+`tracked_series`, `watch_events`, `import_runs` e `processed_actions`, e trocá-lo obrigaria a
+remapear dezenas de milhares de linhas.
+
+```bash
+# Gere o segredo e defina a senha da sua conta
+export Jwt__Secret="$(openssl rand -base64 48)"
+dotnet run --project apps/api/Reprise.Importer -- passwd --email voce@exemplo.com --password "..."
+```
+
+Token de acesso de 30 min + refresh de 60 dias, **rotativo**: renovar consome o antigo. Sem o par,
+a escolha seria entre pedir senha no meio da série e um token longo impossível de revogar. O
+refresh é guardado só como **hash** — vazamento do banco não entrega sessão de ninguém.
+
+O cadastro é **fechado por padrão** (`Jwt__AllowRegistration`). Numa API exposta, aberto é porta
+aberta.
+
+O cadeado de acesso (`Api__AccessToken`) continua e resolve outra coisa: ele fecha a porta do
+prédio — nem a tela de login fica exposta —, enquanto o JWT diz quem é a pessoa lá dentro.
+
+## Export dos seus dados
+
+A razão de o projeto existir: o TV Time fechou levando os dados junto.
+
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:5156/export -o reprise.json
+```
+
+**Completo e reconstruível**, não um resumo: cada exibição com data, origem e a marca de backfill,
+endereçada por coordenadas estáveis (`tvdbId` + temporada + episódio), não por ids internos que
+não significam nada fora desta instalação. No app, Ajustes → Exportar meus dados passa o arquivo
+para a folha de compartilhamento — salvar na pasta privada do aplicativo seria repetir o problema.
+
 ## Roadmap
 
 1. ~~**Modelo + importador** com relatório de conferência + enriquecimento TMDB~~ ✅
@@ -266,4 +302,5 @@ nativo: sem essa inversão, a peça mais arriscada do app só seria conferível 
 3. ~~Web: lista, detalhe com trilha de episódios, marcação~~ ✅
 4. ~~Web: estatísticas~~ ✅
 5. ~~Mobile: paridade essencial + offline~~ ✅
-6. Fase 2: estreias/notificações, rewatch como sessão, filmes, export próprio em JSON
+6. Fase 2 — parcial: ~~export próprio em JSON~~ ✅, ~~calendário de estreias~~ ✅,
+   ~~autenticação multiusuário~~ ✅. Faltam: notificações de estreia, rewatch como sessão, filmes.

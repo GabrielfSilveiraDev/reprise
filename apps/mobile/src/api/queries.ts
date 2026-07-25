@@ -3,6 +3,7 @@ import type {
   NextUpItem,
   PendingAction,
   PendingActionDraft,
+  Premiere,
   Profile,
   SeriesDetail,
   SeriesListItem,
@@ -22,6 +23,7 @@ export const keys = {
   seriesDetail: (id: number) => ['series', id] as const,
   nextUp: ['next-up'] as const,
   profile: ['me'] as const,
+  premieres: ['premieres'] as const,
   stats: (includeBackfill: boolean) => ['stats', includeBackfill] as const,
   pending: ['pending'] as const,
   deadLetters: ['dead-letters'] as const,
@@ -66,6 +68,17 @@ export function useNextUp() {
     queryFn: async (): Promise<NextUpItem[]> => {
       const sync = await syncEngine();
       return sync.fetchWithCache('next-up', async (c) => unwrap(await c.GET('/next-up')));
+    },
+  });
+}
+
+/** O que ainda vai ao ar nas séries acompanhadas. Também em cache: dado de ontem serve. */
+export function usePremieres() {
+  return useQuery({
+    queryKey: keys.premieres,
+    queryFn: async (): Promise<Premiere[]> => {
+      const sync = await syncEngine();
+      return sync.fetchWithCache('premieres', async (c) => unwrap(await c.GET('/premieres')));
     },
   });
 }

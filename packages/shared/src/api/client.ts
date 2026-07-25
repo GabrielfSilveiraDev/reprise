@@ -44,6 +44,8 @@ export type NextUpItem = Schemas['NextUpItemDto'];
 export type WatchState = Schemas['WatchStateDto'];
 export type BulkMarkResult = Schemas['BulkMarkResult'];
 export type Profile = Schemas['ProfileDto'];
+export type Premiere = Schemas['PremiereDto'];
+export type ExportDocument = Schemas['ExportDocument'];
 
 export type StatsOverviewDto = Schemas['StatsOverviewDto'];
 export type StatsSummaryDto = Schemas['StatsSummaryDto'];

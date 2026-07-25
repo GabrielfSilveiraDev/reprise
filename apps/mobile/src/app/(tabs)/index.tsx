@@ -4,7 +4,8 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { formatEpisodeCode, formatWatchedAt, posterUrl } from '@reprise/shared';
 import type { NextUpItem } from '@reprise/shared';
-import { useMarkEpisode, useNextUp } from '@/api/queries';
+import { useMarkEpisode, useNextUp, usePremieres } from '@/api/queries';
+import { PremiereStrip } from '@/components/premiere-strip';
 import { QueryState } from '@/components/query-state';
 import { SyncBar } from '@/components/sync-bar';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
@@ -21,6 +22,9 @@ export default function NextUpScreen() {
   const t = useTheme();
   const status = useAutoSync();
   const query = useNextUp();
+  // Falha em silêncio de propósito: sem estreias a faixa não aparece, e não ter estreias não é
+  // motivo para a tela principal mostrar erro.
+  const premieres = usePremieres();
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: t.bg }]} edges={['top']}>
@@ -35,9 +39,12 @@ export default function NextUpScreen() {
             refreshing={query.isFetching}
             onRefresh={() => query.refetch()}
             ListHeaderComponent={
-              <View style={styles.head}>
-                <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>PRÓXIMOS</Text>
-                <Text style={[styles.title, { color: t.fg }]}>Onde você parou</Text>
+              <View>
+                <PremiereStrip premieres={premieres.data ?? []} />
+                <View style={styles.head}>
+                  <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>PRÓXIMOS</Text>
+                  <Text style={[styles.title, { color: t.fg }]}>Onde você parou</Text>
+                </View>
               </View>
             }
             ListEmptyComponent={

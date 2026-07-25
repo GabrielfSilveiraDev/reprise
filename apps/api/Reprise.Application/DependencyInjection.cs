@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using Reprise.Application.Features.Export;
+using Reprise.Application.Features.Premieres;
 using Reprise.Application.Features.Profile;
 using Reprise.Application.Features.Series;
 using Reprise.Application.Features.Watching;
@@ -24,6 +26,10 @@ public static class DependencyInjection
         services.AddScoped<BackfillService>();
         services.AddScoped<ProfileQueries>();
         services.AddScoped<TrackingService>();
+
+        // Fase 6
+        services.AddScoped<ExportQueries>();
+        services.AddScoped<PremiereQueries>();
 
         return services;
     }

@@ -615,6 +615,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export completo e reconstruível: perfil, séries e todas as exibições. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ExportDocument"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/premieres": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Episódios ainda por estrear das séries acompanhadas, do mais próximo ao mais distante. */
+        get: {
+            parameters: {
+                query?: {
+                    withinDays?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PremiereDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stats/overview": {
         parameters: {
             query?: never;
@@ -736,6 +817,47 @@ export interface components {
             episodeNumber: number;
             name: null | string;
         };
+        ExportDocument: {
+            format: string;
+            /** Format: date-time */
+            exportedAt: string;
+            profile: components["schemas"]["ExportedProfile"];
+            series: components["schemas"]["ExportedSeries"][];
+            watchEvents: components["schemas"]["ExportedWatchEvent"][];
+        };
+        ExportedProfile: {
+            displayName: string;
+            email: string;
+            /** Format: date-time */
+            memberSince: string;
+        };
+        ExportedSeries: {
+            /** Format: int32 */
+            tvdbId: number | null;
+            /** Format: int32 */
+            tmdbId: number | null;
+            name: string;
+            originalName: null | string;
+            status: string;
+            productionStatus: null | string;
+            /** Format: date-time */
+            addedAt: string;
+        };
+        ExportedWatchEvent: {
+            /** Format: int32 */
+            seriesTvdbId: number | null;
+            seriesName: string;
+            /** Format: int32 */
+            seasonNumber: number;
+            /** Format: int32 */
+            episodeNumber: number;
+            episodeName: null | string;
+            /** Format: date-time */
+            watchedAt: string;
+            source: string;
+            isBackfill: boolean;
+            sourceKey: null | string;
+        };
         HttpValidationProblemDetails: {
             type?: null | string;
             title?: null | string;
@@ -773,6 +895,23 @@ export interface components {
             episode: components["schemas"]["EpisodeRefDto"];
             /** Format: date-time */
             lastActivityAt: null | string;
+        };
+        PremiereDto: {
+            /** Format: int64 */
+            episodeId: number;
+            /** Format: int64 */
+            seriesId: number;
+            seriesName: string;
+            posterPath: null | string;
+            /** Format: int32 */
+            seasonNumber: number;
+            /** Format: int32 */
+            episodeNumber: number;
+            episodeName: null | string;
+            stillPath: null | string;
+            /** Format: date */
+            airDate: string;
+            isSeasonPremiere: boolean;
         };
         ProfileDto: {
             displayName: string;
