@@ -20,6 +20,12 @@ public class Episode
     public string? Name { get; set; }
     public DateOnly? AirDate { get; set; }
 
+    /// <summary>
+    /// Caminho da imagem de cena do episódio no TMDB (o "still"), no formato <c>/abc123.jpg</c>.
+    /// Nulo é comum e esperado: episódio antigo, especial ou de série pequena costuma não ter.
+    /// </summary>
+    public string? StillPath { get; set; }
+
     /// <summary>Runtime em segundos (o export vem em segundos: 2700 = 45 min).</summary>
     public int? RuntimeSeconds { get; set; }
 

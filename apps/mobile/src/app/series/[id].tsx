@@ -24,6 +24,7 @@ import {
   useUnmarkEpisode,
 } from '@/api/queries';
 import { QueryState } from '@/components/query-state';
+import { EpisodeRow } from '@/components/episode-row';
 import { CompletionBadge, ProgressBar } from '@/components/series-card';
 import { SyncBar } from '@/components/sync-bar';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
@@ -196,6 +197,33 @@ function StatusPicker({ seriesId, current }: { seriesId: number; current: string
   );
 }
 
+/** Liga a linha às mutações. Existe para que os hooks fiquem por episódio, não por temporada. */
+function SeasonEpisode({
+  episode,
+  count,
+  peak,
+  onMarkUpTo,
+}: {
+  episode: Episode;
+  count: number;
+  peak: number;
+  onMarkUpTo: () => void;
+}) {
+  const mark = useMarkEpisode();
+  const unmark = useUnmarkEpisode();
+
+  return (
+    <EpisodeRow
+      episode={episode}
+      count={count}
+      peak={peak}
+      onMark={() => mark.mutate(episode.id)}
+      onUnmark={() => unmark.mutate(episode.id)}
+      onMarkUpTo={onMarkUpTo}
+    />
+  );
+}
+
 function SeasonBlock({
   season,
   seriesId,
@@ -234,7 +262,7 @@ function SeasonBlock({
       </View>
 
       {season.episodes.map((episode) => (
-        <EpisodeRow
+        <SeasonEpisode
           key={episode.id}
           episode={episode}
           count={countOf(episode)}
@@ -243,111 +271,6 @@ function SeasonBlock({
         />
       ))}
     </View>
-  );
-}
-
-function EpisodeRow({
-  episode,
-  count,
-  peak,
-  onMarkUpTo,
-}: {
-  episode: Episode;
-  count: number;
-  peak: number;
-  onMarkUpTo: () => void;
-}) {
-  const t = useTheme();
-  const mark = useMarkEpisode();
-  const unmark = useUnmarkEpisode();
-  const [open, setOpen] = useState(false);
-
-  const watched = count > 0;
-  // A altura do bloco é relativa ao pico DESTA série, igual ao web: numa série vista 17 vezes,
-  // uma exibição precisa parecer pouco.
-  const level = watched ? Math.max(1, Math.ceil((count / Math.max(1, peak)) * 4)) : 0;
-  const color = watched ? t.track[level - 1] ?? t.accent : t.trackEmpty;
-  const code = formatEpisodeCode(episode.seasonNumber, episode.episodeNumber);
-
-  return (
-    <View>
-      <Pressable
-        onPress={() => setOpen((v) => !v)}
-        onLongPress={() => mark.mutate(episode.id)}
-        style={[styles.episodeRow, { borderBottomColor: t.border }]}
-        accessibilityRole="button"
-        accessibilityLabel={`${code}${episode.name ? `, ${episode.name}` : ''}. ${formatWatchCount(count)}. Toque para ações.`}
-      >
-        {/* Marca de estado: cor E contorno tracejado no não visto — nunca só a cor. */}
-        <View
-          style={[
-            styles.chip,
-            {
-              backgroundColor: watched ? color : 'transparent',
-              borderColor: watched ? color : t.borderStrong,
-              borderStyle: watched ? 'solid' : 'dashed',
-            },
-          ]}
-        />
-
-        <View style={styles.episodeText}>
-          <Text style={[styles.episodeName, { color: t.fg }]} numberOfLines={1}>
-            <Text style={styles.code}>{code}</Text>
-            {episode.name ? `  ${episode.name}` : ''}
-          </Text>
-          <Text style={[styles.episodeMeta, { color: t.fgSubtle }]}>
-            {formatRuntime(episode.runtimeSeconds)}
-            {count > 1 ? ` · ${count}×` : ''}
-          </Text>
-        </View>
-
-        {/* O número de exibições também em texto: o estado nunca depende só do bloco colorido. */}
-        <Text style={[styles.count, { color: watched ? t.fg : t.fgSubtle }]}>
-          {watched ? `${count}×` : '—'}
-        </Text>
-      </Pressable>
-
-      {open ? (
-        <View style={[styles.actions, { backgroundColor: t.bgSunken }]}>
-          <Action
-            label={watched ? 'Assisti de novo' : 'Assisti'}
-            onPress={() => mark.mutate(episode.id)}
-            accent
-          />
-          {watched ? (
-            <Action label="Desmarcar" onPress={() => unmark.mutate(episode.id)} />
-          ) : null}
-          {!episode.isSpecial ? <Action label="Marcar até aqui" onPress={onMarkUpTo} /> : null}
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function Action({
-  label,
-  onPress,
-  accent = false,
-}: {
-  label: string;
-  onPress: () => void;
-  accent?: boolean;
-}) {
-  const t = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.action,
-        accent
-          ? { backgroundColor: t.accent }
-          : { backgroundColor: 'transparent', borderColor: t.borderStrong, borderWidth: 1 },
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <Text style={[styles.actionText, { color: accent ? t.accentFg : t.fg }]}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -371,7 +294,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing[3],
-    minHeight: 40,
+    minHeight: TouchTarget,
     justifyContent: 'center',
   },
   statusChipText: { fontSize: FontSize.sm },
@@ -391,33 +314,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing[3],
-    minHeight: 40,
+    minHeight: TouchTarget,
     justifyContent: 'center',
   },
   seasonActionText: { fontSize: FontSize.sm, fontWeight: '600' },
-
-  episodeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[3],
-    paddingHorizontal: Spacing[4],
-    minHeight: TouchTarget,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  chip: { width: 10, height: 26, borderRadius: Radius.sm, borderWidth: 1 },
-  episodeText: { flex: 1 },
-  episodeName: { fontSize: FontSize.sm },
-  code: { fontWeight: '700', fontVariant: ['tabular-nums'] },
-  episodeMeta: { fontSize: FontSize.xs, marginTop: 1 },
-  count: { fontSize: FontSize.sm, fontVariant: ['tabular-nums'], minWidth: 34, textAlign: 'right' },
-
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing[2], padding: Spacing[3] },
-  action: {
-    minHeight: TouchTarget,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing[4],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionText: { fontSize: FontSize.sm, fontWeight: '700' },
 });

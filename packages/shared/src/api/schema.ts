@@ -547,6 +547,9 @@ export interface components {
             watchCount: number;
             /** Format: date-time */
             lastWatchedAt: null | string;
+            stillPath: null | string;
+            /** Format: date */
+            airDate: null | string;
         };
         EpisodeRefDto: {
             /** Format: int64 */

@@ -28,7 +28,10 @@ public sealed record EpisodeDto(
     int? RuntimeSeconds,
     bool IsSpecial,
     int WatchCount,
-    DateTimeOffset? LastWatchedAt);
+    DateTimeOffset? LastWatchedAt,
+    /// <summary>Imagem de cena no TMDB. Nulo é comum em especiais (só 66% deles têm).</summary>
+    string? StillPath,
+    DateOnly? AirDate);
 
 public sealed record SeasonDto(
     int SeasonNumber,

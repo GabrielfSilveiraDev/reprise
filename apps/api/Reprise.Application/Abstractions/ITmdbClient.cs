@@ -39,4 +39,5 @@ public sealed record TmdbEpisode(
     int EpisodeNumber,
     string? Name,
     DateOnly? AirDate,
-    int? RuntimeSeconds);
+    int? RuntimeSeconds,
+    string? StillPath = null);

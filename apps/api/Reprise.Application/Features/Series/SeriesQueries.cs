@@ -77,6 +77,7 @@ public sealed class SeriesQueries
             .Select(e => new
             {
                 e.Id, e.SeasonNumber, e.EpisodeNumber, e.Name, e.RuntimeSeconds, e.IsSpecial,
+                e.StillPath, e.AirDate,
                 WatchCount = e.WatchEvents.Count(),
                 Last = e.WatchEvents.Max(w => (DateTimeOffset?)w.WatchedAt)
             })
@@ -88,7 +89,9 @@ public sealed class SeriesQueries
             .Select(g => new SeasonDto(
                 g.Key, Name: null, IsSpecials: g.Key == 0,
                 g.OrderBy(e => e.EpisodeNumber)
-                    .Select(e => new EpisodeDto(e.Id, e.SeasonNumber, e.EpisodeNumber, e.Name, e.RuntimeSeconds, e.IsSpecial, e.WatchCount, e.Last))
+                    .Select(e => new EpisodeDto(
+                        e.Id, e.SeasonNumber, e.EpisodeNumber, e.Name, e.RuntimeSeconds, e.IsSpecial,
+                        e.WatchCount, e.Last, e.StillPath, e.AirDate))
                     .ToList()))
             .ToList();
 

@@ -138,3 +138,17 @@ export function posterUrl(
 ): string | null {
   return posterPath ? `${TMDB_IMAGE_BASE}/${size}${posterPath}` : null;
 }
+
+/**
+ * URL da imagem de cena do episódio. Tamanhos diferentes dos do pôster porque o still é
+ * 16:9 — o TMDB serve outra família de larguras para ele.
+ *
+ * Nulo é esperado e não é erro: 99% dos episódios regulares têm imagem, mas só 66% dos
+ * especiais. Quem chama precisa ter um caminho para a ausência, não um espaço vazio.
+ */
+export function stillUrl(
+  stillPath: string | null | undefined,
+  size: 'w185' | 'w300' = 'w300',
+): string | null {
+  return stillPath ? `${TMDB_IMAGE_BASE}/${size}${stillPath}` : null;
+}

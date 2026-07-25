@@ -524,7 +524,9 @@
           "runtimeSeconds",
           "isSpecial",
           "watchCount",
-          "lastWatchedAt"
+          "lastWatchedAt",
+          "stillPath",
+          "airDate"
         ],
         "type": "object",
         "properties": {
@@ -584,6 +586,19 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "stillPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "airDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },

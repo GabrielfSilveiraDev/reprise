@@ -107,7 +107,8 @@ public sealed class SeriesEnrichmentService
         var plan = CatalogMerger.Plan(
             localEpisodes.Select(e => new ExistingEpisode(e.Id, e.SeasonNumber, e.EpisodeNumber, e.RuntimeSeconds, e.RuntimeEstimated)),
             localSeasons.Select(x => x.SeasonNumber),
-            remote.Select(r => new TmdbEpisodeInput(r.TmdbId, r.SeasonNumber, r.EpisodeNumber, r.Name, r.AirDate, r.RuntimeSeconds)),
+            remote.Select(r => new TmdbEpisodeInput(
+                r.TmdbId, r.SeasonNumber, r.EpisodeNumber, r.Name, r.AirDate, r.RuntimeSeconds, r.StillPath)),
             show.AverageRuntimeSeconds);
 
         // O nome do export é provisório e vem em idiomas misturados — o TMDB manda.
@@ -147,6 +148,9 @@ public sealed class SeriesEnrichmentService
             e.TmdbId = u.TmdbId;
             e.Name = u.Name;
             e.AirDate = u.AirDate;
+            // A capa só é sobrescrita quando o TMDB tem uma: enriquecer de novo não deve apagar
+            // o que já estava lá por a resposta ter vindo sem a imagem.
+            e.StillPath = u.StillPath ?? e.StillPath;
             e.RuntimeSeconds = u.RuntimeSeconds;
             e.RuntimeEstimated = u.RuntimeEstimated;
         }
@@ -162,6 +166,7 @@ public sealed class SeriesEnrichmentService
                 EpisodeNumber = c.EpisodeNumber,
                 Name = c.Name,
                 AirDate = c.AirDate,
+                StillPath = c.StillPath,
                 RuntimeSeconds = c.RuntimeSeconds,
                 RuntimeEstimated = c.RuntimeEstimated,
                 IsSpecial = c.IsSpecial
@@ -207,6 +212,7 @@ public sealed class SeriesEnrichmentService
             e.TmdbId = r.TmdbId;
             e.Name = r.Name;
             e.AirDate = r.AirDate;
+            e.StillPath = r.StillPath ?? e.StillPath;
             e.RuntimeSeconds = r.RuntimeSeconds;
             e.RuntimeEstimated = r.RuntimeEstimated;
         }

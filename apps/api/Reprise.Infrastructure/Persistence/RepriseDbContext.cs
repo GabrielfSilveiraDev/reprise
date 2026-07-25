@@ -69,6 +69,7 @@ public class RepriseDbContext : DbContext, IRepriseDbContext
             e.HasKey(x => x.Id);
             e.HasOne(x => x.Series).WithMany(s => s.Episodes).HasForeignKey(x => x.SeriesId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Season).WithMany(s => s.Episodes).HasForeignKey(x => x.SeasonId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(x => x.StillPath).HasMaxLength(200);
             e.HasIndex(x => new { x.SeriesId, x.SeasonNumber, x.EpisodeNumber }).IsUnique();
             e.HasIndex(x => x.IsSpecial);
         });

@@ -21,6 +21,7 @@ public static class DependencyInjection
         // Leitura e marcação
         services.AddScoped<SeriesQueries>();
         services.AddScoped<WatchingService>();
+        services.AddScoped<BackfillService>();
         services.AddScoped<ProfileQueries>();
         services.AddScoped<TrackingService>();
 

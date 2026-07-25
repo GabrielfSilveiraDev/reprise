@@ -53,6 +53,23 @@ public class WatchEvent
         };
     }
 
+    /// <summary>
+    /// Exibição que aconteceu mas o export perdeu, recolocada com data <b>inferida</b> dos
+    /// vizinhos. Nasce como <see cref="IsBackfill"/> justamente por isso: a data é uma estimativa
+    /// honesta, e as estatísticas temporais devem poder deixá-la de fora.
+    /// </summary>
+    public static WatchEvent CreateBackfill(Guid userId, long episodeId, DateTimeOffset watchedAt)
+        => new()
+        {
+            UserId = userId,
+            EpisodeId = episodeId,
+            WatchedAt = watchedAt,
+            Source = WatchEventSource.Manual,
+            IsBackfill = true,
+            SourceKey = null,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
     /// <summary>Cria um evento marcado manualmente pelo usuário no app (nunca é backfill).</summary>
     public static WatchEvent CreateManual(Guid userId, long episodeId, DateTimeOffset watchedAt)
         => new()

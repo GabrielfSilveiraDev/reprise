@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Microsoft.Extensions.DependencyInjection;
 using Reprise.Application;
 using Reprise.Application.Enrichment;
+using Reprise.Application.Features.Watching;
 using Reprise.Application.Import;
 using Reprise.Importer;
 using Reprise.Infrastructure;
@@ -9,6 +10,8 @@ using Reprise.Infrastructure;
 // CLI do Reprise. Idempotente e reexecutável nos dois modos.
 //   reprise-import <caminho.zip|.csv> [--dry-run]      importa o export do TV Time
 //   reprise-import enrich [--force] [--tvdb <id>]      casa as séries no TMDB e completa o catálogo
+//   reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]
+//       recoloca exibições que aconteceram mas o export perdeu, com data inferida dos vizinhos
 
 var positional = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
 
@@ -16,15 +19,77 @@ if (positional.Length == 0)
 {
     Console.Error.WriteLine("Uso: reprise-import <caminho-do-export.zip|.csv> [--dry-run]");
     Console.Error.WriteLine("     reprise-import enrich [--force] [--tvdb <id>]");
+    Console.Error.WriteLine("     reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]");
     return 1;
 }
 
 var conn = Environment.GetEnvironmentVariable("ConnectionStrings__Default")
            ?? "Host=localhost;Port=5432;Database=reprise;Username=reprise;Password=reprise";
 
-return positional[0].Equals("enrich", StringComparison.OrdinalIgnoreCase)
-    ? await RunEnrichAsync(args, positional, conn)
-    : await RunImportAsync(args, positional, conn);
+return positional[0].ToLowerInvariant() switch
+{
+    "enrich" => await RunEnrichAsync(args, positional, conn),
+    "backfill" => await RunBackfillAsync(args, conn),
+    _ => await RunImportAsync(args, positional, conn)
+};
+
+/// <summary>
+/// Recoloca exibições perdidas pelo export. Existe como comando, e não como SQL avulso, porque
+/// a operação se repete: toda vez que um buraco do export aparece, a pergunta "que data usar?"
+/// volta — e a resposta (interpolar entre os vizinhos, marcar como backfill) tem de ser a mesma.
+/// </summary>
+static async Task<int> RunBackfillAsync(string[] args, string conn)
+{
+    static string? Flag(string[] a, string name)
+    {
+        var i = Array.IndexOf(a, name);
+        return i >= 0 && i + 1 < a.Length ? a[i + 1] : null;
+    }
+
+    if (!long.TryParse(Flag(args, "--series"), out var seriesId))
+    {
+        Console.Error.WriteLine("--series exige o id numérico da série.");
+        return 1;
+    }
+
+    int? season = int.TryParse(Flag(args, "--season"), out var sn) ? sn : null;
+    var episodeIds = Flag(args, "--episodes")?
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(long.Parse).ToList();
+
+    var services = new ServiceCollection();
+    services.AddRepriseInfrastructure(conn);
+    services.AddRepriseApplication();
+    await using var provider = services.BuildServiceProvider();
+    using var scope = provider.CreateScope();
+
+    var service = scope.ServiceProvider.GetRequiredService<BackfillService>();
+    var plan = await service.PlanAsync(seriesId, season, episodeIds);
+
+    if (plan is null)
+    {
+        Console.Error.WriteLine($"Série {seriesId} não encontrada.");
+        return 1;
+    }
+
+    Console.WriteLine($"{plan.SeriesName}: {plan.Events.Count} episódio(s) sem exibição.");
+    if (plan.Events.Count == 0) return 0;
+
+    Console.WriteLine($"  janela inferida: {plan.From:yyyy-MM-dd} → {plan.To:yyyy-MM-dd}");
+    foreach (var (_, s, e, when) in plan.Events.Take(4))
+        Console.WriteLine($"    T{s}E{e,-3} {when:yyyy-MM-dd HH:mm}");
+    if (plan.Events.Count > 4) Console.WriteLine($"    … e mais {plan.Events.Count - 4}");
+
+    if (args.Contains("--dry-run"))
+    {
+        Console.WriteLine("--dry-run: nada gravado.");
+        return 0;
+    }
+
+    var created = await service.ApplyAsync(plan);
+    Console.WriteLine($"  {created} exibição(ões) criada(s), marcadas como backfill.");
+    return 0;
+}
 
 static async Task<int> RunImportAsync(string[] args, string[] positional, string conn)
 {

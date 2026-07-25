@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing[3],
-    minHeight: 40,
+    minHeight: TouchTarget,
     justifyContent: 'center',
   },
   segmentText: { fontSize: FontSize.sm },
