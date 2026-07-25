@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createRepriseClient } from '@reprise/shared';
-import type { NextUpItem, SeriesDetail, SeriesListItem } from '@reprise/shared';
+import type {
+  CalendarDayDto,
+  NextUpItem,
+  SeriesDetail,
+  SeriesListItem,
+  StatsOverviewDto,
+} from '@reprise/shared';
+
+export type StatsOverview = StatsOverviewDto;
+export type CalendarDay = CalendarDayDto;
 
 // Em dev o Vite faz proxy de /api para a API; em produção a var de ambiente aponta direto.
 const client = createRepriseClient(import.meta.env.VITE_API_URL ?? '/api');
@@ -9,6 +18,8 @@ export const keys = {
   series: ['series'] as const,
   seriesDetail: (id: number) => ['series', id] as const,
   nextUp: ['next-up'] as const,
+  stats: (includeBackfill: boolean) => ['stats', includeBackfill] as const,
+  calendar: (year: number, includeBackfill: boolean) => ['calendar', year, includeBackfill] as const,
 };
 
 function unwrap<T>(result: { data?: T; error?: unknown }): T {
@@ -105,5 +116,21 @@ export function useMarkUpTo(seriesId: number) {
         }),
       ),
     onSuccess: invalidate,
+  });
+}
+
+export function useStatsOverview(includeBackfill: boolean) {
+  return useQuery({
+    queryKey: keys.stats(includeBackfill),
+    queryFn: async (): Promise<StatsOverview> =>
+      unwrap(await client.GET('/stats/overview', { params: { query: { includeBackfill } } })),
+  });
+}
+
+export function useCalendar(year: number, includeBackfill: boolean) {
+  return useQuery({
+    queryKey: keys.calendar(year, includeBackfill),
+    queryFn: async (): Promise<CalendarDay[]> =>
+      unwrap(await client.GET('/stats/calendar', { params: { query: { year, includeBackfill } } })),
   });
 }

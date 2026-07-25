@@ -24,6 +24,13 @@ export type NextUpItem = Schemas['NextUpItemDto'];
 export type WatchState = Schemas['WatchStateDto'];
 export type BulkMarkResult = Schemas['BulkMarkResult'];
 
+export type StatsOverviewDto = Schemas['StatsOverviewDto'];
+export type StatsSummaryDto = Schemas['StatsSummaryDto'];
+export type TimeBucketDto = Schemas['TimeBucketDto'];
+export type TopSeriesDto = Schemas['TopSeriesDto'];
+export type CalendarDayDto = Schemas['CalendarDayDto'];
+export type StreaksDto = Schemas['StreaksDto'];
+
 /** Estados possíveis de uma série para o usuário. O servidor manda como string. */
 export const SERIES_STATUSES = ['Following', 'Archived', 'ForLater', 'Finished'] as const;
 export type SeriesStatus = (typeof SERIES_STATUSES)[number];

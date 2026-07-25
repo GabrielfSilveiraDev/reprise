@@ -148,6 +148,28 @@ pnpm --filter @reprise/shared generate
 Os endpoints usam `TypedResults`/`Results<Ok<T>, NotFound>` de propósito: `IResult` puro não
 declara o tipo da resposta e o OpenAPI sairia sem schema nenhum.
 
+### Nome das séries
+
+O título exibido é o **original** quando ele está em alfabeto latino, e o **inglês** quando não
+está — "ナルト- 疾風伝" não ajuda ninguém que não lê japonês. O título traduzido para português
+fica de fora de propósito: era o comportamento anterior e é justamente o que se quis evitar.
+A regra vive em `SeriesNamePolicy`, é pura e testada.
+
+### Estatísticas
+
+As agregações são SQL na Infrastructure — `FILTER (WHERE)`, `date_trunc`, `GROUP BY` sobre
+dezenas de milhares de eventos é o que o Postgres faz bem e o LINQ traduz mal. O contrato e os
+DTOs ficam na Application; só o SQL desce. **Atenção:** o query filter global do EF não alcança
+SQL cru, então todo comando lá filtra `user_id` explicitamente.
+
+Marcações em massa (o backfill do TV Time, todas com a mesma data) ficam **fora por padrão** —
+com elas dezembro/2025 engole qualquer gráfico temporal. O painel mostra quantas estão ocultas
+e oferece o toggle, numa linha de filtro única que reescopa todos os gráficos.
+
+Gráficos de uma série só, um acento por gráfico: colorir barra por tamanho duplicaria o
+comprimento num canal que não acrescenta nada. Cada gráfico tem tabela equivalente, tooltip é
+reforço e nunca o único caminho para o valor, e o heatmap usa rampa sequencial de uma cor.
+
 ### Desenho
 
 Editorial e tipográfico, não uma grade de pôsteres com selo colorido. Duas densidades na
@@ -175,6 +197,6 @@ Requisito, não verniz. Verificado no navegador contra os dados reais:
 1. ~~**Modelo + importador** com relatório de conferência + enriquecimento TMDB~~ ✅
 2. ~~API de leitura + endpoints de marcação~~ ✅
 3. ~~Web: lista, detalhe com trilha de episódios, marcação~~ ✅
-4. Web: estatísticas
+4. ~~Web: estatísticas~~ ✅
 5. Mobile: paridade essencial + offline
 6. Fase 2: estreias/notificações, rewatch como sessão, filmes, export próprio em JSON

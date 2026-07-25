@@ -1,0 +1,102 @@
+.heatmap {
+  margin: 0;
+}
+
+.heatmap__scroll {
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.heatmap__months {
+  display: flex;
+  gap: 2px;
+  margin-bottom: var(--space-1);
+  min-width: max-content;
+}
+
+.heatmap__month {
+  width: 13px;
+  font-size: var(--text-xs);
+  color: var(--fg-subtle);
+  white-space: nowrap;
+}
+
+.heatmap__grid {
+  display: flex;
+  gap: 2px;
+  min-width: max-content;
+}
+
+.heatmap__week {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.heatmap__cell {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--track-empty);
+}
+
+/* Fora do ano pedido: some, mas mantém a grade alinhada. */
+.heatmap__cell[data-level='-1'] {
+  background: transparent;
+}
+
+.heatmap__cell[data-level='0'] {
+  background: var(--track-empty);
+}
+.heatmap__cell[data-level='1'] {
+  background: var(--track-1);
+}
+.heatmap__cell[data-level='2'] {
+  background: var(--track-2);
+}
+.heatmap__cell[data-level='3'] {
+  background: var(--track-3);
+}
+.heatmap__cell[data-level='4'] {
+  background: var(--track-4);
+}
+
+/*
+ * O alvo de hover é maior que a célula de 11px: um pseudo-elemento de 24px
+ * cobre a folga entre células sem mudar o desenho.
+ */
+.heatmap__cell::before {
+  content: '';
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+}
+
+.heatmap__cell[data-level='-1']::before {
+  display: none;
+}
+
+.heatmap__legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--fg-subtle);
+}
+
+.heatmap__swatches {
+  display: flex;
+  gap: 2px;
+}
+
+.heatmap__swatches .heatmap__cell::before {
+  display: none;
+}
+
+.heatmap__weekdays {
+  margin-left: auto;
+}

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Reprise.Application.Abstractions;
 using Reprise.Application.Enrichment;
+using Reprise.Application.Features.Stats;
 using Reprise.Infrastructure.Persistence;
 using Reprise.Infrastructure.Tmdb;
 
@@ -18,6 +19,9 @@ public static class DependencyInjection
 
         // Single-user por ora; na API isto passa a ler o sub do JWT.
         services.AddScoped<ICurrentUser, SeedCurrentUser>();
+
+        // Estatística é SQL cru sobre o DbContext — por isso mora na Infrastructure.
+        services.AddScoped<IStatsQueries, StatsQueries>();
 
         return services;
     }

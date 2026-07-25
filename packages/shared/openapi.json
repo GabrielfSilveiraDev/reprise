@@ -286,6 +286,80 @@
           }
         }
       }
+    },
+    "/stats/overview": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Resumo, distribuição por ano/mês, top séries e sequências. Backfill fora por padrão.",
+        "parameters": [
+          {
+            "name": "includeBackfill",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsOverviewDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/calendar": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Exibições por dia de um ano, para o heatmap. Só dias com atividade.",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "includeBackfill",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarDayDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -303,6 +377,36 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "CalendarDayDto": {
+        "required": [
+          "date",
+          "exhibitions",
+          "seconds"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "exhibitions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "seconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },
@@ -716,6 +820,248 @@
           }
         }
       },
+      "StatsOverviewDto": {
+        "required": [
+          "summary",
+          "byYear",
+          "byMonth",
+          "topSeries",
+          "streaks",
+          "availableYears"
+        ],
+        "type": "object",
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/StatsSummaryDto"
+          },
+          "byYear": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketDto"
+            }
+          },
+          "byMonth": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketDto"
+            }
+          },
+          "topSeries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TopSeriesDto"
+            }
+          },
+          "streaks": {
+            "$ref": "#/components/schemas/StreaksDto"
+          },
+          "availableYears": {
+            "type": "array",
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "StatsSummaryDto": {
+        "required": [
+          "exhibitions",
+          "distinctEpisodes",
+          "seriesCount",
+          "totalSeconds",
+          "backfillExhibitions",
+          "rewatchRate",
+          "firstWatchedAt",
+          "lastWatchedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "exhibitions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "distinctEpisodes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "seriesCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "totalSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "backfillExhibitions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rewatchRate": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "firstWatchedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastWatchedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "StreaksDto": {
+        "required": [
+          "longestDays",
+          "currentDays",
+          "longestStartedAt",
+          "longestEndedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "longestDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "currentDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "longestStartedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "longestEndedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          }
+        }
+      },
+      "TimeBucketDto": {
+        "required": [
+          "label",
+          "exhibitions",
+          "seconds"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "exhibitions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "seconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "TopSeriesDto": {
+        "required": [
+          "seriesId",
+          "name",
+          "exhibitions",
+          "distinctEpisodes",
+          "seconds"
+        ],
+        "type": "object",
+        "properties": {
+          "seriesId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "exhibitions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "distinctEpisodes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "seconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
       "WatchStateDto": {
         "required": [
           "episodeId",
@@ -760,6 +1106,9 @@
     },
     {
       "name": "Watching"
+    },
+    {
+      "name": "Stats"
     }
   ]
 }

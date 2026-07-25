@@ -62,6 +62,12 @@ public sealed class TmdbClient : ITmdbClient, IDisposable
             AverageRuntimeSeconds(show.EpisodeRunTime));
     }
 
+    public async Task<string?> GetEnglishNameAsync(int tmdbId, CancellationToken cancellationToken = default)
+    {
+        var show = await _client.GetTvShowAsync(tmdbId, language: "en-US", cancellationToken: cancellationToken);
+        return string.IsNullOrWhiteSpace(show?.Name) ? null : show.Name;
+    }
+
     public async Task<IReadOnlyList<TmdbEpisode>> GetEpisodesAsync(
         int tmdbId, CancellationToken cancellationToken = default)
     {

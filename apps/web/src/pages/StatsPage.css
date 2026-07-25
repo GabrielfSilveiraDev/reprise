@@ -1,0 +1,95 @@
+/* Uma linha de filtro acima de tudo — nunca dentro de um cartão de gráfico. */
+.filters {
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-6);
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-target);
+  cursor: pointer;
+  font-weight: 560;
+}
+
+.filters__hint {
+  font-size: var(--text-xs);
+  color: var(--fg-subtle);
+  max-width: 62ch;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-4);
+}
+
+.tile {
+  padding: var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.tile__label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--fg-subtle);
+  font-weight: 640;
+}
+
+.tile__value {
+  margin-top: var(--space-2);
+  font-size: var(--text-2xl);
+  font-weight: 660;
+  letter-spacing: var(--tracking-tight);
+  /* Sem tabular-nums: em corpo grande a largura fixa afrouxa o número. */
+  font-variant-numeric: proportional-nums;
+}
+
+.tile__hint {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--fg-subtle);
+}
+
+.period {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--fg-subtle);
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--space-8);
+}
+
+.year-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.year-picker .btn[data-active='true'] {
+  background: var(--accent-quiet);
+  color: var(--fg);
+  font-weight: 680;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+/* Aviso do que o recorte está escondendo — sem isso o painel mente por omissão. */
+.notice {
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-5);
+  background: var(--accent-quiet);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  max-width: 70ch;
+}

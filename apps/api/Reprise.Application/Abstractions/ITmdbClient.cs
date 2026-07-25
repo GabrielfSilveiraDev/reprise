@@ -15,6 +15,12 @@ public interface ITmdbClient
 
     /// <summary>Episódios da série (todas as temporadas, incluindo especiais).</summary>
     Task<IReadOnlyList<TmdbEpisode>> GetEpisodesAsync(int tmdbId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Título em inglês. Chamada à parte porque só é necessária quando o título original não está
+    /// em alfabeto latino — pagar essa requisição para as 100+ séries ocidentais seria desperdício.
+    /// </summary>
+    Task<string?> GetEnglishNameAsync(int tmdbId, CancellationToken cancellationToken = default);
 }
 
 public sealed record TmdbShow(

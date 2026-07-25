@@ -110,9 +110,14 @@ public sealed class SeriesEnrichmentService
             remote.Select(r => new TmdbEpisodeInput(r.TmdbId, r.SeasonNumber, r.EpisodeNumber, r.Name, r.AirDate, r.RuntimeSeconds)),
             show.AverageRuntimeSeconds);
 
-        // Metadados da série: o nome do export é provisório e vem em idiomas misturados — o TMDB manda.
+        // O nome do export é provisório e vem em idiomas misturados — o TMDB manda.
+        // O título em inglês só é buscado quando o original não é legível em alfabeto latino.
+        var englishName = SeriesNamePolicy.IsLatinScript(show.OriginalName)
+            ? null
+            : await _tmdb.GetEnglishNameAsync(show.TmdbId, ct);
+
         s.TmdbId = show.TmdbId;
-        s.Name = show.Name;
+        s.Name = SeriesNamePolicy.Choose(show.OriginalName, englishName, fallback: show.Name);
         s.OriginalName = show.OriginalName;
         s.Overview = show.Overview;
         s.PosterPath = show.PosterPath;

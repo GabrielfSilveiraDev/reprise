@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from 'react-router-dom';
 import { NextUpPage } from './pages/NextUpPage';
 import { SeriesDetailPage } from './pages/SeriesDetailPage';
 import { SeriesListPage } from './pages/SeriesListPage';
+import { StatsPage } from './pages/StatsPage';
 import './App.css';
 
 export function App() {
@@ -28,6 +29,11 @@ export function App() {
                   Séries
                 </NavLink>
               </li>
+              <li>
+                <NavLink to="/estatisticas" className="nav__link">
+                  Estatísticas
+                </NavLink>
+              </li>
             </ul>
           </nav>
         </div>
@@ -38,6 +44,7 @@ export function App() {
           <Route path="/" element={<NextUpPage />} />
           <Route path="/series" element={<SeriesListPage />} />
           <Route path="/series/:id" element={<SeriesDetailPage />} />
+          <Route path="/estatisticas" element={<StatsPage />} />
           <Route
             path="*"
             element={
