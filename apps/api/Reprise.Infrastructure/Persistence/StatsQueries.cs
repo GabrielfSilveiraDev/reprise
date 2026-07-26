@@ -23,11 +23,33 @@ public sealed class StatsQueries : IStatsQueries
         _currentUser = currentUser;
     }
 
-    /// <summary>Junção e recorte comuns a todas as consultas: eventos do usuário, com ou sem backfill.</summary>
-    private const string FromClause = """
+    /// <summary>
+    /// <b>Contagem: tudo entra.</b>
+    ///
+    /// <c>is_backfill</c> diz que a DATA é duvidosa, não que a exibição seja falsa — vem de
+    /// <c>bulk_type</c> = <c>season</c>/<c>fill-previous</c>, ou seja, o episódio foi marcado
+    /// junto com a temporada inteira e herdou a data do lote. Quem assistiu, assistiu.
+    ///
+    /// Estas consultas já responderam "quantos episódios" descartando backfill, e o resultado era
+    /// 60 exibições em 10 séries para quem tem 10.451 em 115. Perguntas de contagem não dependem
+    /// de quando aconteceu, então não têm por que consultar a confiabilidade da data.
+    /// </summary>
+    private const string CountingFrom = """
         FROM watch_events w
         JOIN episodes e ON e.id = w.episode_id
         WHERE w.user_id = @user_id
+        """;
+
+    /// <summary>
+    /// <b>Linha do tempo: o backfill fica de fora por padrão.</b>
+    ///
+    /// Aqui a data é o eixo, e a data do backfill é a do lote: 9.995 das exibições caem todas em
+    /// 29/12/2025, o dia da importação. Incluí-las desenharia um pico que nunca houve e uma
+    /// sequência de dias que ninguém cumpriu. O parâmetro existe para quem quiser ver assim mesmo,
+    /// mas o padrão é a linha do tempo honesta.
+    /// </summary>
+    private const string TimelineFrom = $"""
+        {CountingFrom}
           AND (@include_backfill OR NOT w.is_backfill)
         """;
 
@@ -45,17 +67,19 @@ public sealed class StatsQueries : IStatsQueries
 
     public async Task<StatsOverviewDto> GetOverviewAsync(bool includeBackfill, CancellationToken ct = default)
     {
-        var summary = await SummaryAsync(includeBackfill, ct);
+        // Note quem recebe `includeBackfill` e quem não recebe: só as visões com eixo de tempo.
+        // O resumo e o top de séries contam o acervo inteiro, sempre.
+        var summary = await SummaryAsync(ct);
         var byYear = await BucketsAsync("year", "YYYY", includeBackfill, ct);
         var byMonth = await BucketsAsync("month", "YYYY-MM", includeBackfill, ct);
-        var top = await TopSeriesAsync(includeBackfill, ct);
+        var top = await TopSeriesAsync(ct);
         var streaks = await StreaksAsync(includeBackfill, ct);
         var years = byYear.Select(b => int.Parse(b.Label)).OrderByDescending(y => y).ToList();
 
         return new StatsOverviewDto(summary, byYear, byMonth, top, streaks, years);
     }
 
-    private async Task<StatsSummaryDto> SummaryAsync(bool includeBackfill, CancellationToken ct)
+    private async Task<StatsSummaryDto> SummaryAsync(CancellationToken ct)
     {
         var sql = $"""
             SELECT
@@ -63,16 +87,15 @@ public sealed class StatsQueries : IStatsQueries
               count(DISTINCT w.episode_id)               AS distinct_episodes,
               count(DISTINCT e.series_id)                AS series_count,
               coalesce(sum(e.runtime_seconds), 0)::bigint AS total_seconds,
-              -- Conta o backfill do usuário INTEIRO, não do recorte: quando ele está excluído,
-              -- este é justamente o número que a tela precisa mostrar como "oculto".
-              (SELECT count(*) FROM watch_events b
-                WHERE b.user_id = @user_id AND b.is_backfill) AS backfill_exhibitions,
+              -- Quantas dessas exibições têm data de lote. Não desconta nada do que está acima —
+              -- serve para a tela explicar por que a linha do tempo mostra menos que o total.
+              count(*) FILTER (WHERE w.is_backfill)      AS backfill_exhibitions,
               min(w.watched_at)                          AS first_at,
               max(w.watched_at)                          AS last_at
-            {FromClause}
+            {CountingFrom}
             """;
 
-        await using var command = await CommandAsync(sql, includeBackfill, ct);
+        await using var command = await CommandAsync(sql, includeBackfill: true, ct);
         await using var reader = await command.ExecuteReaderAsync(ct);
         if (!await reader.ReadAsync(ct))
             return new StatsSummaryDto(0, 0, 0, 0, 0, 0, null, null);
@@ -102,7 +125,7 @@ public sealed class StatsQueries : IStatsQueries
             SELECT to_char(date_trunc('{granularity}', w.watched_at), '{labelFormat}') AS label,
                    count(*)                                    AS exhibitions,
                    coalesce(sum(e.runtime_seconds), 0)::bigint AS seconds
-            {FromClause}
+            {TimelineFrom}
             GROUP BY 1
             ORDER BY 1
             """;
@@ -116,9 +139,15 @@ public sealed class StatsQueries : IStatsQueries
         return result;
     }
 
-    private async Task<IReadOnlyList<TopSeriesDto>> TopSeriesAsync(bool includeBackfill, CancellationToken ct)
+    /// <summary>
+    /// As séries a que você mais dedicou tempo. Contagem, não linha do tempo: entra tudo.
+    ///
+    /// Era aqui que a distorção mais aparecia — sem o backfill, o ranking listava as poucas séries
+    /// tocadas depois da importação, e não aquelas em que o tempo de fato foi gasto.
+    /// </summary>
+    private async Task<IReadOnlyList<TopSeriesDto>> TopSeriesAsync(CancellationToken ct)
     {
-        // Esta é a única que precisa de series na junção, então não reusa FromClause.
+        // Esta é a única que precisa de series na junção, então não reusa CountingFrom.
         const string sql = """
             SELECT s.id, s.name,
                    count(*)                                    AS exhibitions,
@@ -128,13 +157,12 @@ public sealed class StatsQueries : IStatsQueries
             JOIN episodes e ON e.id = w.episode_id
             JOIN series s ON s.id = e.series_id
             WHERE w.user_id = @user_id
-              AND (@include_backfill OR NOT w.is_backfill)
             GROUP BY s.id, s.name
             ORDER BY seconds DESC
             LIMIT 15
             """;
 
-        await using var command = await CommandAsync(sql, includeBackfill, ct);
+        await using var command = await CommandAsync(sql, includeBackfill: true, ct);
         await using var reader = await command.ExecuteReaderAsync(ct);
 
         var result = new List<TopSeriesDto>();
@@ -150,7 +178,7 @@ public sealed class StatsQueries : IStatsQueries
         // O banco só entrega os dias distintos; a regra de sequência é do StreakCalculator.
         var sql = $"""
             SELECT DISTINCT (w.watched_at AT TIME ZONE 'UTC')::date AS day
-            {FromClause}
+            {TimelineFrom}
             ORDER BY day
             """;
 
@@ -171,7 +199,7 @@ public sealed class StatsQueries : IStatsQueries
             SELECT (w.watched_at AT TIME ZONE 'UTC')::date        AS day,
                    count(*)                                       AS exhibitions,
                    coalesce(sum(e.runtime_seconds), 0)::bigint    AS seconds
-            {FromClause}
+            {TimelineFrom}
               AND date_part('year', w.watched_at AT TIME ZONE 'UTC') = @year
             GROUP BY 1
             ORDER BY 1

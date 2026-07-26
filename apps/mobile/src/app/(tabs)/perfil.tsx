@@ -57,9 +57,12 @@ export default function ProfileScreen() {
   };
 
   /**
-   * As marcações em massa ficam fora por padrão — são as que o TV Time gravou todas na mesma
-   * data ao importar temporadas inteiras. Com elas, dezembro/2025 engole qualquer leitura
-   * temporal. São a maior parte do histórico, então a tela declara quantas está escondendo.
+   * O filtro recorta SÓ os gráficos com eixo de tempo, nunca os totais.
+   *
+   * Marcação em massa é a que o TV Time gravou com a data do lote ao marcar temporadas inteiras:
+   * a data é duvidosa, a exibição não. Somar não depende de quando aconteceu, então os totais
+   * contam tudo; desenhar no eixo depende, e 9.995 exibições na mesma data virariam um pico que
+   * nunca houve. Por isso o Switch mora dentro da seção temporal, e não no topo da tela.
    */
   const [includeBackfill, setIncludeBackfill] = useState(false);
   const stats = useStatsOverview(includeBackfill);
@@ -74,17 +77,14 @@ export default function ProfileScreen() {
 
         <View style={[styles.divider, { backgroundColor: t.border }]} />
 
-        <View style={styles.filterRow}>
-          <Text style={[styles.filterLabel, { color: t.fg }]}>Incluir marcações em massa</Text>
-          <Switch
-            value={includeBackfill}
-            onValueChange={setIncludeBackfill}
-            accessibilityLabel="Incluir marcações em massa nas estatísticas"
-          />
-        </View>
-
         <QueryState query={stats}>
-          {(data) => <Stats data={data} includeBackfill={includeBackfill} />}
+          {(data) => (
+            <Stats
+              data={data}
+              includeBackfill={includeBackfill}
+              onIncludeBackfill={setIncludeBackfill}
+            />
+          )}
         </QueryState>
 
         <View style={[styles.divider, { backgroundColor: t.border }]} />
@@ -126,49 +126,116 @@ function Identity({ profile }: { profile: Profile }) {
   );
 }
 
-function Stats({ data, includeBackfill }: { data: StatsOverviewDto; includeBackfill: boolean }) {
+/** Espelha as duas zonas do web: "No total" conta tudo, "Ao longo do tempo" recorta. */
+function Stats({
+  data,
+  includeBackfill,
+  onIncludeBackfill,
+}: {
+  data: StatsOverviewDto;
+  includeBackfill: boolean;
+  onIncludeBackfill: (v: boolean) => void;
+}) {
   const t = useTheme();
   const s = data.summary;
+  const naLinhaDoTempo = data.byYear.reduce((soma, b) => soma + b.exhibitions, 0);
 
   return (
     <View style={styles.stats}>
-      {!includeBackfill && s.backfillExhibitions > 0 ? (
-        <View style={[styles.notice, { backgroundColor: t.accentQuiet }]}>
-          <Text style={[styles.noticeText, { color: t.fg }]}>
-            <Text style={styles.strong}>{s.backfillExhibitions.toLocaleString('pt-BR')}</Text>{' '}
-            exibições em massa estão fora destes números. Todas carregam a mesma data — incluí-las
-            diria que você assistiu tudo num dia só.
-          </Text>
-        </View>
-      ) : null}
+      <Text style={[styles.sectionHead, { color: t.fg }]}>No total</Text>
 
       <View style={styles.tiles}>
         <Tile label="Tempo assistido" value={formatTotalTime(s.totalSeconds)} />
         <Tile label="Exibições" value={s.exhibitions.toLocaleString('pt-BR')} />
-        <Tile label="Episódios" value={s.distinctEpisodes.toLocaleString('pt-BR')} />
+        <Tile
+          label="Episódios"
+          value={s.distinctEpisodes.toLocaleString('pt-BR')}
+          hint="sem revisitas"
+        />
         <Tile label="Séries" value={String(s.seriesCount)} />
         <Tile label="Rewatch" value={formatPercent(s.rewatchRate)} hint="das exibições" />
-        <Tile
-          label="Maior sequência"
-          value={`${data.streaks.longestDays} d`}
-          hint={data.streaks.currentDays > 0 ? `atual: ${data.streaks.currentDays} d` : 'sem sequência'}
-        />
       </View>
 
       {s.firstWatchedAt ? (
         <Text style={[styles.period, { color: t.fgSubtle }]}>
-          De {formatWatchedAt(s.firstWatchedAt)} a {formatWatchedAt(s.lastWatchedAt)}.
+          Do primeiro registro, {formatWatchedAt(s.firstWatchedAt)}, ao mais recente,{' '}
+          {formatWatchedAt(s.lastWatchedAt)}.
         </Text>
       ) : null}
 
-      {s.exhibitions === 0 ? (
+      <View style={[styles.divider, { backgroundColor: t.border }]} />
+      <BarChart
+        title="Séries por tempo assistido"
+        bars={data.topSeries.map((x) => ({
+          key: String(x.seriesId),
+          label: x.name,
+          value: x.seconds,
+          detail: `${x.name}: ${formatRuntime(x.seconds)} · ${x.exhibitions} exibições em ${x.distinctEpisodes} episódios`,
+        }))}
+        format={(v) => formatTotalTime(v)}
+      />
+
+      {data.topSeries.length > 0 ? (
+        <Pressable
+          onPress={() => router.push(`/series/${data.topSeries[0]!.seriesId}`)}
+          style={[styles.link, { borderColor: t.borderStrong }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Abrir ${data.topSeries[0]!.name}, a série que você mais assistiu`}
+        >
+          <Text style={[styles.linkText, { color: t.fg }]}>Abrir {data.topSeries[0]!.name}</Text>
+        </Pressable>
+      ) : null}
+
+      <View style={[styles.divider, { backgroundColor: t.border }]} />
+      <Text style={[styles.sectionHead, { color: t.fg }]}>Ao longo do tempo</Text>
+
+      {/* O aviso vem antes do interruptor porque explica por que ele existe. */}
+      {s.backfillExhibitions > 0 ? (
+        <View style={[styles.notice, { backgroundColor: t.accentQuiet }]}>
+          <Text style={[styles.noticeText, { color: t.fg }]}>
+            <Text style={styles.strong}>{s.backfillExhibitions.toLocaleString('pt-BR')}</Text> das
+            suas exibições vieram de marcação em massa e carregam a data do lote.{' '}
+            <Text style={styles.strong}>Contam nos totais acima</Text>, mas ficam fora dos gráficos:
+            no eixo do tempo, elas diriam que você assistiu quase tudo num dia só.
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={styles.filterRow}>
+        <Text style={[styles.filterLabel, { color: t.fg }]}>
+          Mostrar as marcações em massa nos gráficos
+        </Text>
+        <Switch
+          value={includeBackfill}
+          onValueChange={onIncludeBackfill}
+          accessibilityLabel="Mostrar as marcações em massa nos gráficos de tempo"
+        />
+      </View>
+
+      {naLinhaDoTempo === 0 ? (
         <Text style={[styles.period, { color: t.fgMuted }]}>
-          Nenhuma exibição fora das marcações em massa. Ligue o filtro acima para ver o histórico
-          importado.
+          Nenhuma exibição com data confiável ainda. Conforme você for marcando episódios pelo
+          Reprise, os gráficos se preenchem sozinhos.
         </Text>
       ) : (
         <>
-          <View style={[styles.divider, { backgroundColor: t.border }]} />
+          <View style={styles.tiles}>
+            <Tile
+              label="Exibições datadas"
+              value={naLinhaDoTempo.toLocaleString('pt-BR')}
+              hint="entram nos gráficos"
+            />
+            <Tile
+              label="Maior sequência"
+              value={`${data.streaks.longestDays} d`}
+              hint={
+                data.streaks.currentDays > 0
+                  ? `atual: ${data.streaks.currentDays} d`
+                  : 'sem sequência'
+              }
+            />
+          </View>
+
           <BarChart
             title="Tempo assistido por ano"
             bars={data.byYear.map((b) => ({
@@ -181,35 +248,10 @@ function Stats({ data, includeBackfill }: { data: StatsOverviewDto; includeBackf
           />
 
           <View style={[styles.divider, { backgroundColor: t.border }]} />
-          <BarChart
-            title="Séries por tempo assistido"
-            bars={data.topSeries.map((x) => ({
-              key: String(x.seriesId),
-              label: x.name,
-              value: x.seconds,
-              detail: `${x.name}: ${formatRuntime(x.seconds)} · ${x.exhibitions} exibições em ${x.distinctEpisodes} episódios`,
-            }))}
-            format={(v) => formatTotalTime(v)}
-          />
-
-          <View style={[styles.divider, { backgroundColor: t.border }]} />
           <Calendar
             year={data.availableYears[0] ?? new Date().getFullYear()}
             includeBackfill={includeBackfill}
           />
-
-          {data.topSeries.length > 0 ? (
-            <Pressable
-              onPress={() => router.push(`/series/${data.topSeries[0]!.seriesId}`)}
-              style={[styles.link, { borderColor: t.borderStrong }]}
-              accessibilityRole="button"
-              accessibilityLabel={`Abrir ${data.topSeries[0]!.name}, a série que você mais assistiu`}
-            >
-              <Text style={[styles.linkText, { color: t.fg }]}>
-                Abrir {data.topSeries[0]!.name}
-              </Text>
-            </Pressable>
-          ) : null}
         </>
       )}
     </View>
@@ -266,6 +308,7 @@ const styles = StyleSheet.create({
   filterLabel: { fontSize: FontSize.sm, flex: 1 },
 
   stats: { gap: Spacing[4] },
+  sectionHead: { fontSize: FontSize.lg, fontWeight: '700' },
   notice: { padding: Spacing[3], borderRadius: Radius.md },
   noticeText: { fontSize: FontSize.sm, lineHeight: 20 },
   strong: { fontWeight: '700' },

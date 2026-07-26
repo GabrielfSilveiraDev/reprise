@@ -2,8 +2,14 @@ namespace Reprise.Application.Features.Stats;
 
 /// <summary>
 /// Números do topo do painel. Tudo derivado do log de eventos, nada mantido em sincronia.
-/// <paramref name="BackfillExhibitions"/> conta o backfill do usuário inteiro e NÃO respeita o
-/// recorte — é justamente o número que a tela mostra como "oculto" quando o filtro está desligado.
+///
+/// <b>Este resumo conta o acervo inteiro, backfill incluído</b>, porque "quantos episódios assisti"
+/// não é uma pergunta sobre datas. Só as visões com eixo de tempo (por ano, por mês, calendário,
+/// sequências) descartam o backfill, e por isso mostram menos.
+///
+/// <paramref name="BackfillExhibitions"/> é quantas das <paramref name="Exhibitions"/> têm data de
+/// lote em vez de data real. Não desconta nada: existe para a tela poder explicar a diferença
+/// entre o total e o que aparece na linha do tempo, em vez de deixar o usuário achar que sumiu.
 /// </summary>
 public sealed record StatsSummaryDto(
     int Exhibitions,

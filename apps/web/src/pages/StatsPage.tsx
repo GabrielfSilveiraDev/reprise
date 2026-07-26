@@ -7,14 +7,17 @@ import { QueryState } from '../components/QueryState';
 import './StatsPage.css';
 
 /**
- * Painel de estatísticas.
+ * Painel de estatísticas, em duas zonas — e a divisão é a ideia central da tela.
  *
- * O filtro fica numa linha única acima de tudo e reescopa TODOS os gráficos — filtro
- * por cartão faria cada número responder a uma pergunta diferente.
+ * <b>"No total" conta tudo.</b> Quantos episódios, quantas séries, quanto tempo: nenhuma dessas
+ * perguntas depende de QUANDO aconteceu, então nenhuma delas tem motivo para descartar evento.
+ * Esta tela já respondeu "60 exibições em 10 séries" para quem tem 10.451 em 115, porque tratava
+ * "a data é duvidosa" como "o evento não conta".
  *
- * As exibições de backfill ficam fora por padrão. São as 10.348 marcações que o TV Time
- * gravou todas na mesma data quando você marcou temporadas inteiras: mantê-las faria
- * dezembro/2025 engolir o gráfico e mentir sobre quando você de fato assistiu.
+ * <b>"Ao longo do tempo" recorta.</b> Aqui a data é o eixo, e 9.995 das exibições importadas
+ * carregam a data do lote — todas em 29/12/2025. Incluí-las desenharia um pico que nunca houve.
+ * Por isso o filtro mora DENTRO desta seção: ele afeta só o que está abaixo dele, e a posição na
+ * página é a única explicação de escopo que ninguém precisa ler para entender.
  */
 export function StatsPage() {
   const [includeBackfill, setIncludeBackfill] = useState(false);
@@ -28,138 +31,166 @@ export function StatsPage() {
         <h1>Seu histórico</h1>
       </header>
 
-      <div className="filters">
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={includeBackfill}
-            onChange={(e) => setIncludeBackfill(e.target.checked)}
-          />
-          <span>Incluir marcações em massa</span>
-        </label>
-        <p className="filters__hint">
-          Marcações em massa são as que o TV Time gravou todas na mesma data ao marcar
-          temporadas inteiras. Distorcem qualquer leitura temporal, por isso ficam fora.
-        </p>
-      </div>
-
       <QueryState query={overview}>
         {(data) => {
           const anoAtivo = year ?? data.availableYears[0] ?? new Date().getFullYear();
+          const naLinhaDoTempo = data.byYear.reduce((soma, b) => soma + b.exhibitions, 0);
+          const temLinhaDoTempo = naLinhaDoTempo > 0;
 
           return (
             <>
-              {!includeBackfill && data.summary.backfillExhibitions > 0 ? (
-                <p className="notice" role="status">
-                  <strong className="tabular">
-                    {data.summary.backfillExhibitions.toLocaleString('pt-BR')}
-                  </strong>{' '}
-                  exibições em massa estão fora destes números. Elas são a maior parte do seu
-                  histórico importado, mas todas carregam a mesma data — inclui-las diria que você
-                  assistiu tudo num dia só.
-                </p>
-              ) : null}
+              <section aria-labelledby="total-h">
+                <h2 className="section-head" id="total-h">
+                  No total
+                </h2>
 
-              <section className="tiles" aria-label="Resumo">
-                <Tile label="Tempo assistido" value={formatTotalTime(data.summary.totalSeconds)} />
-                <Tile label="Exibições" value={data.summary.exhibitions.toLocaleString('pt-BR')} />
-                <Tile
-                  label="Episódios distintos"
-                  value={data.summary.distinctEpisodes.toLocaleString('pt-BR')}
-                />
-                <Tile label="Séries" value={String(data.summary.seriesCount)} />
-                <Tile
-                  label="Taxa de rewatch"
-                  value={formatPercent(data.summary.rewatchRate)}
-                  hint="quanto das exibições foi revisita"
-                />
-                <Tile
-                  label="Maior sequência"
-                  value={`${data.streaks.longestDays} d`}
-                  hint={
-                    data.streaks.currentDays > 0
-                      ? `atual: ${data.streaks.currentDays} d`
-                      : 'sem sequência ativa'
-                  }
+                <div className="tiles">
+                  <Tile label="Tempo assistido" value={formatTotalTime(data.summary.totalSeconds)} />
+                  <Tile
+                    label="Exibições"
+                    value={data.summary.exhibitions.toLocaleString('pt-BR')}
+                  />
+                  <Tile
+                    label="Episódios distintos"
+                    value={data.summary.distinctEpisodes.toLocaleString('pt-BR')}
+                    hint="sem contar as revisitas"
+                  />
+                  <Tile label="Séries" value={String(data.summary.seriesCount)} />
+                  <Tile
+                    label="Taxa de rewatch"
+                    value={formatPercent(data.summary.rewatchRate)}
+                    hint="quanto das exibições foi revisita"
+                  />
+                </div>
+
+                <p className="period">
+                  Do primeiro registro, {formatWatchedAt(data.summary.firstWatchedAt)}, ao mais
+                  recente, {formatWatchedAt(data.summary.lastWatchedAt)}.
+                </p>
+
+                <hr className="divider" />
+
+                <BarChart
+                  title="Séries por tempo assistido"
+                  orientation="horizontal"
+                  bars={data.topSeries.map((s) => ({
+                    key: String(s.seriesId),
+                    label: s.name,
+                    value: s.seconds,
+                    detail: `${s.name}: ${formatRuntime(s.seconds)} · ${s.exhibitions} exibições em ${s.distinctEpisodes} episódios`,
+                  }))}
+                  format={(v) => formatTotalTime(v)}
                 />
               </section>
 
-              <p className="period">
-                De {formatWatchedAt(data.summary.firstWatchedAt)} a{' '}
-                {formatWatchedAt(data.summary.lastWatchedAt)}.
-              </p>
+              <hr className="divider" />
 
-              {data.summary.exhibitions === 0 ? (
-                <p className="state">
-                  Nenhuma exibição fora das marcações em massa. Ligue o filtro acima para ver o
-                  histórico importado.
-                </p>
-              ) : (
-                <>
-                  <hr className="divider" />
+              <section aria-labelledby="tempo-h">
+                <h2 className="section-head" id="tempo-h">
+                  Ao longo do tempo
+                </h2>
 
-                  <div className="charts">
-                    <BarChart
-                      title="Tempo assistido por ano"
-                      orientation="vertical"
-                      bars={data.byYear.map((b) => ({
-                        key: b.label,
-                        label: b.label,
-                        value: b.seconds,
-                        detail: `${b.label}: ${formatRuntime(b.seconds)} em ${b.exhibitions} exibições`,
-                      }))}
-                      format={(v) => formatTotalTime(v)}
+                {/* O aviso vem antes do filtro porque explica por que o filtro existe. */}
+                {data.summary.backfillExhibitions > 0 ? (
+                  <p className="notice" role="status">
+                    <strong className="tabular">
+                      {data.summary.backfillExhibitions.toLocaleString('pt-BR')}
+                    </strong>{' '}
+                    das suas exibições vieram de marcação em massa no TV Time e carregam a data do
+                    lote, não a da exibição. Elas <strong>contam nos totais acima</strong>, mas
+                    ficam fora dos gráficos abaixo: colocá-las no eixo diria que você assistiu quase
+                    tudo num dia só.
+                  </p>
+                ) : null}
+
+                <div className="filters">
+                  <label className="toggle">
+                    <input
+                      type="checkbox"
+                      checked={includeBackfill}
+                      onChange={(e) => setIncludeBackfill(e.target.checked)}
                     />
+                    <span>Mostrar as marcações em massa nos gráficos</span>
+                  </label>
+                  <p className="filters__hint">
+                    Afeta só esta seção. Ligado, o gráfico ganha um pico artificial na data da
+                    importação — útil para conferir, enganoso para ler.
+                  </p>
+                </div>
 
-                    <BarChart
-                      title="Exibições por mês"
-                      orientation="vertical"
-                      bars={data.byMonth.map((b) => ({
-                        key: b.label,
-                        label: b.label.slice(2),
-                        value: b.exhibitions,
-                        detail: `${b.label}: ${b.exhibitions} exibições · ${formatRuntime(b.seconds)}`,
-                      }))}
-                      format={(v) => String(v)}
-                    />
-                  </div>
-
-                  <hr className="divider" />
-
-                  <BarChart
-                    title="Séries por tempo assistido"
-                    orientation="horizontal"
-                    bars={data.topSeries.map((s) => ({
-                      key: String(s.seriesId),
-                      label: s.name,
-                      value: s.seconds,
-                      detail: `${s.name}: ${formatRuntime(s.seconds)} · ${s.exhibitions} exibições em ${s.distinctEpisodes} episódios`,
-                    }))}
-                    format={(v) => formatTotalTime(v)}
-                  />
-
-                  <hr className="divider" />
-
-                  <section aria-label="Calendário">
-                    <div className="year-picker">
-                      <span className="eyebrow">Ano</span>
-                      {data.availableYears.map((y) => (
-                        <button
-                          key={y}
-                          type="button"
-                          className="btn btn--quiet"
-                          aria-pressed={y === anoAtivo}
-                          data-active={y === anoAtivo}
-                          onClick={() => setYear(y)}
-                        >
-                          {y}
-                        </button>
-                      ))}
+                {temLinhaDoTempo ? (
+                  <>
+                    <div className="tiles">
+                      <Tile
+                        label="Exibições datadas"
+                        value={naLinhaDoTempo.toLocaleString('pt-BR')}
+                        hint="as que entram nos gráficos"
+                      />
+                      <Tile
+                        label="Maior sequência"
+                        value={`${data.streaks.longestDays} d`}
+                        hint={
+                          data.streaks.currentDays > 0
+                            ? `atual: ${data.streaks.currentDays} d`
+                            : 'sem sequência ativa'
+                        }
+                      />
                     </div>
-                    <CalendarSection year={anoAtivo} includeBackfill={includeBackfill} />
-                  </section>
-                </>
-              )}
+
+                    <div className="charts">
+                      <BarChart
+                        title="Tempo assistido por ano"
+                        orientation="vertical"
+                        bars={data.byYear.map((b) => ({
+                          key: b.label,
+                          label: b.label,
+                          value: b.seconds,
+                          detail: `${b.label}: ${formatRuntime(b.seconds)} em ${b.exhibitions} exibições`,
+                        }))}
+                        format={(v) => formatTotalTime(v)}
+                      />
+
+                      <BarChart
+                        title="Exibições por mês"
+                        orientation="vertical"
+                        bars={data.byMonth.map((b) => ({
+                          key: b.label,
+                          label: b.label.slice(2),
+                          value: b.exhibitions,
+                          detail: `${b.label}: ${b.exhibitions} exibições · ${formatRuntime(b.seconds)}`,
+                        }))}
+                        format={(v) => String(v)}
+                      />
+                    </div>
+
+                    <hr className="divider" />
+
+                    <section aria-label="Calendário">
+                      <div className="year-picker">
+                        <span className="eyebrow">Ano</span>
+                        {data.availableYears.map((y) => (
+                          <button
+                            key={y}
+                            type="button"
+                            className="btn btn--quiet"
+                            aria-pressed={y === anoAtivo}
+                            data-active={y === anoAtivo}
+                            onClick={() => setYear(y)}
+                          >
+                            {y}
+                          </button>
+                        ))}
+                      </div>
+                      <CalendarSection year={anoAtivo} includeBackfill={includeBackfill} />
+                    </section>
+                  </>
+                ) : (
+                  <p className="state">
+                    Nenhuma exibição com data confiável ainda. Conforme você for marcando episódios
+                    pelo Reprise, os gráficos se preenchem sozinhos.
+                  </p>
+                )}
+              </section>
             </>
           );
         }}
@@ -182,8 +213,6 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
 function CalendarSection({ year, includeBackfill }: { year: number; includeBackfill: boolean }) {
   const query = useCalendar(year, includeBackfill);
   return (
-    <QueryState query={query}>
-      {(days) => <CalendarHeatmap year={year} days={days} />}
-    </QueryState>
+    <QueryState query={query}>{(days) => <CalendarHeatmap year={year} days={days} />}</QueryState>
   );
 }
