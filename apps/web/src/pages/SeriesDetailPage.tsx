@@ -5,6 +5,7 @@ import {
   formatPercent,
   formatSeriesStatus,
   posterUrl,
+  SeriesCompletion,
   WatchTrack,
 } from '@reprise/shared';
 import type { Episode, Season } from '@reprise/shared';
@@ -84,7 +85,18 @@ export function SeriesDetailPage() {
 
                 <StatusPicker seriesId={seriesId} current={series.status} />
 
-                <div className="progress detail-head__progress">
+                {/* Mesma cor por estado da lista: a série tem de se parecer consigo mesma nas
+                    duas telas. `data-state` define `--progress-color`, que a barra consome. */}
+                <div
+                  className="progress detail-head__progress"
+                  data-state={
+                    SeriesCompletion.of({
+                      productionStatus: series.productionStatus,
+                      episodesTotal: series.episodesTotal,
+                      episodesWatched: series.episodesWatched,
+                    }).state
+                  }
+                >
                   <span className="progress__text tabular">
                     {series.episodesWatched}/{series.episodesTotal} episódios
                   </span>

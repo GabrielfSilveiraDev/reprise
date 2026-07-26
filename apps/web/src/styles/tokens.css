@@ -90,6 +90,28 @@
   --track-2: #9e6c14;
   --track-3: #82550a;
   --track-4: #653f02;
+
+  /*
+   * Estado da série — três cores para três respostas diferentes a "já acabou?".
+   *
+   * <b>Por que não é a rampa da trilha.</b> A rampa é sequencial (mede intensidade de rewatch);
+   * isto é categórico: "faltam episódios", "vi tudo mas vem mais" e "vi tudo e acabou" não são
+   * graus da mesma coisa, são estados distintos. Codificar categoria em rampa faria parecer que
+   * "finalizada" é só "mais em progresso".
+   *
+   * <b>Por que estas cores e não verde.</b> Verde para "concluída" seria o óbvio, e foi a primeira
+   * tentativa — mas âmbar × verde dá ΔE 3,9 em protanopia, ou seja, indistinguíveis para quem não
+   * enxerga vermelho. Rodei o validador de paleta: âmbar/azul/rosa passa em todos os pares, com o
+   * pior caso em ΔE 10,7. O eixo azul-amarelo é o que sobrevive ao daltonismo mais comum.
+   *
+   * Cor é sempre REFORÇO: todo estado também aparece por texto ("Finalizada", "Faltam 3
+   * episódios"), porque quem não distingue as cores continua precisando da informação.
+   */
+  --state-progress: #9a5b00;
+  --state-uptodate: #1b4fa8;
+  --state-finished: #8c2d6b;
+  /* Texto sobre os selos preenchidos. Branco nos três: todos são escuros o bastante. */
+  --state-fg: #ffffff;
 }
 
 /* ---------- Tema escuro ---------- */
@@ -122,6 +144,12 @@
     --track-2: #b08c45;
     --track-3: #cfa552;
     --track-4: #e8b25f;
+
+    /* Ver o bloco claro. No escuro os três clareiam para manter 3:1 contra o fundo. */
+    --state-progress: #e8b25f;
+    --state-uptodate: #7fa8f0;
+    --state-finished: #e07aab;
+    --state-fg: #14130f;
   }
 }
 
@@ -154,4 +182,10 @@
   --track-2: #b08c45;
   --track-3: #cfa552;
   --track-4: #e8b25f;
+
+  /* Ver o bloco claro. No escuro os três clareiam para manter 3:1 contra o fundo. */
+  --state-progress: #e8b25f;
+  --state-uptodate: #7fa8f0;
+  --state-finished: #e07aab;
+  --state-fg: #14130f;
 }

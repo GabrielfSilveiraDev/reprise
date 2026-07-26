@@ -178,13 +178,17 @@ function Progress({ series }: { series: SeriesListItem }) {
 }
 
 function CompactRow({ series }: { series: SeriesListItem }) {
+  const completion = completionOf(series);
+
   return (
-    <li className="series__row">
+    // `data-state` só existe para o CSS escolher a cor da barra. O estado continua chegando ao
+    // leitor de tela por texto, no selo e no rótulo — atributo de dado não é anunciado.
+    <li className="series__row" data-state={completion.state}>
       <Link to={`/series/${series.id}`} className="series__name">
         {series.name}
       </Link>
       <span className="series__status">
-        <CompletionBadge completion={completionOf(series)} />
+        <CompletionBadge completion={completion} />
         {formatSeriesStatus(series.status)}
       </span>
       <Progress series={series} />
@@ -200,9 +204,10 @@ function CompactRow({ series }: { series: SeriesListItem }) {
 
 function ExpandedCard({ series }: { series: SeriesListItem }) {
   const poster = posterUrl(series.posterPath, 'w154');
+  const completion = completionOf(series);
 
   return (
-    <li className="series__card">
+    <li className="series__card" data-state={completion.state}>
       {poster ? (
         // alt vazio: o nome da série está logo ao lado como texto — anunciar de novo seria ruído.
         <img className="series__poster" src={poster} alt="" width={77} height={115} loading="lazy" />
@@ -214,7 +219,10 @@ function ExpandedCard({ series }: { series: SeriesListItem }) {
         <Link to={`/series/${series.id}`} className="series__name series__name--lg">
           {series.name}
         </Link>
-        <p className="series__status">{formatSeriesStatus(series.status)}</p>
+        <p className="series__status">
+          <CompletionBadge completion={completion} />
+          {formatSeriesStatus(series.status)}
+        </p>
         <Progress series={series} />
         <p className="series__when">
           {series.nextUp ? (

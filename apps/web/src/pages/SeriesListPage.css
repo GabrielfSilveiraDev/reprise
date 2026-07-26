@@ -188,13 +188,19 @@
   white-space: nowrap;
 }
 
+/*
+ * Um preenchimento por estado. Antes eram dois tratamentos — sólido para "Finalizada", contornado
+ * para "Em dia" — o que fazia a diferença parecer de importância, e não de significado.
+ */
 .badge--finished {
-  background: var(--accent);
-  color: var(--accent-fg);
+  background: var(--state-finished);
+  color: var(--state-fg);
 }
 
 .badge--uptodate {
-  background: var(--bg-raised);
-  color: var(--fg);
-  box-shadow: inset 0 0 0 1px var(--border-strong);
+  background: var(--state-uptodate);
+  color: var(--state-fg);
 }
+
+/* A cor da barra por estado vive em `ui.css`, junto do próprio componente de progresso: o item
+   aqui só declara `data-state` e a variável desce sozinha. */

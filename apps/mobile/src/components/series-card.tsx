@@ -8,11 +8,32 @@ import { useTheme } from '@/hooks/use-theme';
 import type { Theme } from '@/constants/theme';
 
 /**
+ * A cor de cada estado de conclusão — a mesma tabela que o web resolve por `data-state`.
+ *
+ * Uma função e não um `if` espalhado por componente: a barra e o selo precisam concordar, e foi
+ * exatamente por decidirem separado que "Em dia" e "Finalizada" acabaram com tratamentos visuais
+ * de peso diferente em vez de cores diferentes.
+ */
+function stateColor(completion: SeriesCompletion, theme: Theme): string {
+  switch (completion.state) {
+    case 'finished':
+      return theme.state.finished;
+    case 'up-to-date':
+      return theme.state.upToDate;
+    case 'behind':
+      return theme.state.progress;
+    case 'not-started':
+      // Colorir uma barra de 0% seria pintar ausência de dado.
+      return theme.borderStrong;
+  }
+}
+
+/**
  * Barra de progresso.
  *
  * Sempre acompanhada do número: comprimento sozinho não distingue 88% de 92%, e no pôster ela
- * fica com 2px de altura — pequena demais para carregar informação sozinha. Quando a série está
- * finalizada a barra usa o acento cheio; nas demais, um tom da rampa da trilha.
+ * fica com 3px de altura — pequena demais para carregar informação sozinha. A cor diz em QUE
+ * estado a série está; o comprimento diz o quanto falta.
  */
 export function ProgressBar({
   completion,
@@ -35,30 +56,27 @@ export function ProgressBar({
           height: '100%',
           width: `${pct}%`,
           borderRadius: height / 2,
-          backgroundColor: completion.isFinished ? theme.accent : theme.track[1],
+          backgroundColor: stateColor(completion, theme),
         }}
       />
     </View>
   );
 }
 
-/** Selo de estado. Texto, não cor: "Finalizada" e "Em dia" têm de ser legíveis em preto e branco. */
+/**
+ * Selo de estado.
+ *
+ * A cor distingue, o TEXTO informa: "Finalizada" e "Em dia" têm de continuar legíveis em preto e
+ * branco, e para quem não separa as duas cores o rótulo é a informação inteira.
+ */
 export function CompletionBadge({ completion }: { completion: SeriesCompletion }) {
   const t = useTheme();
   const badge = completion.badge;
   if (!badge) return null;
 
-  const finished = completion.isFinished;
   return (
-    <View
-      style={[
-        styles.badge,
-        finished
-          ? { backgroundColor: t.accent }
-          : { backgroundColor: t.bgRaised, borderColor: t.borderStrong, borderWidth: 1 },
-      ]}
-    >
-      <Text style={[styles.badgeText, { color: finished ? t.accentFg : t.fg }]}>{badge}</Text>
+    <View style={[styles.badge, { backgroundColor: stateColor(completion, t) }]}>
+      <Text style={[styles.badgeText, { color: t.state.fg }]}>{badge}</Text>
     </View>
   );
 }

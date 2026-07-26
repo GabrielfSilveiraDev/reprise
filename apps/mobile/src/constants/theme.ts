@@ -36,6 +36,28 @@ export interface Theme {
   readonly trackEmpty: string;
   /** Rampa de 4 passos da trilha de exibições, do menos ao mais assistido. */
   readonly track: readonly string[];
+
+  /**
+   * Estado da série — três cores para três respostas diferentes a "já acabou?".
+   *
+   * <b>Não é a rampa da trilha.</b> A rampa é sequencial (mede intensidade de rewatch); isto é
+   * categórico: "faltam episódios", "vi tudo mas vem mais" e "vi tudo e acabou" não são graus da
+   * mesma coisa. Usar a rampa faria "finalizada" parecer só "mais em progresso".
+   *
+   * <b>Não é verde.</b> Verde para "concluída" seria o óbvio e foi a primeira tentativa, mas
+   * âmbar × verde dá ΔE 3,9 em protanopia — indistinguíveis para quem não enxerga vermelho.
+   * Âmbar/azul/rosa passa em todos os pares, pior caso ΔE 10,7.
+   *
+   * Os mesmos valores do web, em `tokens.css`. Cor é sempre reforço: o estado também aparece por
+   * texto no selo e no rótulo.
+   */
+  readonly state: {
+    readonly progress: string;
+    readonly upToDate: string;
+    readonly finished: string;
+    /** Texto sobre os selos preenchidos. */
+    readonly fg: string;
+  };
 }
 
 export const Colors: { readonly light: Theme; readonly dark: Theme } = {
@@ -61,6 +83,7 @@ export const Colors: { readonly light: Theme; readonly dark: Theme } = {
 
     trackEmpty: '#e6e1d9',
     track: ['#b8831f', '#9e6c14', '#82550a', '#653f02'],
+    state: { progress: '#9a5b00', upToDate: '#1b4fa8', finished: '#8c2d6b', fg: '#ffffff' },
   },
   dark: {
     bg: '#14130f',
@@ -84,6 +107,7 @@ export const Colors: { readonly light: Theme; readonly dark: Theme } = {
 
     trackEmpty: '#2a271f',
     track: ['#8f713a', '#b08c45', '#cfa552', '#e8b25f'],
+    state: { progress: '#e8b25f', upToDate: '#7fa8f0', finished: '#e07aab', fg: '#14130f' },
   },
 };
 

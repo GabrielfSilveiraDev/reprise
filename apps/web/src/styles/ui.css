@@ -69,9 +69,39 @@
   overflow: hidden;
 }
 
+/*
+ * A cor vem de `--progress-color`, que qualquer ancestral com `data-state` define. Variável e não
+ * um seletor mais específico de propósito: regra sobrescrevendo regra é como nascem as brigas de
+ * especificidade que ninguém mais desfaz. Sem ninguém definir, cai no acento — o comportamento
+ * que já existia.
+ */
 .progress__fill {
   height: 100%;
-  background: var(--accent);
+  background: var(--progress-color, var(--accent));
+}
+
+/*
+ * Estado da série → cor da barra. Vive aqui, e não na folha da lista, porque a mesma série tem de
+ * se parecer consigo mesma na lista, no cartão e no detalhe.
+ *
+ * Os nomes são os estados do `SeriesCompletion` no pacote compartilhado, escritos igual — se um
+ * dia mudarem lá, o valor some daqui e a barra cai no acento em vez de mentir a cor.
+ */
+[data-state='behind'] {
+  --progress-color: var(--state-progress);
+}
+
+[data-state='up-to-date'] {
+  --progress-color: var(--state-uptodate);
+}
+
+[data-state='finished'] {
+  --progress-color: var(--state-finished);
+}
+
+/* Colorir uma barra de 0% seria pintar ausência de dado. */
+[data-state='not-started'] {
+  --progress-color: var(--border-strong);
 }
 
 .progress__text {

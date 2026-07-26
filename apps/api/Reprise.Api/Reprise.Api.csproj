@@ -8,6 +8,19 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+
+    <!--
+      Referência direta só para SUBIR uma dependência transitiva.
+
+      Microsoft.AspNetCore.OpenApi 10.0.10 (a mais nova que existe) traz Microsoft.OpenApi 2.0.0,
+      que está na faixa de GHSA-v5pm-xwqc-g5wc: referências circulares de schema causam recursão
+      sem controle e derrubam o processo. A 2.7.5 é a primeira corrigida da linha 2.x — e a menor
+      que resolve, de propósito: quem gerou o grafo foi o pacote do framework, e quanto menos eu
+      afastar disso, menos chance de quebrar por incompatibilidade de API.
+
+      Apagar quando a Microsoft publicar um AspNetCore.OpenApi que já traga 2.7.5 ou mais.
+    -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
   </ItemGroup>
 
   <PropertyGroup>
