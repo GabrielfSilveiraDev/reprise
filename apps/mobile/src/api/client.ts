@@ -1,8 +1,8 @@
-import * as SecureStore from 'expo-secure-store';
 import { createRepriseClient } from '@reprise/shared';
 import type { RepriseClient } from '@reprise/shared';
 import { Auth } from './auth';
 import { AuthSession } from './session';
+import { Vault } from './vault';
 import { LocalStore } from '@/offline/local-store';
 
 const API_URL_SETTING = 'apiUrl';
@@ -42,9 +42,8 @@ export class ApiEndpoint {
 /**
  * O token do cadeado de acesso da API — exigido só quando ela está exposta fora da LAN.
  *
- * Mora no **cofre do sistema** (Keystore no Android), não no SQLite junto com o cache. É um
- * segredo: ele não pertence ao mesmo lugar que a lista de séries, e o dia em que a autenticação
- * de verdade chegar, é aqui que o refresh token vai morar também.
+ * Mora no cofre — ver {@link Vault} —, não no SQLite junto com o cache. É um segredo: não
+ * pertence ao mesmo lugar que a lista de séries.
  */
 export class AccessToken {
   /**
@@ -57,20 +56,15 @@ export class AccessToken {
   private static readonly fromEnvironment = process.env.EXPO_PUBLIC_API_TOKEN ?? null;
 
   static async read(): Promise<string | null> {
-    try {
-      const stored = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-      if (stored) return stored;
-    } catch {
-      // Cofre indisponível (aparelho sem tela de bloqueio, por exemplo): seguir para o
-      // valor de ambiente é melhor do que derrubar o app.
-    }
-    return AccessToken.fromEnvironment;
+    // O `Vault` já devolve nulo quando o cofre não está disponível: seguir para o valor de
+    // ambiente é melhor do que derrubar o app.
+    return (await Vault.read(ACCESS_TOKEN_KEY)) ?? AccessToken.fromEnvironment;
   }
 
   static async write(token: string): Promise<void> {
     const trimmed = token.trim();
-    if (trimmed) await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, trimmed);
-    else await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+    if (trimmed) await Vault.write(ACCESS_TOKEN_KEY, trimmed);
+    else await Vault.clear(ACCESS_TOKEN_KEY);
   }
 
   static async has(): Promise<boolean> {

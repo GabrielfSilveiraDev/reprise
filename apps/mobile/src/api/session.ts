@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import { Vault } from './vault';
 
 const SESSION_KEY = 'reprise.session';
 
@@ -28,7 +28,7 @@ export class AuthSession {
     if (AuthSession.cached !== undefined) return AuthSession.cached;
 
     try {
-      const raw = await SecureStore.getItemAsync(SESSION_KEY);
+      const raw = await Vault.read(SESSION_KEY);
       AuthSession.cached = raw ? (JSON.parse(raw) as StoredSession) : null;
     } catch {
       // Cofre indisponível ou conteúdo corrompido: tratar como deslogado leva à tela de login,
@@ -41,12 +41,12 @@ export class AuthSession {
 
   static async write(session: StoredSession): Promise<void> {
     AuthSession.cached = session;
-    await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session));
+    await Vault.write(SESSION_KEY, JSON.stringify(session));
   }
 
   static async clear(): Promise<void> {
     AuthSession.cached = null;
-    await SecureStore.deleteItemAsync(SESSION_KEY);
+    await Vault.clear(SESSION_KEY);
   }
 
   /** Sem I/O — para quem já leu e quer decidir rápido. */
