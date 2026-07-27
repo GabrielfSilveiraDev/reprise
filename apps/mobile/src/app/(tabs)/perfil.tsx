@@ -157,7 +157,9 @@ function Stats({
           value={s.distinctEpisodes.toLocaleString('pt-BR')}
           hint="sem revisitas"
         />
-        <Tile label="Séries" value={String(s.seriesCount)} />
+        {/* "assistidas": este número conta as séries com pelo menos uma exibição, e não as
+            acompanhadas. São 115 e 116 — o mesmo rótulo para os dois parece erro. */}
+        <Tile label="Séries assistidas" value={String(s.seriesCount)} />
         <Tile label="Rewatch" value={formatPercent(s.rewatchRate)} hint="das exibições" />
       </View>
 

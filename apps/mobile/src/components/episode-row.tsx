@@ -92,11 +92,16 @@ export function EpisodeRow({
               <Text style={styles.code}>{code}</Text>
               {episode.name ? `  ${episode.name}` : ''}
             </Text>
+            {/*
+              Visto: quando. Não visto: desde quando está disponível — ou para quando está
+              marcado. É a mesma escolha do web, e substitui o espaço vazio que ficava aqui em
+              toda linha ainda não assistida.
+            */}
             <Text style={[styles.meta, { color: t.fgSubtle }]} numberOfLines={1}>
               {formatRuntime(episode.runtimeSeconds)}
               {episode.lastWatchedAt
                 ? ` · ${formatWatchedAt(episode.lastWatchedAt)}`
-                : !aired
+                : Airing.label(episode.airDate)
                   ? ` · ${Airing.label(episode.airDate)}`
                   : ''}
             </Text>

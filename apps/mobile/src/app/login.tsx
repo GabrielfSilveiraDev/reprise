@@ -105,8 +105,14 @@ export default function LoginScreen() {
               <Logo size={34} />
               <Text style={[styles.wordmark, { color: t.fg }]}>Reprise</Text>
             </View>
+            {/*
+              A mesma frase de abertura do web.
+              Aqui estava o credo do projeto — "uma exibição é um evento, não um booleano" —, que
+              é uma afirmação sobre modelagem de dados dita a alguém que ainda não sabe o que o
+              app faz. Ele continua no rodapé, onde lê como divisa e não como explicação.
+            */}
             <Text style={[styles.tagline, { color: t.fgMuted }]}>
-              Uma exibição é um evento, não um booleano.
+              Onde você parou, e quantas vezes já voltou.
             </Text>
           </View>
 
@@ -215,6 +221,10 @@ export default function LoginScreen() {
               hint="O celular precisa do IP da máquina na rede, não de localhost."
             />
           </View>
+
+          <Text style={[styles.credo, { color: t.fgSubtle }]}>
+            Uma exibição é um evento, não um booleano.
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -298,4 +308,5 @@ const styles = StyleSheet.create({
   switchText: { fontSize: FontSize.sm, fontWeight: '600' },
 
   server: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing[4] },
+  credo: { fontSize: FontSize.xs, fontStyle: 'italic', textAlign: 'center' },
 });

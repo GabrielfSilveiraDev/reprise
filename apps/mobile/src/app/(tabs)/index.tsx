@@ -3,7 +3,7 @@ import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { HomeShelf, formatEpisodeCode, formatWatchedAt, posterUrl } from '@reprise/shared';
+import { HomeShelf, formatEpisodeCode, formatWhen, posterUrl } from '@reprise/shared';
 import type { NextUpItem } from '@reprise/shared';
 import { useMarkEpisode, useNextUp, usePremieres, useProfile } from '@/api/queries';
 import { Logo } from '@/components/logo';
@@ -145,10 +145,12 @@ function GuardadasHeader({
         </Text>
       </Pressable>
 
+      {/* Sem citar a importação do TV Time: é verdade para este acervo hoje, não para o critério.
+          O que define a prateleira é o silêncio de dois meses. */}
       {aberto ? (
         <Text style={[styles.guardadasNote, { color: t.fgSubtle }]}>
-          Paradas há mais de dois meses, quase todas desde a importação do TV Time. Ficam aqui sem
-          pressa — retome quando quiser.
+          Sem nenhuma exibição nos últimos dois meses. Ficam aqui sem pressa — retome quando
+          quiser.
         </Text>
       ) : null}
     </View>
@@ -187,7 +189,7 @@ function NextUpRow({ item, quieta = false }: { item: NextUpItem; quieta?: boolea
               própria seção já diz de quando são. */}
           {quieta ? null : (
             <Text style={[styles.meta, { color: t.fgSubtle }]}>
-              {formatWatchedAt(item.lastActivityAt)}
+              Última atividade {formatWhen(item.lastActivityAt)}
             </Text>
           )}
         </View>
@@ -206,8 +208,14 @@ function NextUpRow({ item, quieta = false }: { item: NextUpItem; quieta?: boolea
         accessibilityRole="button"
         accessibilityLabel={`Marcar ${code} de ${item.seriesName} como visto`}
       >
-        {/* O botão diz o que acontece ao ser apertado, não o que a pessoa fez. */}
-        <Text style={[styles.markLabel, { color: quieta ? t.fg : t.accentFg }]}>Marcar visto</Text>
+        {/*
+          O botão diz o que acontece ao ser apertado, não o que a pessoa fez. E diz a MESMA coisa
+          que o web: dois rótulos parecidos para a mesma ação ("Marcar visto" aqui, "Marcar como
+          visto" lá) fazem quem usa os dois desconfiar de que são ações diferentes.
+        */}
+        <Text style={[styles.markLabel, { color: quieta ? t.fg : t.accentFg }]}>
+          Marcar como visto
+        </Text>
       </Pressable>
     </View>
   );
@@ -261,13 +269,16 @@ const styles = StyleSheet.create({
   episode: { fontSize: FontSize.sm },
   meta: { fontSize: FontSize.xs },
 
+  // `maxWidth` com o rótulo maior: sem ele o botão come a largura do nome da série em tela
+  // estreita. Duas linhas cabem nos 44px de alvo, então quebrar é mais barato que abreviar.
   markButton: {
     minHeight: TouchTarget,
     minWidth: 84,
+    maxWidth: 104,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing[3],
   },
-  markLabel: { fontSize: FontSize.sm, fontWeight: '700' },
+  markLabel: { fontSize: FontSize.sm, fontWeight: '700', textAlign: 'center' },
 });
