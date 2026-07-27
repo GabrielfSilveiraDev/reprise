@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { formatEpisodeCode, formatWatchedAt } from '@reprise/shared';
+import { Airing, formatEpisodeCode } from '@reprise/shared';
 import type { Premiere } from '@reprise/shared';
 import { EpisodeThumb } from '@/components/episode-thumb';
 import { EyebrowStyle, FontSize, Radius, Spacing } from '@/constants/theme';
@@ -70,9 +70,9 @@ export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] })
   );
 }
 
-/** A data vem como `YYYY-MM-DD`; o meio-dia evita o dia virar por fuso. */
+/** A âncora de meio-dia UTC e o verbo certo moram no `Airing`, junto com a regra de estreia. */
 function quando(airDate: string): string {
-  return formatWatchedAt(`${airDate}T12:00:00Z`);
+  return Airing.label(airDate) ?? '';
 }
 
 const styles = StyleSheet.create({

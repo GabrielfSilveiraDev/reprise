@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { formatRuntime, formatTotalTime, formatWatchCount, formatWatchedAt } from './format.ts';
+import {
+  formatRuntime,
+  formatTotalTime,
+  formatWatchCount,
+  formatWatchedAt,
+  formatWhen,
+} from './format.ts';
 
 /**
  * Estes testes existem por causa de um defeito real: `Intl.RelativeTimeFormat` não existe no
@@ -33,6 +39,18 @@ describe('formatWatchedAt', () => {
     const texto = formatWatchedAt(dias(-45), AGORA);
     assert.match(texto, /2026/, `esperava uma data absoluta, veio "${texto}"`);
     assert.doesNotMatch(texto, /há|dias/);
+  });
+
+  it('a versão de frase põe a preposição só onde ela cabe', () => {
+    // "visto 18 de jun. de 2026" era a frase faltando uma palavra; "visto em ontem" seria a
+    // frase com uma palavra a mais. A preposição depende do ramo, então mora aqui dentro.
+    assert.match(formatWhen(dias(-45), AGORA), /^em \d/);
+    assert.equal(formatWhen(dias(-1), AGORA), 'ontem');
+    assert.equal(formatWhen(dias(7), AGORA), 'em 7 dias');
+    assert.equal(formatWhen(null, AGORA), 'nunca');
+
+    // E a versão nua continua nua, para intervalos e colunas.
+    assert.doesNotMatch(formatWatchedAt(dias(-45), AGORA), /^em /);
   });
 
   it('ausência e lixo viram "nunca", não quebram a tela', () => {

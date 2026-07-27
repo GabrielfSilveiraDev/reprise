@@ -82,6 +82,56 @@ describe('SeriesCompletion', () => {
     assert.equal(atrasada.badge, null);
   });
 
+  it('episódio ainda não exibido não conta como pendência', () => {
+    // O caso da Silo: 30 no catálogo, 24 no ar, 24 vistos. Antes isto dizia "faltam 6".
+    const c = SeriesCompletion.of({
+      productionStatus: 'Returning Series',
+      episodesTotal: 30,
+      episodesAired: 24,
+      episodesWatched: 24,
+    });
+
+    assert.equal(c.state, 'up-to-date');
+    assert.equal(c.remaining, 0, 'não há o que assistir hoje');
+    assert.equal(c.upcoming, 6);
+    assert.equal(c.label, 'Em dia — mais 6 episódios a caminho');
+    // A barra continua medindo contra o catálogo: encolher a régua quando um episódio estreia
+    // faria o progresso andar para trás sem ninguém ter feito nada.
+    assert.equal(c.ratio, 0.8);
+  });
+
+  it('com estreia agendada, "em dia" não depende do status da produção', () => {
+    for (const status of ['Ended', null]) {
+      const c = SeriesCompletion.of({
+        productionStatus: status,
+        episodesTotal: 12,
+        episodesAired: 10,
+        episodesWatched: 10,
+      });
+      assert.equal(c.state, 'up-to-date', `${status} com episódio agendado não é "finalizada"`);
+    }
+  });
+
+  it('atrasado se mede pelo que estreou', () => {
+    const c = SeriesCompletion.of({
+      productionStatus: 'Returning Series',
+      episodesTotal: 30,
+      episodesAired: 24,
+      episodesWatched: 20,
+    });
+
+    assert.equal(c.state, 'behind');
+    assert.equal(c.remaining, 4, 'quatro no ar esperando, não dez');
+    assert.equal(c.label, 'Faltam 4 episódios');
+  });
+
+  it('sem `episodesAired`, tudo conta como exibido — o comportamento de antes', () => {
+    const c = SeriesCompletion.of({ productionStatus: 'Ended', episodesTotal: 10, episodesWatched: 10 });
+    assert.equal(c.episodesAired, 10);
+    assert.equal(c.upcoming, 0);
+    assert.equal(c.state, 'finished');
+  });
+
   it('tolera espaço em volta do status vindo do TMDB', () => {
     const c = SeriesCompletion.of({ productionStatus: '  Ended  ', episodesTotal: 3, episodesWatched: 3 });
     assert.equal(c.state, 'finished');

@@ -5,7 +5,7 @@ import {
   formatEpisodeCode,
   formatPercent,
   formatSeriesStatus,
-  formatWatchedAt,
+  formatWhen,
   posterUrl,
 } from '@reprise/shared';
 import type { SeriesListItem } from '@reprise/shared';
@@ -20,8 +20,29 @@ function completionOf(series: SeriesListItem): SeriesCompletion {
   return SeriesCompletion.of({
     productionStatus: series.productionStatus,
     episodesTotal: series.episodesTotal,
+    episodesAired: series.episodesAired,
     episodesWatched: series.episodesWatched,
   });
+}
+
+/**
+ * A capa, no tamanho que a linha comportar.
+ *
+ * <b>Sem imagem, uma cartela com a inicial — não um retângulo vazio.</b> Um bloco cinza no lugar
+ * de uma imagem é indistinguível de uma imagem que falhou ao carregar, e é isso que faz a lista
+ * parecer quebrada em vez de incompleta.
+ */
+function Poster({ series, size }: { series: SeriesListItem; size: 'w154' | 'w342' }) {
+  const src = posterUrl(series.posterPath, size);
+
+  // alt vazio: o nome da série está ao lado, como texto. Anunciá-lo de novo é ruído.
+  return src ? (
+    <img className="series__poster" src={src} alt="" loading="lazy" decoding="async" />
+  ) : (
+    <span className="series__poster series__poster--empty" aria-hidden="true">
+      {series.name.trim().charAt(0).toUpperCase()}
+    </span>
+  );
 }
 
 /**
@@ -177,6 +198,16 @@ function Progress({ series }: { series: SeriesListItem }) {
   );
 }
 
+/**
+ * Quando a série foi tocada pela última vez, em frase completa.
+ *
+ * `formatWatchedAt` devolve "nunca" para quem nunca assistiu, e a linha dizia "· visto nunca" —
+ * uma frase que ninguém escreveria. Sem exibição, o que há a dizer é outra coisa.
+ */
+function ultimaVez(series: SeriesListItem): string {
+  return series.lastWatchedAt ? `visto ${formatWhen(series.lastWatchedAt)}` : 'nunca assistida';
+}
+
 function CompactRow({ series }: { series: SeriesListItem }) {
   const completion = completionOf(series);
 
@@ -184,6 +215,9 @@ function CompactRow({ series }: { series: SeriesListItem }) {
     // `data-state` só existe para o CSS escolher a cor da barra. O estado continua chegando ao
     // leitor de tela por texto, no selo e no rótulo — atributo de dado não é anunciado.
     <li className="series__row" data-state={completion.state}>
+      {/* A capa é o que faz reconhecer a série antes de ler o nome. Faltava só nesta densidade —
+          a lista inteira era texto sobre texto. */}
+      <Poster series={series} size="w154" />
       <Link to={`/series/${series.id}`} className="series__name">
         {series.name}
       </Link>
@@ -197,23 +231,17 @@ function CompactRow({ series }: { series: SeriesListItem }) {
           ? formatEpisodeCode(series.nextUp.seasonNumber, series.nextUp.episodeNumber)
           : '—'}
       </span>
-      <span className="series__when">{formatWatchedAt(series.lastWatchedAt)}</span>
+      <span className="series__when">{ultimaVez(series)}</span>
     </li>
   );
 }
 
 function ExpandedCard({ series }: { series: SeriesListItem }) {
-  const poster = posterUrl(series.posterPath, 'w154');
   const completion = completionOf(series);
 
   return (
     <li className="series__card" data-state={completion.state}>
-      {poster ? (
-        // alt vazio: o nome da série está logo ao lado como texto — anunciar de novo seria ruído.
-        <img className="series__poster" src={poster} alt="" width={77} height={115} loading="lazy" />
-      ) : (
-        <div className="series__poster series__poster--empty" aria-hidden="true" />
-      )}
+      <Poster series={series} size="w342" />
 
       <div className="series__card-body">
         <Link to={`/series/${series.id}`} className="series__name series__name--lg">
@@ -234,9 +262,9 @@ function ExpandedCard({ series }: { series: SeriesListItem }) {
               {series.nextUp.name ? ` — ${series.nextUp.name}` : ''}
             </>
           ) : (
-            'Em dia'
+            completion.label
           )}{' '}
-          · visto {formatWatchedAt(series.lastWatchedAt)}
+          · {ultimaVez(series)}
         </p>
       </div>
     </li>

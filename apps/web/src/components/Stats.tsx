@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { formatPercent, formatRuntime, formatTotalTime, formatWatchedAt } from '@reprise/shared';
 import { useCalendar, useStatsOverview } from '../api/queries';
-import { BarChart } from '../components/BarChart';
-import { CalendarHeatmap } from '../components/CalendarHeatmap';
-import { QueryState } from '../components/QueryState';
-import './StatsPage.css';
+import { BarChart } from './BarChart';
+import { CalendarHeatmap } from './CalendarHeatmap';
+import { QueryState } from './QueryState';
+import './Stats.css';
 
 /**
  * Painel de estatísticas, em duas zonas — e a divisão é a ideia central da tela.
@@ -18,19 +18,19 @@ import './StatsPage.css';
  * carregam a data do lote — todas em 29/12/2025. Incluí-las desenharia um pico que nunca houve.
  * Por isso o filtro mora DENTRO desta seção: ele afeta só o que está abaixo dele, e a posição na
  * página é a única explicação de escopo que ninguém precisa ler para entender.
+ *
+ * <b>Deixou de ser uma página.</b> Ficava numa aba própria, e a divisão entre "Perfil" e
+ * "Estatísticas" cortava ao meio uma coisa só: o que o Reprise sabe sobre você. Quem abria o
+ * perfil via quatro contagens de acervo e um botão de exportar, e tinha de trocar de aba para
+ * ver quanto tempo isso dá. O app sempre teve as duas coisas na mesma aba; o web é que divergia.
  */
-export function StatsPage() {
+export function Stats() {
   const [includeBackfill, setIncludeBackfill] = useState(false);
   const overview = useStatsOverview(includeBackfill);
   const [year, setYear] = useState<number | null>(null);
 
   return (
     <>
-      <header className="page-head">
-        <p className="eyebrow">Estatísticas</p>
-        <h1>Seu histórico</h1>
-      </header>
-
       <QueryState query={overview}>
         {(data) => {
           const anoAtivo = year ?? data.availableYears[0] ?? new Date().getFullYear();
@@ -55,7 +55,12 @@ export function StatsPage() {
                     value={data.summary.distinctEpisodes.toLocaleString('pt-BR')}
                     hint="sem contar as revisitas"
                   />
-                  <Tile label="Séries" value={String(data.summary.seriesCount)} />
+                  {/*
+                    "assistidas", não só "Séries". Este número conta as séries com pelo menos uma
+                    exibição; o acervo, logo acima na mesma página, conta as acompanhadas. São 115
+                    e 116, e dois rótulos iguais com valores diferentes na mesma tela parecem erro.
+                  */}
+                  <Tile label="Séries assistidas" value={String(data.summary.seriesCount)} />
                   <Tile
                     label="Taxa de rewatch"
                     value={formatPercent(data.summary.rewatchRate)}

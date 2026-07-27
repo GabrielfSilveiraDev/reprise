@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Reprise.Application.Abstractions;
 using Reprise.Application.Features.Watching;
+using Reprise.Domain.Entities;
 using Reprise.Domain.Enums;
 
 namespace Reprise.Application.Features.Series;
@@ -59,7 +60,7 @@ public sealed class SeriesQueries
 
                 return new SeriesListItemDto(
                     c.SeriesId, c.TvdbId, c.Name, c.PosterPath, c.Relacao.ToString(), c.Producao,
-                    p.Total, p.Vistos,
+                    p.Total, p.Exibidos, p.Vistos,
                     p.Total == 0 ? 0d : (double)p.Vistos / p.Total,
                     last, next);
             })
@@ -108,8 +109,10 @@ public sealed class SeriesQueries
                     .ToList()))
             .ToList();
 
+        var hoje = Episode.Today();
         var regular = epRows.Where(e => e.SeasonNumber > 0).ToList();
         var total = regular.Count;
+        var aired = regular.Count(e => Episode.HasAired(e.AirDate, hoje));
         var watched = regular.Count(e => e.WatchCount > 0);
         var ratio = total == 0 ? 0d : (double)watched / total;
 
@@ -131,18 +134,21 @@ public sealed class SeriesQueries
 
         return new SeriesDetailDto(
             series.Id, series.TvdbId, series.Name, series.OriginalName, series.Overview, series.PosterPath,
-            status, series.Status, series.FirstAirDate, total, watched, ratio, seasons,
+            status, series.Status, series.FirstAirDate, total, aired, watched, ratio, seasons,
             sessions, backfillCount);
     }
 
     /// <summary>
-    /// Total de episódios regulares e quantos foram vistos, por série — um <c>GROUP BY</c> só.
+    /// Total de episódios regulares, quantos já foram ao ar e quantos foram vistos, por série — um
+    /// <c>GROUP BY</c> só.
     ///
     /// Especiais (temporada 0) ficam fora: ninguém considera uma série incompleta por não ter
     /// visto os extras.
     /// </summary>
-    private async Task<Dictionary<long, (int Total, int Vistos)>> ProgressoPorSerieAsync(CancellationToken ct)
+    private async Task<Dictionary<long, (int Total, int Exibidos, int Vistos)>> ProgressoPorSerieAsync(CancellationToken ct)
     {
+        var hoje = Episode.Today();
+
         var linhas = await _db.Episodes
             .Where(e => e.SeasonNumber > 0)
             .GroupBy(e => e.SeriesId)
@@ -150,13 +156,16 @@ public sealed class SeriesQueries
             {
                 SeriesId = g.Key,
                 Total = g.Count(),
+                // A mesma regra de `Episode.Aired`, escrita inline porque um `Count` com predicado
+                // não aceita a expressão pronta. Se uma mudar, a outra tem de mudar junto.
+                Exibidos = g.Count(e => e.AirDate == null || e.AirDate.Value <= hoje),
                 // `e.WatchEvents.Any()` respeita o filtro global: é "existe exibição DESTE
                 // usuário", nunca de qualquer um.
                 Vistos = g.Count(e => e.WatchEvents.Any()),
             })
             .ToListAsync(ct);
 
-        return linhas.ToDictionary(x => x.SeriesId, x => (x.Total, x.Vistos));
+        return linhas.ToDictionary(x => x.SeriesId, x => (x.Total, x.Exibidos, x.Vistos));
     }
 
     /// <summary>Data da exibição mais recente de cada série, para ordenar a lista por atividade.</summary>
@@ -186,6 +195,10 @@ public sealed class SeriesQueries
     {
         var linhas = await _db.Episodes
             .Where(e => e.SeasonNumber > 0 && !e.WatchEvents.Any())
+            // Só o que dá para assistir hoje. "Próximo a assistir" apontando para um episódio que
+            // estreia em novembro é uma pendência que ninguém pode resolver — e era assim que a
+            // tela inicial oferecia o botão de marcar num episódio inexistente.
+            .Where(Episode.Aired(Episode.Today()))
             .GroupBy(e => e.SeriesId)
             .Select(g => g
                 .OrderBy(e => e.SeasonNumber)

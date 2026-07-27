@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { SeriesCompletion, formatPercent, formatWatchedAt, posterUrl } from '@reprise/shared';
+import { SeriesCompletion, formatPercent, formatWhen, posterUrl } from '@reprise/shared';
 import type { SeriesListItem } from '@reprise/shared';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -85,6 +85,7 @@ function completionOf(item: SeriesListItem): SeriesCompletion {
   return SeriesCompletion.of({
     productionStatus: item.productionStatus,
     episodesTotal: item.episodesTotal,
+    episodesAired: item.episodesAired,
     episodesWatched: item.episodesWatched,
   });
 }
@@ -175,8 +176,9 @@ export function SeriesRow({ item }: { item: SeriesListItem }) {
         <Text style={[styles.rowMeta, { color: t.fgMuted }]} numberOfLines={1}>
           {completion.label}
         </Text>
+        {/* "nunca" sozinho numa linha não diz nunca o quê. */}
         <Text style={[styles.rowMeta, { color: t.fgSubtle }]} numberOfLines={1}>
-          {formatWatchedAt(item.lastWatchedAt)}
+          {item.lastWatchedAt ? `visto ${formatWhen(item.lastWatchedAt)}` : 'nunca assistida'}
         </Text>
 
         <View style={styles.rowProgress}>

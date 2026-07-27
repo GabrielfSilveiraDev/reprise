@@ -124,6 +124,29 @@ export function formatWatchedAt(iso: string | null | undefined, now: Date = new 
 }
 
 /**
+ * O mesmo que {@link formatWatchedAt}, mas pronto para entrar no meio de uma frase.
+ *
+ * <b>A preposição depende da resposta.</b> "visto ontem" e "visto em 18 de jun. de 2026" — o ramo
+ * relativo dispensa o "em", o absoluto exige. Quem escreve "visto {formatWatchedAt(x)}" acerta
+ * enquanto a data é recente e passa a errar sozinho quando ela envelhece 30 dias, que é o tipo de
+ * defeito que ninguém encontra revisando código.
+ *
+ * Duas funções e não um parâmetro booleano: `formatWhen(x)` diz no nome o que devolve, enquanto
+ * `formatWatchedAt(x, true)` obrigaria a abrir a definição para saber o que o `true` faz.
+ *
+ * Use {@link formatWatchedAt} quando o texto aparece sozinho — numa coluna, num intervalo
+ * "início – fim", num rótulo curto. Use este quando ele completa uma frase.
+ */
+export function formatWhen(iso: string | null | undefined, now: Date = new Date()): string {
+  if (!iso) return 'nunca';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'nunca';
+
+  const days = Math.round((startOfLocalDay(date) - startOfLocalDay(now)) / 86_400_000);
+  return Math.abs(days) < 30 ? formatRelativeDays(days) : `em ${formatAbsoluteDate(date)}`;
+}
+
+/**
  * Estado de exibição por extenso, para leitor de tela e rótulos.
  * Existe aqui, e não em cada componente, porque a concordância de "1 vez" / "2 vezes"
  * já escapou uma vez — e web e Android precisam dizer a mesma coisa.

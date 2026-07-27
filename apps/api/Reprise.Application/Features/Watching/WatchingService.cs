@@ -30,19 +30,39 @@ public sealed class WatchingService
         _currentUser = currentUser;
     }
 
-    /// <summary>Marca um episódio como visto (append). Chamado de novo no mesmo episódio = rewatch.</summary>
-    public async Task<WatchStateDto?> MarkAsync(long episodeId, DateTimeOffset? watchedAt, string? clientKey = null, CancellationToken ct = default)
+    /// <summary>
+    /// Marca um episódio como visto (append). Chamado de novo no mesmo episódio = rewatch.
+    ///
+    /// <para>
+    /// <b>Episódio que ainda não foi ao ar é recusado.</b> Não é preciosismo de validação: o log de
+    /// exibições é a fonte da verdade de tudo o que o app calcula, então um evento impossível
+    /// contamina o progresso da série, o "próximo a assistir", as estatísticas e as sessões de
+    /// rewatch — e some no meio de dez mil eventos legítimos, sem nada que o denuncie depois.
+    /// </para>
+    /// </summary>
+    public async Task<MarkOutcome> MarkAsync(long episodeId, DateTimeOffset? watchedAt, string? clientKey = null, CancellationToken ct = default)
     {
-        var exists = await _db.Episodes.AnyAsync(e => e.Id == episodeId, ct);
-        if (!exists) return null;
+        var episode = await _db.Episodes
+            .Where(e => e.Id == episodeId)
+            .Select(e => new { e.AirDate })
+            .FirstOrDefaultAsync(ct);
 
-        if (await AlreadyAppliedAsync(clientKey, ct)) return await StateAsync(episodeId, ct);
+        if (episode is null) return MarkOutcome.NotFound;
+        if (!Episode.HasAired(episode.AirDate, Episode.Today())) return MarkOutcome.NotAired;
+
+        // A outra porta para o mesmo evento impossível. O episódio pode já ter estreado e a DATA
+        // vir no futuro — nenhum cliente manda isso hoje, mas o corpo aceita, e uma exibição
+        // datada em 2027 desloca a maior sequência, o calendário e a "última atividade" sem que
+        // nada na tela denuncie de onde veio.
+        if (IsInTheFuture(watchedAt)) return MarkOutcome.FutureDate;
+
+        if (await AlreadyAppliedAsync(clientKey, ct)) return MarkOutcome.Ok(await StateAsync(episodeId, ct));
 
         _db.WatchEvents.Add(WatchEvent.CreateManual(_currentUser.UserId, episodeId, watchedAt ?? DateTimeOffset.UtcNow));
         StageLedger(clientKey, ActionKind.Watch);
         await SaveIgnoringReplayAsync(ct);
 
-        return await StateAsync(episodeId, ct);
+        return MarkOutcome.Ok(await StateAsync(episodeId, ct));
     }
 
     /// <summary>Desmarca: remove a exibição mais recente do episódio (decrementa o rewatch).</summary>
@@ -67,20 +87,32 @@ public sealed class WatchingService
         return await StateAsync(episodeId, ct);
     }
 
-    /// <summary>Marca a temporada inteira: cria eventos apenas para os episódios ainda não vistos.</summary>
+    /// <summary>
+    /// Marca a temporada inteira: cria eventos apenas para os episódios ainda não vistos <b>e já
+    /// exibidos</b>.
+    ///
+    /// <para>
+    /// Aqui o episódio futuro é <i>pulado em silêncio</i>, e não recusado como no comando
+    /// individual. A diferença é de intenção: quem aperta "Assisti" num episódio específico está
+    /// afirmando algo sobre aquele episódio e merece ser corrigido; quem aperta "Marcar temporada"
+    /// está dizendo "pus a temporada em dia", e a resposta certa a isso é marcar o que existe — não
+    /// recusar tudo porque a Silo tem mais seis episódios agendados até setembro.
+    /// </para>
+    /// </summary>
     public async Task<int> MarkSeasonAsync(long seriesId, int seasonNumber, DateTimeOffset? watchedAt, string? clientKey = null, CancellationToken ct = default)
     {
         if (await AlreadyAppliedAsync(clientKey, ct)) return 0;
 
         var unseen = await _db.Episodes
             .Where(e => e.SeriesId == seriesId && e.SeasonNumber == seasonNumber && !e.WatchEvents.Any())
+            .Where(Episode.Aired(Episode.Today()))
             .Select(e => e.Id)
             .ToListAsync(ct);
 
         return await MarkManyAsync(unseen, watchedAt, clientKey, ActionKind.WatchSeason, ct);
     }
 
-    /// <summary>"Marcar até aqui": todos os episódios regulares até (temporada, episódio), ainda não vistos.</summary>
+    /// <summary>"Marcar até aqui": episódios regulares até (temporada, episódio), não vistos e já exibidos.</summary>
     public async Task<int> MarkUpToAsync(long seriesId, int seasonNumber, int episodeNumber, DateTimeOffset? watchedAt, string? clientKey = null, CancellationToken ct = default)
     {
         if (await AlreadyAppliedAsync(clientKey, ct)) return 0;
@@ -89,6 +121,7 @@ public sealed class WatchingService
             .Where(e => e.SeriesId == seriesId && e.SeasonNumber > 0 && !e.WatchEvents.Any()
                         && (e.SeasonNumber < seasonNumber
                             || (e.SeasonNumber == seasonNumber && e.EpisodeNumber <= episodeNumber)))
+            .Where(Episode.Aired(Episode.Today()))
             .Select(e => e.Id)
             .ToListAsync(ct);
 
@@ -108,6 +141,16 @@ public sealed class WatchingService
         StageLedger(clientKey, kind);
         return await SaveIgnoringReplayAsync(ct) ? episodeIds.Count : 0;
     }
+
+    /// <summary>
+    /// A data está no futuro?
+    ///
+    /// A folga de um dia é de propósito: o relógio do aparelho é do aparelho, e um celular meia
+    /// hora adiantado não pode virar uma marcação recusada. O que se quer barrar é a data
+    /// francamente errada, não o desencontro de fuso.
+    /// </summary>
+    private static bool IsInTheFuture(DateTimeOffset? watchedAt)
+        => watchedAt is not null && watchedAt.Value > DateTimeOffset.UtcNow.AddDays(1);
 
     private async Task<WatchStateDto> StateAsync(long episodeId, CancellationToken ct)
     {

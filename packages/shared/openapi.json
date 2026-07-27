@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5156/"
+      "url": "http://localhost:5199/"
     }
   ],
   "paths": {
@@ -1575,6 +1575,7 @@
           "productionStatus",
           "firstAirDate",
           "episodesTotal",
+          "episodesAired",
           "episodesWatched",
           "completionRatio",
           "seasons",
@@ -1645,6 +1646,14 @@
             ],
             "format": "int32"
           },
+          "episodesAired": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
           "episodesWatched": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
@@ -1692,6 +1701,7 @@
           "status",
           "productionStatus",
           "episodesTotal",
+          "episodesAired",
           "episodesWatched",
           "completionRatio",
           "lastWatchedAt",
@@ -1735,6 +1745,14 @@
             ]
           },
           "episodesTotal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "episodesAired": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",

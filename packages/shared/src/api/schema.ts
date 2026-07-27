@@ -1071,6 +1071,8 @@ export interface components {
             /** Format: int32 */
             episodesTotal: number;
             /** Format: int32 */
+            episodesAired: number;
+            /** Format: int32 */
             episodesWatched: number;
             /** Format: double */
             completionRatio: number;
@@ -1090,6 +1092,8 @@ export interface components {
             productionStatus: null | string;
             /** Format: int32 */
             episodesTotal: number;
+            /** Format: int32 */
+            episodesAired: number;
             /** Format: int32 */
             episodesWatched: number;
             /** Format: double */

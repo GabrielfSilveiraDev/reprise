@@ -4,7 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import { Auth } from '@/api/auth';
-import { formatPercent, formatRuntime, formatTotalTime, formatWatchedAt } from '@reprise/shared';
+import {
+  formatPercent,
+  formatRuntime,
+  formatTotalTime,
+  formatWatchedAt,
+  formatWhen,
+} from '@reprise/shared';
 import type { Profile, StatsOverviewDto } from '@reprise/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCalendar, useProfile, useStatsOverview } from '@/api/queries';
@@ -115,11 +121,10 @@ function Identity({ profile }: { profile: Profile }) {
       <View style={styles.identityText}>
         <Text style={[styles.name, { color: t.fg }]}>{profile.displayName}</Text>
         <Text style={[styles.email, { color: t.fgMuted }]}>{profile.email}</Text>
+        {/* "No Reprise desde há 3 dias": a preposição da frase colidia com a da resposta. */}
         <Text style={[styles.since, { color: t.fgSubtle }]}>
-          No Reprise desde {formatWatchedAt(profile.memberSince)}
-          {profile.lastImportedAt
-            ? ` · importado ${formatWatchedAt(profile.lastImportedAt)}`
-            : ''}
+          Conta criada {formatWhen(profile.memberSince)}
+          {profile.lastImportedAt ? ` · importado ${formatWhen(profile.lastImportedAt)}` : ''}
         </Text>
       </View>
     </View>

@@ -26,35 +26,61 @@ export type CompletionState =
 export interface CompletionInput {
   readonly productionStatus?: string | null;
   readonly episodesTotal: number;
+  /**
+   * Destes, quantos já foram ao ar. Ausente = todos, que é o comportamento de antes desta
+   * distinção existir e continua correto para as séries sem episódio agendado.
+   */
+  readonly episodesAired?: number | null;
   readonly episodesWatched: number;
 }
 
 export class SeriesCompletion {
   readonly state: CompletionState;
   readonly episodesTotal: number;
+  readonly episodesAired: number;
   readonly episodesWatched: number;
 
-  private constructor(state: CompletionState, total: number, watched: number) {
+  private constructor(state: CompletionState, total: number, aired: number, watched: number) {
     this.state = state;
     this.episodesTotal = total;
+    this.episodesAired = aired;
     this.episodesWatched = watched;
   }
 
   static of(input: CompletionInput): SeriesCompletion {
     const total = Math.max(0, input.episodesTotal);
+    const aired = Math.min(Math.max(0, input.episodesAired ?? total), total);
     // O catálogo pode ter encolhido depois de um reprocessamento; assistido nunca passa do total.
     const watched = Math.min(Math.max(0, input.episodesWatched), total);
 
-    return new SeriesCompletion(SeriesCompletion.resolve(input, total, watched), total, watched);
+    return new SeriesCompletion(
+      SeriesCompletion.resolve(input, total, aired, watched),
+      total,
+      aired,
+      watched,
+    );
   }
 
-  private static resolve(input: CompletionInput, total: number, watched: number): CompletionState {
+  private static resolve(
+    input: CompletionInput,
+    total: number,
+    aired: number,
+    watched: number,
+  ): CompletionState {
     // Série sem catálogo ainda (stub do import, sem enriquecimento) não tem o que concluir.
     if (total === 0) return 'not-started';
     if (watched === 0) return 'not-started';
-    if (watched < total) return 'behind';
 
-    // Assistiu tudo. Só a produção decide se isso é "acabou" ou "por enquanto".
+    // <b>O denominador de "estou atrasado?" é o que já foi ao ar, não o catálogo inteiro.</b>
+    // A Silo tem seis episódios agendados até setembro: contá-los como pendência dizia que eu
+    // estava devendo algo que ainda não existe — e, pior, oferecia o botão de marcá-los.
+    if (watched < aired) return 'behind';
+
+    // Assistiu tudo o que estreou. Se ainda vem episódio marcado no calendário, a série está em
+    // dia por definição — nem precisa perguntar ao status da produção, que não teria como dizer
+    // "encerrada" com estreia agendada.
+    if (aired < total) return 'up-to-date';
+
     // Status ausente (série não casada no TMDB) é tratado como indefinido, não como encerrado —
     // anunciar "finalizada" sem saber seria pior do que não anunciar.
     return SeriesCompletion.hasEndedProduction(input.productionStatus) ? 'finished' : 'up-to-date';
@@ -66,8 +92,14 @@ export class SeriesCompletion {
       : false;
   }
 
+  /** Quantos dá para assistir agora — nunca inclui o que ainda vai estrear. */
   get remaining(): number {
-    return Math.max(0, this.episodesTotal - this.episodesWatched);
+    return Math.max(0, this.episodesAired - this.episodesWatched);
+  }
+
+  /** Quantos já estão no calendário e ainda não foram ao ar. */
+  get upcoming(): number {
+    return Math.max(0, this.episodesTotal - this.episodesAired);
   }
 
   get ratio(): number {
@@ -100,6 +132,10 @@ export class SeriesCompletion {
       case 'finished':
         return 'Finalizada — você viu tudo';
       case 'up-to-date':
+        // Com estreia marcada, a data é a informação; sem ela, o que há a dizer é que não há
+        // nada a dizer ainda.
+        if (this.upcoming === 1) return 'Em dia — mais 1 episódio a caminho';
+        if (this.upcoming > 1) return `Em dia — mais ${this.upcoming} episódios a caminho`;
         return 'Em dia — aguardando novos episódios';
       case 'behind':
         return this.remaining === 1 ? 'Falta 1 episódio' : `Faltam ${this.remaining} episódios`;

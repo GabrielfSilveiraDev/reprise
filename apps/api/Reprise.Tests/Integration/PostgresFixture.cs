@@ -44,5 +44,6 @@ public sealed class PostgresFixture : IAsyncLifetime
         return new RepriseDbContext(options, new FixedUser(userId));
     }
 
-    private sealed record FixedUser(Guid UserId) : ICurrentUser;
+    /// <summary>O tenant, fixo. Público porque os serviços de escrita o recebem por construtor.</summary>
+    public sealed record FixedUser(Guid UserId) : ICurrentUser;
 }

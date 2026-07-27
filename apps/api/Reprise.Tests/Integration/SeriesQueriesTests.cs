@@ -160,7 +160,50 @@ public sealed class SeriesQueriesTests : IClassFixture<PostgresFixture>, IAsyncL
         Assert.DoesNotContain(fila, f => f.SeriesId == emDia);
     }
 
+    [Fact]
+    public async Task Episodio_que_ainda_nao_estreou_nao_e_o_proximo_a_assistir()
+    {
+        await SemearAsync(("T1E1", 1, 1), ("T1E2", 1, 2));
+        await MarcarAsync(_eu, "T1E1");
+        await AgendarAsync("T1E2", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7));
+
+        var item = await UmaSerieAsync();
+
+        // A fila é do que dá para assistir. Apontar para um episódio da semana que vem é oferecer
+        // uma pendência que ninguém pode resolver — e era daí que saía o botão de marcar o futuro.
+        Assert.Null(item.NextUp);
+        Assert.Equal(2, item.EpisodesTotal);
+        Assert.Equal(1, item.EpisodesAired);
+        Assert.Equal(1, item.EpisodesWatched);
+
+        await using var db = _pg.CreateContext(_eu);
+        Assert.Empty(await new SeriesQueries(db).GetNextUpAsync());
+    }
+
+    [Fact]
+    public async Task Episodio_sem_data_de_exibicao_continua_marcavel()
+    {
+        // 391 episódios do acervo real não têm `air_date`. Tratá-los como não exibidos impediria
+        // alguém de registrar o que de fato assistiu — o erro caro nesta regra.
+        await SemearAsync(("T1E1", 1, 1), ("T1E2", 1, 2));
+
+        var item = await UmaSerieAsync();
+
+        Assert.Equal(2, item.EpisodesAired);
+        Assert.Equal("T1E1", item.NextUp!.Name);
+    }
+
     // ---- semeadura -------------------------------------------------------------------------
+
+    /// <summary>Dá data de estreia a um episódio já semeado (o semeador cria todos sem data).</summary>
+    private async Task AgendarAsync(string episodio, DateOnly quando)
+    {
+        await using var db = _pg.CreateContext(_eu);
+        var ep = await db.Episodes.IgnoreQueryFilters().SingleAsync(e => e.Name == episodio);
+        ep.AirDate = quando;
+        await db.SaveChangesAsync();
+    }
+
 
     private Task<long> SemearAsync(params (string Nome, int Temporada, int Episodio)[] eps) =>
         SemearAsync("Série de teste", SeriesStatus.Following, eps);

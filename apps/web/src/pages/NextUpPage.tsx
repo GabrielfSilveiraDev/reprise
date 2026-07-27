@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { HomeShelf, formatEpisodeCode, formatWatchedAt, posterUrl } from '@reprise/shared';
+import { HomeShelf, formatEpisodeCode, formatWhen, posterUrl } from '@reprise/shared';
 import type { NextUpItem } from '@reprise/shared';
 import { useMarkEpisode, useNextUp, usePremieres, useProfile } from '../api/queries';
 import { PremiereStrip } from '../components/PremiereStrip';
@@ -86,8 +86,7 @@ function Guardadas({ items }: { items: readonly NextUpItem[] }) {
       </summary>
 
       <p className="shelf__note">
-        Paradas há mais de dois meses, quase todas desde a importação do TV Time. Ficam aqui sem
-        pressa — retome quando quiser.
+        Sem nenhuma exibição nos últimos dois meses. Ficam aqui sem pressa — retome quando quiser.
       </p>
 
       <ul className="nextup" role="list">
@@ -126,18 +125,19 @@ function NextUpRow({ item, quieta = false }: { item: NextUpItem; quieta?: boolea
           {/* Nas guardadas a data é a mesma para quase todas; repeti-la 47 vezes é ruído, e a
               própria seção já explica de quando são. */}
           {quieta ? null : (
-            <span className="nextup__when">Última atividade {formatWatchedAt(item.lastActivityAt)}</span>
+            <span className="nextup__when">Última atividade {formatWhen(item.lastActivityAt)}</span>
           )}
         </span>
       </Link>
 
+      {/* O botão diz o que acontece ao ser apertado, não o que a pessoa fez. */}
       <button
         type="button"
         className={quieta ? 'btn btn--quiet' : 'btn btn--primary'}
         onClick={() => mark.mutate(item.episode.id)}
         disabled={mark.isPending}
       >
-        Assisti
+        Marcar como visto
         <span className="sr-only">
           {' '}
           {code} de {item.seriesName}

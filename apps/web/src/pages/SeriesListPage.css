@@ -13,12 +13,8 @@
   flex-wrap: wrap;
 }
 
-.field__input {
-  min-height: var(--touch-target);
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-raised);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+/* O campo em si vem de `ui.css`; aqui só a largura que a barra de filtros pede. */
+.list-head .field__input {
   min-width: 12rem;
 }
 
@@ -78,12 +74,19 @@
 
 .series__row {
   display: grid;
-  grid-template-columns: minmax(10rem, 1fr) 8rem minmax(10rem, 16rem) 5rem 7rem;
+  grid-template-columns: 2rem minmax(10rem, 1fr) 8rem minmax(10rem, 16rem) 5rem 7rem;
   align-items: center;
   gap: var(--space-4);
   min-height: var(--touch-target);
   padding: var(--space-2);
   border-bottom: 1px solid var(--border);
+}
+
+/* Na linha compacta a capa é uma miniatura: reconhecível, sem virar o assunto. */
+.series__row .series__poster {
+  width: 2rem;
+  height: 3rem;
+  font-size: var(--text-sm);
 }
 
 .series__row:hover {
@@ -142,8 +145,16 @@
   background: var(--bg-sunken);
 }
 
+/* Sem capa, a inicial da série centralizada: uma cartela é lida como "não tem imagem",
+   um retângulo vazio é lido como "a imagem falhou". */
 .series__poster--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px dashed var(--border-strong);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--fg-subtle);
 }
 
 .series__card-body {
@@ -155,12 +166,16 @@
 
 @media (max-width: 60rem) {
   .series__row {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 2rem 1fr auto;
     grid-template-areas:
-      'name next'
-      'progress progress';
+      'poster name next'
+      'poster progress progress';
     row-gap: var(--space-2);
     padding-block: var(--space-3);
+  }
+  .series__row .series__poster {
+    grid-area: poster;
+    align-self: center;
   }
   .series__name {
     grid-area: name;

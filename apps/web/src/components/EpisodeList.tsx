@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import {
+  Airing,
   formatEpisodeCode,
   formatRuntime,
   formatWatchCount,
@@ -57,7 +58,8 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
       case 'm':
       case 'M':
         event.preventDefault();
-        onMark(episode);
+        // O atalho obedece à mesma regra do botão: o teclado não é uma porta dos fundos.
+        if (Airing.hasAired(episode.airDate)) onMark(episode);
         break;
       case 'u':
       case 'U':
@@ -79,6 +81,7 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
       {episodes.map((episode, index) => {
         const watched = episode.watchCount > 0;
         const busy = busyEpisodeId === episode.id;
+        const aired = Airing.hasAired(episode.airDate);
 
         return (
           <li
@@ -86,6 +89,7 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
             data-row
             className="episode"
             data-watched={watched}
+            data-unaired={!aired}
             tabIndex={index === 0 ? 0 : -1}
             onKeyDown={(e) => handleKey(e, episode, index)}
           >
@@ -131,35 +135,66 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
               <span className="sr-only">{formatWatchCount(episode.watchCount)}</span>
             </span>
 
-            <span className="episode__when">{formatWatchedAt(episode.lastWatchedAt)}</span>
+            {/*
+              Visto: quando. Não visto: desde quando está disponível — que é a informação útil
+              nessa linha e substitui o "nunca" que ficava ali repetido temporada afora. Quando o
+              episódio ainda não estreou, quem diz isso é o selo do fim da linha.
+            */}
+            <span className="episode__when">
+              {watched
+                ? formatWatchedAt(episode.lastWatchedAt)
+                : aired
+                  ? (Airing.label(episode.airDate) ?? '')
+                  : ''}
+            </span>
 
             <span className="episode__actions">
-              <button
-                type="button"
-                className="btn btn--quiet"
-                onClick={() => onMark(episode)}
-                disabled={busy}
-              >
-                {/* "Assisti" / "Revi": primeira pessoa, passado, iguais no app. "Marcar" descrevia
-                    a mecânica da interface em vez do que a pessoa fez. */}
-                {watched ? 'Revi' : 'Assisti'}
-                <span className="sr-only">
-                  {' '}
-                  {formatEpisodeCode(episode.seasonNumber, episode.episodeNumber)}
-                </span>
-              </button>
-              <button
-                type="button"
-                className="btn btn--quiet btn--danger"
-                onClick={() => onUnmark(episode)}
-                disabled={busy || !watched}
-              >
-                Desmarcar
-                <span className="sr-only">
-                  {' '}
-                  {formatEpisodeCode(episode.seasonNumber, episode.episodeNumber)}
-                </span>
-              </button>
+              {/*
+                Episódio que ainda não estreou não ganha botão de marcar — ganha a data. Um
+                controle desabilitado convidaria a clicar e só então explicaria a recusa; a
+                ausência dele, com o motivo escrito no lugar, resolve antes da tentativa.
+              */}
+              {aired ? (
+                <button
+                  type="button"
+                  className="btn btn--quiet"
+                  onClick={() => onMark(episode)}
+                  disabled={busy}
+                >
+                  {/*
+                    O botão diz o que ACONTECE ao ser apertado. "Assisti"/"Revi" narrava em primeira
+                    pessoa o que a pessoa tinha feito — vira uma frase no meio de uma barra de
+                    ações, e não um comando.
+                  */}
+                  {watched ? 'Marcar de novo' : 'Marcar como visto'}
+                  <span className="sr-only">
+                    {' '}
+                    {formatEpisodeCode(episode.seasonNumber, episode.episodeNumber)}
+                  </span>
+                </button>
+              ) : (
+                <span className="episode__soon">{Airing.label(episode.airDate)}</span>
+              )}
+
+              {/*
+                "Desmarcar" fica de pé mesmo no episódio não exibido, desde que haja o que
+                desmarcar. É a saída para as exibições impossíveis que entraram antes da regra
+                existir: sem ela, o dado errado ficaria visível e intocável.
+              */}
+              {watched ? (
+                <button
+                  type="button"
+                  className="btn btn--quiet btn--danger"
+                  onClick={() => onUnmark(episode)}
+                  disabled={busy}
+                >
+                  Desmarcar
+                  <span className="sr-only">
+                    {' '}
+                    {formatEpisodeCode(episode.seasonNumber, episode.episodeNumber)}
+                  </span>
+                </button>
+              ) : null}
             </span>
           </li>
         );

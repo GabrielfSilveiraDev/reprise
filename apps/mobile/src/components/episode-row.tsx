@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
+  Airing,
   formatEpisodeCode,
   formatRuntime,
   formatWatchCount,
@@ -51,6 +52,7 @@ export function EpisodeRow({
   const level = watched ? Math.max(1, Math.ceil((count / Math.max(1, peak)) * MAX_LEVEL)) : 0;
   const color = watched ? (t.track[level - 1] ?? t.accent) : t.trackEmpty;
   const code = formatEpisodeCode(episode.seasonNumber, episode.episodeNumber);
+  const aired = Airing.hasAired(episode.airDate);
 
   return (
     <View style={[styles.wrapper, { borderBottomColor: t.border }]}>
@@ -92,43 +94,68 @@ export function EpisodeRow({
             </Text>
             <Text style={[styles.meta, { color: t.fgSubtle }]} numberOfLines={1}>
               {formatRuntime(episode.runtimeSeconds)}
-              {episode.lastWatchedAt ? ` · ${formatWatchedAt(episode.lastWatchedAt)}` : ''}
+              {episode.lastWatchedAt
+                ? ` · ${formatWatchedAt(episode.lastWatchedAt)}`
+                : !aired
+                  ? ` · ${Airing.label(episode.airDate)}`
+                  : ''}
             </Text>
           </View>
         </Pressable>
 
-        {/* A ação principal, num alvo próprio: um toque marca. */}
-        <Pressable
-          onPress={onMark}
-          style={[
-            styles.markButton,
-            watched
-              ? { backgroundColor: color, borderColor: color }
-              : { backgroundColor: 'transparent', borderColor: t.borderStrong, borderStyle: 'dashed' },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel={
-            watched ? `Assistir ${code} de novo. ${formatWatchCount(count)}` : `Marcar ${code} como assistido`
-          }
-        >
-          <Text
+        {/*
+          A ação principal, num alvo próprio: um toque marca. Some quando o episódio ainda não foi
+          ao ar — um botão que só sabe recusar não devia ocupar 48px na linha, e um relógio no
+          lugar dele diz por que ele não está lá.
+        */}
+        {aired ? (
+          <Pressable
+            onPress={onMark}
             style={[
-              styles.markText,
-              { color: watched ? (level >= 3 ? t.accentFg : t.fg) : t.fgMuted },
+              styles.markButton,
+              watched
+                ? { backgroundColor: color, borderColor: color }
+                : { backgroundColor: 'transparent', borderColor: t.borderStrong, borderStyle: 'dashed' },
             ]}
+            accessibilityRole="button"
+            accessibilityLabel={
+              watched
+                ? `Marcar ${code} de novo. ${formatWatchCount(count)}`
+                : `Marcar ${code} como visto`
+            }
           >
-            {watched ? `${count}×` : '+'}
-          </Text>
-        </Pressable>
+            <Text
+              style={[
+                styles.markText,
+                { color: watched ? (level >= 3 ? t.accentFg : t.fg) : t.fgMuted },
+              ]}
+            >
+              {watched ? `${count}×` : '+'}
+            </Text>
+          </Pressable>
+        ) : (
+          <View
+            style={styles.markButton}
+            accessible
+            accessibilityLabel={`${code} ainda não foi ao ar. ${Airing.label(episode.airDate) ?? ''}`}
+          >
+            <Text style={[styles.markText, { color: t.fgSubtle }]}>⏳</Text>
+          </View>
+        )}
       </View>
 
       {open ? (
         <View style={[styles.actions, { backgroundColor: t.bgSunken }]}>
           {watched ? <Action label="Desmarcar" onPress={onUnmark} /> : null}
-          {!episode.isSpecial ? <Action label="Marcar até aqui" onPress={onMarkUpTo} /> : null}
-          {episode.airDate ? (
+          {/* "Marcar até aqui" também sai no episódio não exibido: a linha inteira não oferece
+              marcação nenhuma, senão o "aqui" da frase seria um ponto que ainda não existe. */}
+          {!episode.isSpecial && aired ? (
+            <Action label="Marcar até aqui" onPress={onMarkUpTo} />
+          ) : null}
+          {/* Um verbo só para as duas direções do tempo dizia "Estreou em amanhã". */}
+          {Airing.label(episode.airDate) ? (
             <Text style={[styles.airDate, { color: t.fgSubtle }]}>
-              Estreou em {formatWatchedAt(`${episode.airDate}T12:00:00Z`)}
+              {Airing.label(episode.airDate)}
             </Text>
           ) : null}
         </View>

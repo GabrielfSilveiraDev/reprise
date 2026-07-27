@@ -1,38 +1,160 @@
-.login {
+/*
+ * A página de entrada.
+ *
+ * O fundo é o "sunken" com um brilho quente no alto à direita, na cor do acento: dá profundidade
+ * ao cartão de login sem inventar uma cor que não existe no sistema. Nada de
+ * `background-attachment: fixed` — em tela de toque ele custa repintura a cada rolagem.
+ */
+.landing {
   min-height: 100dvh;
+  padding: var(--space-6) var(--space-5);
   display: grid;
   place-items: center;
-  padding: var(--space-5);
+  background:
+    radial-gradient(60rem 40rem at 85% -10%, var(--accent-quiet), transparent 65%),
+    var(--bg-sunken);
 }
 
-.login__panel {
-  width: min(24rem, 100%);
+/*
+ * Duas colunas em tela larga; empilhado no celular.
+ *
+ * A ordem do HTML é formulário → discurso, que é a ordem certa para empilhar e para tabular. Em
+ * tela larga o discurso vai para a PRIMEIRA coluna sem sair do lugar no DOM: quem lê com o olho
+ * começa pela esquerda, quem navega pelo teclado começa pelo campo de usuário. As duas leituras
+ * ganham, e nenhuma depende da outra.
+ */
+.landing__inner {
+  width: min(64rem, 100%);
+  display: grid;
+  gap: var(--space-8);
+  align-items: center;
+}
+
+@media (min-width: 60rem) {
+  .landing__inner {
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: var(--space-10);
+  }
+
+  .pitch {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .signin {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+/* ---------- o discurso ---------- */
+
+.pitch {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-4);
+  max-width: 34rem;
 }
 
-.login__head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.login__wordmark {
+.pitch__wordmark {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  font-size: var(--text-2xl);
+  font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: var(--tracking-tight);
 }
 
-.login__tagline {
-  font-size: var(--text-sm);
-  color: var(--fg-muted);
+.pitch__headline {
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  /* A manchete é curta e tem de quebrar em partes parecidas — nada de uma palavra sozinha. */
+  text-wrap: balance;
 }
 
-.login__form {
+.pitch__lede {
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  color: var(--fg-muted);
+  max-width: 46ch;
+}
+
+.pitch__points {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.point {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+/* As barras da logo como marcador, alinhadas com a primeira linha do título. */
+.point__mark {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.15rem;
+}
+
+.point__title {
+  font-weight: 660;
+  letter-spacing: var(--tracking-tight);
+}
+
+.point__text {
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--fg-muted);
+  max-width: 52ch;
+}
+
+/*
+ * O princípio do projeto, no rodapé da coluna.
+ *
+ * Era a primeira frase da página, e nessa posição explicava o produto a quem ainda não sabia o
+ * que ele faz — "booleano" não é palavra de quem só quer marcar um episódio. Aqui embaixo, com
+ * tudo já dito, ela lê como o que é: a divisa da casa.
+ */
+.pitch__credo {
+  margin-top: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--fg-subtle);
+}
+
+/* ---------- o formulário ---------- */
+
+.signin {
+  width: min(24rem, 100%);
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  /* Sombra discreta: o cartão precisa se descolar do fundo, não flutuar sobre ele. */
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.05),
+    0 8px 24px rgb(0 0 0 / 0.06);
+}
+
+.signin__title {
+  font-size: var(--text-xl);
+  letter-spacing: var(--tracking-tight);
+}
+
+.signin__form {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -69,7 +191,7 @@
   color: var(--fg-subtle);
 }
 
-.login__error {
+.signin__error {
   padding: var(--space-3);
   font-size: var(--text-sm);
   background: var(--bg-sunken);
@@ -77,14 +199,14 @@
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
-.login__submit,
-.login__switch {
+.signin__submit,
+.signin__switch {
   min-height: var(--touch-target);
   justify-content: center;
 }
 
 /* Mensagem informativa do passo de validação — distinta do erro, que usa a cor de perigo. */
-.login__info {
+.signin__info {
   padding: var(--space-3);
   font-size: var(--text-sm);
   line-height: var(--leading-normal);

@@ -40,8 +40,27 @@ export const keys = {
   calendar: (year: number, includeBackfill: boolean) => ['calendar', year, includeBackfill] as const,
 };
 
+/**
+ * O corpo de erro da API, no formato ProblemDetails do ASP.NET.
+ *
+ * A mensagem importa: `String(objeto)` devolve `[object Object]`, e era isso que chegava à tela
+ * quando a API recusava uma marcação com um motivo escrito por extenso. Um erro que não diz o que
+ * houve é o mesmo que um erro sem tratamento.
+ */
+function mensagemDoErro(error: unknown): string {
+  if (typeof error === 'string') return error;
+
+  if (error && typeof error === 'object') {
+    const problem = error as { detail?: unknown; title?: unknown };
+    if (typeof problem.detail === 'string' && problem.detail) return problem.detail;
+    if (typeof problem.title === 'string' && problem.title) return problem.title;
+  }
+
+  return 'A API recusou a operação.';
+}
+
 function unwrap<T>(result: { data?: T; error?: unknown }): T {
-  if (result.error !== undefined) throw new Error(String(result.error));
+  if (result.error !== undefined) throw new Error(mensagemDoErro(result.error));
   if (result.data === undefined) throw new Error('Resposta vazia da API.');
   return result.data;
 }

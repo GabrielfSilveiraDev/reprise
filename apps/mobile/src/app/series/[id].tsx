@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import {
+  Airing,
   OutboxPlanner,
   SeriesCompletion,
   formatEpisodeCode,
@@ -95,6 +96,8 @@ function Detail({ series }: { series: SeriesDetail }) {
   const completion = SeriesCompletion.of({
     productionStatus: series.productionStatus,
     episodesTotal: total,
+    // Sem isto, uma série com temporada anunciada aparece devendo episódios que ainda não existem.
+    episodesAired: series.episodesAired,
     episodesWatched: watched,
   });
 
@@ -268,7 +271,12 @@ function SeasonBlock({
 
   const total = season.episodes.length;
   const watched = season.episodes.filter((e) => countOf(e) > 0).length;
-  const unseen = total - watched;
+  // Só o que dá para marcar: não visto E já exibido. "Marcar 6" numa temporada com quatro
+  // episódios agendados prometeria seis e o servidor criaria dois.
+  const unseen = season.episodes.filter(
+    (e) => countOf(e) === 0 && Airing.hasAired(e.airDate),
+  ).length;
+  const porVir = season.episodes.filter((e) => !Airing.hasAired(e.airDate)).length;
   const nome = season.isSpecials ? 'Especiais' : `Temporada ${season.seasonNumber}`;
 
   return (
@@ -288,7 +296,7 @@ function SeasonBlock({
             {/* O progresso fica no cabeçalho para ser legível com a temporada fechada. */}
             <Text style={[styles.seasonMeta, { color: t.fgSubtle }]}>
               {watched}/{total}
-              {unseen === 0 ? ' · completa' : ''}
+              {unseen > 0 ? '' : porVir > 0 ? ` · mais ${porVir} a caminho` : ' · completa'}
             </Text>
           </View>
         </Pressable>

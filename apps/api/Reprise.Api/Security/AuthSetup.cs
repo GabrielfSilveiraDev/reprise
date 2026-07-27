@@ -43,7 +43,14 @@ public static class AuthSetup
 
         // A política de senha mora em AddRepriseIdentityCore, compartilhada com a CLI.
         // AddDefaultTokenProviders traz o EmailTokenProvider, que gera o código de seis dígitos.
-        services.AddRepriseIdentityCore().AddRoles<IdentityRole<Guid>>().AddDefaultTokenProviders();
+        //
+        // <b>Sem `AddRoles`.</b> Ele registrava um `RoleManager` que nenhuma linha do projeto usa
+        // — não há política de autorização por papel em lugar nenhum — e sem o store
+        // correspondente. Em Produção passava despercebido, porque o contêiner só constrói o que
+        // alguém pede; em Desenvolvimento, onde o .NET valida todos os descritores na partida, a
+        // API simplesmente não subia: "Unable to resolve service for type IRoleStore". Ou seja,
+        // `dotnet run` estava quebrado e só o modo de produção funcionava.
+        services.AddRepriseIdentityCore().AddDefaultTokenProviders();
 
         services.Configure<SmtpOptions>(o =>
         {

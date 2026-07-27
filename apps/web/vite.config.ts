@@ -8,6 +8,24 @@ const API_TARGET = process.env.VITE_API_TARGET ?? 'http://localhost:5156';
 // túnel entra. O proxy injeta o cabeçalho para o cliente web não precisar saber disso.
 const API_TOKEN = process.env.VITE_API_TOKEN;
 
+/*
+ * Hosts extras aceitos pelo servidor de desenvolvimento, separados por vírgula.
+ *
+ * O Vite recusa requisição cujo cabeçalho `Host` ele não reconhece — é a defesa contra DNS
+ * rebinding, em que uma página de fora resolve um domínio para 127.0.0.1 e passa a falar com o
+ * seu servidor local. Um túnel chega justamente assim: com o Host do túnel, não `localhost`.
+ *
+ * Por isso é variável de ambiente e não uma lista fixa no repositório: liberar `.trycloudflare.com`
+ * para todo mundo que roda `pnpm dev` seria afrouxar o padrão de quem nunca vai usar túnel. Quem
+ * precisa, declara na hora:
+ *
+ *   VITE_ALLOWED_HOSTS=algo.trycloudflare.com pnpm dev
+ */
+const ALLOWED_HOSTS = (process.env.VITE_ALLOWED_HOSTS ?? '')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean);
+
 export default defineConfig({
   plugins: [react()],
 
@@ -27,6 +45,7 @@ export default defineConfig({
 
   server: {
     port: 5173,
+    ...(ALLOWED_HOSTS.length > 0 ? { allowedHosts: ALLOWED_HOSTS } : {}),
     // Proxy em vez de CORS na API: em desenvolvimento o front fala com a própria origem,
     // então não há preflight nem configuração de CORS para manter em sincronia.
     proxy: {

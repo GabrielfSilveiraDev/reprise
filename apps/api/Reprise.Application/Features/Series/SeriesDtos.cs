@@ -15,6 +15,17 @@ public sealed record SeriesListItemDto(
     /// </summary>
     string? ProductionStatus,
     int EpisodesTotal,
+    /// <summary>
+    /// Destes, quantos já foram ao ar — o denominador de "estou em dia?".
+    ///
+    /// <para>
+    /// Sem ele a Silo aparecia atrasada por seis episódios que só estreiam entre agosto e setembro,
+    /// e não havia como o cliente distinguir "falta assistir" de "falta lançar" usando só o total.
+    /// O total continua sendo o denominador da barra, porque encolher a régua quando a temporada
+    /// vai ao ar faria o progresso andar para trás sem ninguém ter feito nada.
+    /// </para>
+    /// </summary>
+    int EpisodesAired,
     int EpisodesWatched,
     double CompletionRatio,
     DateTimeOffset? LastWatchedAt,
@@ -51,6 +62,8 @@ public sealed record SeriesDetailDto(
     string? ProductionStatus,
     DateOnly? FirstAirDate,
     int EpisodesTotal,
+    /// <summary>Quantos já foram ao ar — ver <see cref="SeriesListItemDto.EpisodesAired"/>.</summary>
+    int EpisodesAired,
     int EpisodesWatched,
     double CompletionRatio,
     IReadOnlyList<SeasonDto> Seasons,

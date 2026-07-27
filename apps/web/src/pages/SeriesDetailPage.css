@@ -55,6 +55,13 @@
   margin-top: var(--space-2);
 }
 
+/* A frase do estado herda a cor do próprio estado, via `--progress-color` do bloco de progresso. */
+.detail-head__state {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
 .detail-head__overview {
   color: var(--fg-muted);
   max-width: 60ch;

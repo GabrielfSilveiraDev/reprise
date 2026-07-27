@@ -18,12 +18,29 @@ public static class WatchingEndpoints
     public static void MapWatchingEndpoints(this IEndpointRouteBuilder app)
     {
         // Marcar (append). Repetir no mesmo episódio é um rewatch — repetir a mesma CHAVE não é.
+        //
+        // 422 e não 400 para o episódio que ainda não estreou: a requisição está bem formada e o
+        // recurso existe; o que não existe é o fato que ela afirma. O cliente já esconde o botão,
+        // então este caminho é a rede de proteção — chamada direta à API, aba aberta desde ontem,
+        // fila offline que só subiu agora.
         app.MapPost("/episodes/{id:long}/watch",
-                async Task<Results<Ok<WatchStateDto>, NotFound>> (
+                async Task<Results<Ok<WatchStateDto>, NotFound, ProblemHttpResult>> (
                     long id, MarkBody? body, WatchingService s, CancellationToken ct) =>
                 {
-                    var state = await s.MarkAsync(id, body?.WatchedAt, body?.ClientKey, ct);
-                    return state is null ? TypedResults.NotFound() : TypedResults.Ok(state);
+                    var outcome = await s.MarkAsync(id, body?.WatchedAt, body?.ClientKey, ct);
+                    return outcome.Refusal switch
+                    {
+                        MarkRefusal.EpisodeNotFound => TypedResults.NotFound(),
+                        MarkRefusal.NotAiredYet => TypedResults.Problem(
+                            title: "Episódio ainda não exibido",
+                            detail: "Este episódio ainda vai ao ar — não dá para marcá-lo como visto.",
+                            statusCode: StatusCodes.Status422UnprocessableEntity),
+                        MarkRefusal.WatchedInTheFuture => TypedResults.Problem(
+                            title: "Data no futuro",
+                            detail: "A data da exibição não pode estar no futuro.",
+                            statusCode: StatusCodes.Status422UnprocessableEntity),
+                        _ => TypedResults.Ok(outcome.State!),
+                    };
                 })
             .WithTags("Watching")
             .WithSummary("Marca o episódio como visto (novo evento). Repetir = rewatch.");

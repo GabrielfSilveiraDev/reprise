@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { Auth } from './api/auth';
 import { WebSession } from './api/session';
 import { Logo } from './components/Logo';
@@ -8,7 +8,6 @@ import { NextUpPage } from './pages/NextUpPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SeriesDetailPage } from './pages/SeriesDetailPage';
 import { SeriesListPage } from './pages/SeriesListPage';
-import { StatsPage } from './pages/StatsPage';
 import './App.css';
 
 export function App() {
@@ -45,11 +44,7 @@ export function App() {
                   Séries
                 </NavLink>
               </li>
-              <li>
-                <NavLink to="/estatisticas" className="nav__link">
-                  Estatísticas
-                </NavLink>
-              </li>
+              {/* "Estatísticas" saiu da barra: virou uma seção do perfil, como no app. */}
               <li>
                 <NavLink to="/perfil" className="nav__link">
                   Perfil
@@ -79,8 +74,11 @@ export function App() {
           <Route path="/" element={<NextUpPage />} />
           <Route path="/series" element={<SeriesListPage />} />
           <Route path="/series/:id" element={<SeriesDetailPage />} />
-          <Route path="/estatisticas" element={<StatsPage />} />
           <Route path="/perfil" element={<ProfilePage />} />
+          {/* O endereço antigo continua valendo: link salvo e aba aberta não podem virar 404
+              porque a informação mudou de lugar. `replace` para não deixar um passo morto no
+              histórico — voltar tem de sair da página, não redirecionar de novo. */}
+          <Route path="/estatisticas" element={<Navigate to="/perfil" replace />} />
           <Route
             path="*"
             element={

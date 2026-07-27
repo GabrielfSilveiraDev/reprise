@@ -5,14 +5,36 @@
   border-top: 1px solid var(--border);
 }
 
+/*
+ * SETE colunas, uma por elemento da linha: miniatura, código, título, duração, contagem, data e
+ * ações. Eram seis para sete filhos, e a coluna que faltava empurrava o bloco de botões para uma
+ * segunda linha implícita de 5,5rem — onde ele transbordava por cima do episódio de baixo.
+ */
 .episode {
   display: grid;
-  grid-template-columns: 5.5rem 1fr 5rem 3.5rem 7rem auto;
+  grid-template-columns: 5.5rem 5rem 1fr 5rem 3.5rem 7rem auto;
   align-items: center;
   gap: var(--space-3);
   min-height: var(--touch-target);
   padding: var(--space-2) var(--space-2);
   border-bottom: 1px solid var(--border);
+}
+
+/* Episódio que ainda não foi ao ar: presente na lista, fora do alcance. */
+.episode[data-unaired='true'] .episode__title,
+.episode[data-unaired='true'] .episode__code {
+  color: var(--fg-subtle);
+}
+
+.episode__soon {
+  align-self: center;
+  padding: 0.15rem 0.5rem;
+  font-size: var(--text-xs);
+  font-weight: 640;
+  color: var(--fg-muted);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
 }
 
 .episode:hover {
@@ -60,6 +82,7 @@
 
 .episode__actions {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
   justify-content: flex-end;
 }
@@ -67,14 +90,21 @@
 /* Em telas estreitas a grade vira duas linhas — nada de scroll horizontal. */
 @media (max-width: 52rem) {
   .episode {
-    grid-template-columns: 4.5rem 1fr 3rem;
+    grid-template-columns: 5.5rem 4.5rem 1fr 3rem;
     grid-template-areas:
-      'code title count'
-      'actions actions actions';
+      'thumb code title count'
+      'thumb actions actions actions';
     row-gap: var(--space-2);
     padding-block: var(--space-3);
   }
 
+  /* Todo filho declara sua área: um item sem área é colocado automaticamente, e é assim que
+     um bloco vai parar numa linha implícita por cima de outro. */
+  .episode__still,
+  .episode__plate {
+    grid-area: thumb;
+    align-self: start;
+  }
   .episode__code {
     grid-area: code;
   }
@@ -134,5 +164,13 @@
   .episode__still,
   .episode__plate {
     display: none;
+  }
+
+  /* E a coluna dela sai junto — senão fica uma faixa de 5,5rem vazia à esquerda de tudo. */
+  .episode {
+    grid-template-columns: 4.5rem 1fr 3rem;
+    grid-template-areas:
+      'code title count'
+      'actions actions actions';
   }
 }

@@ -60,6 +60,26 @@
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
+/*
+ * No celular a barra quebra em duas linhas.
+ *
+ * <b>Era a origem do scroll horizontal em TODAS as páginas.</b> Marca, navegação, nome e "Sair"
+ * numa `flex` de linha única somam 474px; a tela do celular tem 375. O documento inteiro passava
+ * a rolar de lado — o que se nota primeiro nas listas, mas o culpado estava no cabeçalho, igual
+ * em toda página. A navegação desce para a segunda linha, que é onde ela cabe.
+ */
+@media (max-width: 40rem) {
+  .app-bar__inner {
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+  }
+
+  .nav {
+    order: 3;
+    width: 100%;
+  }
+}
+
 .app-main {
   max-width: var(--max-width);
   margin-inline: auto;

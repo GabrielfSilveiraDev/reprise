@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
+  Airing,
   formatEpisodeCode,
   formatPercent,
   formatSeriesStatus,
@@ -56,6 +57,12 @@ export function SeriesDetailPage() {
         );
 
         const poster = posterUrl(series.posterPath, 'w342');
+        const completion = SeriesCompletion.of({
+          productionStatus: series.productionStatus,
+          episodesTotal: series.episodesTotal,
+          episodesAired: series.episodesAired,
+          episodesWatched: series.episodesWatched,
+        });
 
         return (
           <article>
@@ -87,16 +94,7 @@ export function SeriesDetailPage() {
 
                 {/* Mesma cor por estado da lista: a série tem de se parecer consigo mesma nas
                     duas telas. `data-state` define `--progress-color`, que a barra consome. */}
-                <div
-                  className="progress detail-head__progress"
-                  data-state={
-                    SeriesCompletion.of({
-                      productionStatus: series.productionStatus,
-                      episodesTotal: series.episodesTotal,
-                      episodesWatched: series.episodesWatched,
-                    }).state
-                  }
-                >
+                <div className="progress detail-head__progress" data-state={completion.state}>
                   <span className="progress__text tabular">
                     {series.episodesWatched}/{series.episodesTotal} episódios
                   </span>
@@ -117,6 +115,10 @@ export function SeriesDetailPage() {
                     {formatPercent(series.completionRatio)}
                   </span>
                 </div>
+
+                {/* A frase completa do estado, que a barra sozinha não dá: "faltam 4", "em dia —
+                    mais 6 a caminho". É aqui que o episódio agendado deixa de parecer pendência. */}
+                <p className="detail-head__state">{completion.label}</p>
 
                 {series.overview ? <p className="detail-head__overview">{series.overview}</p> : null}
               </div>
@@ -211,7 +213,12 @@ function SeasonSection({
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const watched = season.episodes.filter((e) => e.watchCount > 0).length;
-  const unseen = season.episodes.length - watched;
+  // O que dá para marcar: não visto E já exibido. Sem o segundo filtro, "Marcar 6" na Silo
+  // prometia marcar seis episódios e o servidor marcaria dois — o botão mentiria o número.
+  const unseen = season.episodes.filter(
+    (e) => e.watchCount === 0 && Airing.hasAired(e.airDate),
+  ).length;
+  const porVir = season.episodes.filter((e) => !Airing.hasAired(e.airDate)).length;
   const title = season.isSpecials ? 'Especiais' : `Temporada ${season.seasonNumber}`;
   const headingId = `season-${season.seasonNumber}`;
 
@@ -234,6 +241,10 @@ function SeasonSection({
             Marcar {unseen}
             <span className="sr-only"> episódios não vistos de {title}</span>
           </button>
+        ) : porVir > 0 ? (
+          <span className="season__done">
+            em dia · {porVir === 1 ? 'mais 1 a caminho' : `mais ${porVir} a caminho`}
+          </span>
         ) : (
           <span className="season__done">completa</span>
         )}

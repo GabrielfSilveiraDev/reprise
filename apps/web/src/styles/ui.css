@@ -127,6 +127,69 @@
   color: var(--danger);
 }
 
+/* --- Campo de formulário ---
+ *
+ * Vivia na folha da tela de login, e a lista de séries declarava um `.field__input` PRÓPRIO para
+ * o campo de busca. Duas definições da mesma classe em folhas diferentes: qual vence depende da
+ * ordem em que o empacotador junta os arquivos, que é a pior espécie de dependência — a que
+ * funciona até alguém reordenar um import.
+ */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field__label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  font-weight: 640;
+  color: var(--fg-subtle);
+}
+
+.field__input {
+  min-height: var(--touch-target);
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--text-base);
+  color: var(--fg);
+  background: var(--bg-raised);
+  /* Borda de campo é objeto de UI: precisa de 3:1, e --border não entrega. */
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.field__hint {
+  font-size: var(--text-xs);
+  color: var(--fg-subtle);
+}
+
+/* --- Cabeçalhos --- */
+
+/*
+ * Estes dois viviam cada um na folha de uma página — `.page-head` na da home, `.section-head` na
+ * do painel de estatísticas — e eram usados por quase todas as outras. Funcionava por acaso: o
+ * Vite junta todo o CSS num bundle só, então a regra estava lá mesmo sem ninguém importar a
+ * folha certa. Bastava uma página deixar de ser renderizada para o estilo sumir de outra.
+ */
+.page-head {
+  margin-bottom: var(--space-6);
+}
+
+.page-head h1 {
+  font-size: var(--text-2xl);
+  margin-top: var(--space-1);
+}
+
+/* O título que separa blocos dentro de uma página — "No total" e "Ao longo do tempo". */
+.section-head {
+  font-size: var(--text-lg);
+  font-weight: 660;
+  letter-spacing: var(--tracking-tight);
+  margin-bottom: var(--space-4);
+}
+
 /* --- Etiqueta de seção --- */
 .eyebrow {
   font-size: var(--text-xs);

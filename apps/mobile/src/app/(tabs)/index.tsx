@@ -204,9 +204,10 @@ function NextUpRow({ item, quieta = false }: { item: NextUpItem; quieta?: boolea
           { opacity: mark.isPending ? 0.6 : 1 },
         ]}
         accessibilityRole="button"
-        accessibilityLabel={`Marcar ${code} de ${item.seriesName} como assistido`}
+        accessibilityLabel={`Marcar ${code} de ${item.seriesName} como visto`}
       >
-        <Text style={[styles.markLabel, { color: quieta ? t.fg : t.accentFg }]}>Assisti</Text>
+        {/* O botão diz o que acontece ao ser apertado, não o que a pessoa fez. */}
+        <Text style={[styles.markLabel, { color: quieta ? t.fg : t.accentFg }]}>Marcar visto</Text>
       </Pressable>
     </View>
   );

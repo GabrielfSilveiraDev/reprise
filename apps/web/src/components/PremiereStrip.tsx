@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { formatEpisodeCode, formatWatchedAt, stillUrl } from '@reprise/shared';
+import { Airing, formatEpisodeCode, stillUrl } from '@reprise/shared';
 import type { Premiere } from '@reprise/shared';
 import './PremiereStrip.css';
 
@@ -29,7 +29,9 @@ export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] })
       <ul className="premieres__list" role="list">
         {premieres.map((p) => {
           const still = stillUrl(p.stillPath, 'w300');
-          const quando = formatWatchedAt(`${p.airDate}T12:00:00Z`);
+          // A âncora de meio-dia UTC estava escrita aqui e em mais três lugares; agora mora com
+          // a regra de estreia, que é de quem ela é.
+          const quando = Airing.label(p.airDate);
 
           return (
             <li key={p.episodeId} className="premiere">
