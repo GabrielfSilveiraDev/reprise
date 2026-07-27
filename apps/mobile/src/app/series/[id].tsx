@@ -6,11 +6,8 @@ import {
   Airing,
   OutboxPlanner,
   SeriesCompletion,
-  formatEpisodeCode,
   formatPercent,
-  formatRuntime,
   formatSeriesStatus,
-  formatWatchCount,
   posterUrl,
   SERIES_STATUSES,
 } from '@reprise/shared';
