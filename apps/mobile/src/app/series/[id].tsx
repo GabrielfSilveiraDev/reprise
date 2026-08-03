@@ -26,11 +26,30 @@ import { EpisodeRow } from '@/components/episode-row';
 import { RewatchSessions } from '@/components/rewatch-sessions';
 import { CompletionBadge, ProgressBar } from '@/components/series-card';
 import { SyncBar } from '@/components/sync-bar';
+import CinemaDetalhe from '@/design/cinema/Detalhe';
+import EditorialDetalhe from '@/design/editorial/Detalhe';
+import PainelDetalhe from '@/design/painel/Detalhe';
+import { useDesign } from '@/design/registry';
 import { EyebrowStyle, FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
 import { useTheme } from '@/hooks/use-theme';
 
-export default function SeriesDetailScreen() {
+/**
+ * A rota é uma casca: quem desenha é o design escolhido em Ajustes.
+ *
+ * O desenho clássico continua morando neste arquivo, logo abaixo. Os outros três vivem em
+ * `@/design/<id>/`, e um design desconhecido cai aqui — é o que garante que o app abra mesmo com a
+ * preferência corrompida.
+ */
+export default function SeriesDetailRoute() {
+  const { design } = useDesign();
+  if (design === 'cinema') return <CinemaDetalhe />;
+  if (design === 'editorial') return <EditorialDetalhe />;
+  if (design === 'painel') return <PainelDetalhe />;
+  return <ClassicoDetalhe />;
+}
+
+function ClassicoDetalhe() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const seriesId = Number(id);
   const t = useTheme();
@@ -43,7 +62,7 @@ export default function SeriesDetailScreen() {
       <QueryState query={query}>
         {(series) => (
           <>
-            <Stack.Screen options={{ title: series.name }} />
+            <Stack.Screen options={{ title: series.name, headerTransparent: false }} />
             <Detail series={series} />
           </>
         )}

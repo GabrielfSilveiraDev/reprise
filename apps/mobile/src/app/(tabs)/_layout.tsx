@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { StyleSheet, Text } from 'react-native';
 import type { ColorValue } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useDesign } from '@/design/registry';
 import { FontSize } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -38,6 +39,23 @@ import { useTheme } from '@/hooks/use-theme';
  */
 export default function TabsLayout() {
   const t = useTheme();
+  const { design } = useDesign();
+
+  /*
+    A barra segue o design, mas só no acabamento — nunca na estrutura.
+
+    Quatro alvos, ícone mais rótulo e a mesma ordem em todos: isto é navegação, e navegação que
+    muda de forma entre temas obriga a reaprender o app a cada troca. O que varia é o que não
+    custa nada saber de novo: no cinematográfico a barra se dissolve no preto (mesmo fundo da
+    tela, sem borda), no editorial ela é papel com um fio por cima, e no painel encolhe para
+    devolver altura à lista.
+  */
+  const barra =
+    design === 'cinema'
+      ? { backgroundColor: t.bg, borderTopWidth: 0 }
+      : design === 'painel'
+        ? { backgroundColor: t.bgRaised, borderTopColor: t.border, height: 56 }
+        : { backgroundColor: t.bgRaised, borderTopColor: t.border };
 
   return (
     <Tabs
@@ -45,7 +63,7 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: t.accent,
         tabBarInactiveTintColor: t.fgMuted,
-        tabBarStyle: { backgroundColor: t.bgRaised, borderTopColor: t.border },
+        tabBarStyle: barra,
       }}
     >
       <Tabs.Screen

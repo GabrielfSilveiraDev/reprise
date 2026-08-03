@@ -15,8 +15,27 @@ import { useRouter } from 'expo-router';
 import { formatSeriesStatus, posterUrl } from '@reprise/shared';
 import type { SeriesSearchResult } from '@reprise/shared';
 import { useAddSeries, useSeriesSearch } from '@/api/queries';
+import CinemaBusca from '@/design/cinema/Busca';
+import EditorialBusca from '@/design/editorial/Busca';
+import PainelBusca from '@/design/painel/Busca';
+import { useDesign } from '@/design/registry';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+
+/**
+ * A rota é uma casca: quem desenha é o design escolhido em Ajustes.
+ *
+ * O desenho clássico continua morando neste arquivo, logo abaixo. Os outros três vivem em
+ * `@/design/<id>/`, e um design desconhecido cai aqui — é o que garante que o app abra mesmo com a
+ * preferência corrompida.
+ */
+export default function BuscarRoute() {
+  const { design } = useDesign();
+  if (design === 'cinema') return <CinemaBusca />;
+  if (design === 'editorial') return <EditorialBusca />;
+  if (design === 'painel') return <PainelBusca />;
+  return <ClassicoBusca />;
+}
 
 /**
  * O termo, alguns instantes depois de parar de digitar.
@@ -168,7 +187,7 @@ function Hit({ result }: { result: SeriesSearchResult }) {
  * ao TMDB e a adição precisa trazer o catálogo de episódios. O resto do app continua legível
  * offline; aqui o honesto é dizer que não há resposta possível.
  */
-export default function BuscarScreen() {
+function ClassicoBusca() {
   const t = useTheme();
   const [termo, setTermo] = useState('');
   const termoBuscado = useDebounced(termo);

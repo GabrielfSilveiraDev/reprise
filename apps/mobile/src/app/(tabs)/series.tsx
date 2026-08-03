@@ -7,10 +7,29 @@ import { useSeriesList } from '@/api/queries';
 import { QueryState } from '@/components/query-state';
 import { SeriesPoster, SeriesRow } from '@/components/series-card';
 import { SyncBar } from '@/components/sync-bar';
+import CinemaSeries from '@/design/cinema/Series';
+import EditorialSeries from '@/design/editorial/Series';
+import PainelSeries from '@/design/painel/Series';
+import { useDesign } from '@/design/registry';
 import { LocalStore } from '@/offline/local-store';
 import { EyebrowStyle, FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
 import { useTheme } from '@/hooks/use-theme';
+
+/**
+ * A rota é uma casca: quem desenha é o design escolhido em Ajustes.
+ *
+ * O desenho clássico continua morando neste arquivo, logo abaixo. Os outros três vivem em
+ * `@/design/<id>/`, e um design desconhecido cai aqui — é o que garante que o app abra mesmo com a
+ * preferência corrompida.
+ */
+export default function SeriesRoute() {
+  const { design } = useDesign();
+  if (design === 'cinema') return <CinemaSeries />;
+  if (design === 'editorial') return <EditorialSeries />;
+  if (design === 'painel') return <PainelSeries />;
+  return <ClassicoSeries />;
+}
 
 type Layout = 'poster' | 'list';
 type Filter = 'all' | 'unfinished' | 'finished';
@@ -25,7 +44,7 @@ const LAYOUT_SETTING = 'seriesLayout';
  * duas é "a certa": elas servem a perguntas diferentes, e por isso a escolha fica guardada — ter
  * de reajustar a cada abertura seria pior do que só ter uma.
  */
-export default function SeriesScreen() {
+function ClassicoSeries() {
   const t = useTheme();
   const status = useAutoSync();
   const query = useSeriesList();

@@ -19,9 +19,28 @@ import { BarChart } from '@/components/bar-chart';
 import { CalendarHeatmap } from '@/components/calendar-heatmap';
 import { QueryState } from '@/components/query-state';
 import { SyncBar } from '@/components/sync-bar';
+import CinemaPerfil from '@/design/cinema/Perfil';
+import EditorialPerfil from '@/design/editorial/Perfil';
+import PainelPerfil from '@/design/painel/Perfil';
+import { useDesign } from '@/design/registry';
 import { EyebrowStyle, FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
 import { useTheme } from '@/hooks/use-theme';
+
+/**
+ * A rota é uma casca: quem desenha é o design escolhido em Ajustes.
+ *
+ * O desenho clássico continua morando neste arquivo, logo abaixo. Os outros três vivem em
+ * `@/design/<id>/`, e um design desconhecido cai aqui — é o que garante que o app abra mesmo com a
+ * preferência corrompida.
+ */
+export default function PerfilRoute() {
+  const { design } = useDesign();
+  if (design === 'cinema') return <CinemaPerfil />;
+  if (design === 'editorial') return <EditorialPerfil />;
+  if (design === 'painel') return <PainelPerfil />;
+  return <ClassicoPerfil />;
+}
 
 /**
  * Perfil e estatísticas.
@@ -30,7 +49,7 @@ import { useTheme } from '@/hooks/use-theme';
  * Vêm de dois endpoints diferentes e de duas chaves de cache diferentes, para que a contagem de
  * séries não precise esperar a agregação do histórico inteiro.
  */
-export default function ProfileScreen() {
+function ClassicoPerfil() {
   const t = useTheme();
   const status = useAutoSync();
   const profile = useProfile();

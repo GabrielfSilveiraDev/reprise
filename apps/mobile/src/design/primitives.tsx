@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
+import Svg, { Defs, LinearGradient as SvgGradient, Rect, Stop } from 'react-native-svg';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { formatEpisodeCode, posterUrl } from '@reprise/shared';
 import type { NextUpItem } from '@reprise/shared';
@@ -77,6 +78,34 @@ export function Poster({
         />
       ) : null}
     </View>
+  );
+}
+
+/**
+ * O véu que deixa texto legível sobre imagem.
+ *
+ * <b>Escurecer a imagem inteira não serve.</b> Um retângulo preto uniforme com 50% de opacidade
+ * apaga a foto para salvar o texto — e a foto é o conteúdo neste design. O degradê resolve os dois
+ * lados: opaco onde as letras assentam, transparente onde a imagem manda.
+ *
+ * Feito com `react-native-svg`, que o app já usa na logo, em vez de puxar uma dependência de
+ * degradê só para isto. O `Rect` cobre o contêiner inteiro e o degradê é vertical.
+ */
+export function Scrim({ cor, altura }: { cor: string; altura?: number }) {
+  return (
+    <Svg
+      style={[StyleSheet.absoluteFill, altura ? { top: undefined, height: altura } : null]}
+      pointerEvents="none"
+    >
+      <Defs>
+        <SvgGradient id="scrim" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={cor} stopOpacity="0" />
+          <Stop offset="0.55" stopColor={cor} stopOpacity="0.72" />
+          <Stop offset="1" stopColor={cor} stopOpacity="1" />
+        </SvgGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#scrim)" />
+    </Svg>
   );
 }
 
