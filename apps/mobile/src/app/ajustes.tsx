@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatEpisodeCode, formatWatchedAt } from '@reprise/shared';
 import { AccessToken, ApiEndpoint } from '@/api/client';
 import { DataExport } from '@/api/export';
 import { syncEngine, useDeadLetters, usePendingActions, usePremieres } from '@/api/queries';
+// EXPERIMENTO TEMPORÁRIO — remover com a seção "Desenho da tela Próximos".
+import { HOME_VARIANTS, useHomeVariant } from '@/components/home-variants';
 import { Reminders } from '@/offline/reminders';
-import { EyebrowStyle, FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
+import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -23,6 +26,9 @@ export default function SettingsScreen() {
   const t = useTheme();
   const status = useAutoSync();
   const qc = useQueryClient();
+
+  // EXPERIMENTO TEMPORÁRIO — ver home-variants.tsx.
+  const [variante, escolherVariante] = useHomeVariant();
 
   const [url, setUrl] = useState('');
   const [saved, setSaved] = useState<string | null>(null);
@@ -63,9 +69,56 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: t.bg }]} edges={['top']}>
+    // Sem `edges={['top']}`: esta tela deixou de ser aba e virou rota empilhada sob o Perfil, e
+    // agora quem cuida do recorte do topo é o cabeçalho do Stack. Manter a borda aqui somaria o
+    // inset duas vezes e abriria um vão acima do primeiro campo.
+    <SafeAreaView style={[styles.screen, { backgroundColor: t.bg }]}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.eyebrow, { color: t.fgSubtle }]}>Ajustes</Text>
+        {/* O título saiu daqui: o cabeçalho do Stack já escreve "Ajustes" logo acima, e repetir
+            a palavra duas vezes na mesma dobra é ruído. */}
+        {/*
+          ┌─────────────────────────────────────────────────────────────────────────────────┐
+          │  EXPERIMENTO TEMPORÁRIO — apagar esta seção inteira quando a decisão for tomada. │
+          │  Instruções completas no topo de components/home-variants.tsx.                   │
+          └─────────────────────────────────────────────────────────────────────────────────┘
+        */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: t.fg }]}>Desenho da tela Próximos</Text>
+          <Text style={[styles.hint, { color: t.fgMuted }]}>
+            Experimento: quatro formas de responder "o que eu assisto agora?". Troque à vontade e
+            fique com a que funcionar — as outras vão embora depois.
+          </Text>
+
+          {HOME_VARIANTS.map((v) => {
+            const ativa = v.id === variante;
+            return (
+              <Pressable
+                key={v.id}
+                onPress={() => escolherVariante(v.id)}
+                style={[
+                  styles.varianteLinha,
+                  { borderColor: ativa ? t.accent : t.border, backgroundColor: t.bgRaised },
+                ]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: ativa }}
+                accessibilityLabel={`${v.nome}. ${v.descricao}`}
+              >
+                {/* Círculo preenchido, não só cor da borda: o estado tem de sobreviver a quem não
+                    distingue o acento do cinza. */}
+                <Ionicons
+                  name={ativa ? 'radio-button-on' : 'radio-button-off'}
+                  size={20}
+                  color={ativa ? t.accent : t.fgSubtle}
+                  aria-hidden
+                />
+                <View style={styles.varianteTexto}>
+                  <Text style={[styles.varianteNome, { color: t.fg }]}>{v.nome}</Text>
+                  <Text style={[styles.varianteDesc, { color: t.fgMuted }]}>{v.descricao}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: t.fg }]}>Endereço da API</Text>
@@ -303,9 +356,20 @@ function describe(action: { kind: string; [k: string]: unknown }): string {
 }
 
 const styles = StyleSheet.create({
+  varianteLinha: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing[3],
+    padding: Spacing[3],
+    minHeight: TouchTarget,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+  },
+  varianteTexto: { flex: 1, gap: 2 },
+  varianteNome: { fontSize: FontSize.base, fontWeight: '700' },
+  varianteDesc: { fontSize: FontSize.sm, lineHeight: 18 },
   screen: { flex: 1 },
   content: { padding: Spacing[4], paddingBottom: Spacing[8], gap: Spacing[5] },
-  eyebrow: EyebrowStyle,
   section: { gap: Spacing[2] },
   sectionTitle: { fontSize: FontSize.lg, fontWeight: '700' },
   hint: { fontSize: FontSize.sm, lineHeight: 20 },

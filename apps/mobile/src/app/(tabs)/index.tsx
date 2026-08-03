@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { HomeShelf, formatEpisodeCode, formatWhen, posterUrl } from '@reprise/shared';
 import type { NextUpItem } from '@reprise/shared';
 import { useMarkEpisode, useNextUp, usePremieres, useProfile } from '@/api/queries';
+// EXPERIMENTO TEMPORÁRIO — remover junto com o arquivo. Ver home-variants.tsx.
+import { HomeAlternativa, useHomeVariant } from '@/components/home-variants';
 import { Logo } from '@/components/logo';
 import { PremiereStrip } from '@/components/premiere-strip';
 import { QueryState } from '@/components/query-state';
@@ -37,7 +40,10 @@ export default function NextUpScreen() {
   const premieres = usePremieres();
   const profile = useProfile();
 
-  const [guardadasAbertas, setGuardadasAbertas] = useState(false);
+  const [emPausaAberto, setEmPausaAberto] = useState(false);
+
+  // EXPERIMENTO TEMPORÁRIO — ver components/home-variants.tsx para como remover.
+  const [variante] = useHomeVariant();
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: t.bg }]} edges={['top']}>
@@ -45,7 +51,21 @@ export default function NextUpScreen() {
 
       <QueryState query={query}>
         {(items) => {
-          const { emAndamento, guardadas } = HomeShelf.split(items);
+          // EXPERIMENTO TEMPORÁRIO — as alternativas vivem fora deste arquivo justamente para que
+          // apagá-las não deixe cicatriz aqui.
+          if (variante !== 'prateleiras') {
+            return (
+              <HomeAlternativa
+                id={variante}
+                items={items}
+                nome={profile.data?.displayName?.trim().split(/\s+/)[0]}
+                refreshing={query.isFetching}
+                onRefresh={() => query.refetch()}
+              />
+            );
+          }
+
+          const { emAndamento, emPausa } = HomeShelf.split(items);
           const proximas = HomeShelf.upcomingPremieres(premieres.data ?? []);
           const nome = profile.data?.displayName?.trim().split(/\s+/)[0];
 
@@ -55,9 +75,9 @@ export default function NextUpScreen() {
             // prateleiras, na mesma ordem do web, sem sair da virtualização da lista.
             { key: 'estreias', title: null, data: [] as NextUpItem[] },
             {
-              key: 'guardadas',
-              title: 'Guardadas',
-              data: guardadasAbertas ? guardadas : ([] as NextUpItem[]),
+              key: 'em-pausa',
+              title: 'Em pausa',
+              data: emPausaAberto ? emPausa : ([] as NextUpItem[]),
             },
           ].filter((s) => s.key !== 'andamento' || emAndamento.length > 0);
 
@@ -80,25 +100,25 @@ export default function NextUpScreen() {
                     {nome ? `, ${nome}` : ''}.
                   </Text>
                   <Text style={[styles.summary, { color: t.fgMuted }]}>
-                    {HomeShelf.summary(emAndamento.length, guardadas.length)}
+                    {HomeShelf.summary(emAndamento.length, emPausa.length)}
                   </Text>
                 </View>
               }
               renderSectionHeader={({ section }) => {
                 if (section.key === 'estreias') return <PremiereStrip premieres={proximas} />;
-                if (section.key === 'guardadas') {
+                if (section.key === 'em-pausa') {
                   return (
-                    <GuardadasHeader
-                      total={guardadas.length}
-                      aberto={guardadasAbertas}
-                      onToggle={() => setGuardadasAbertas((v) => !v)}
+                    <EmPausaHeader
+                      total={emPausa.length}
+                      aberto={emPausaAberto}
+                      onToggle={() => setEmPausaAberto((v) => !v)}
                     />
                   );
                 }
                 return <Text style={[styles.shelfHead, { color: t.fg }]}>{section.title}</Text>;
               }}
               renderItem={({ item, section }) => (
-                <NextUpRow item={item} quieta={section.key === 'guardadas'} />
+                <NextUpRow item={item} quieta={section.key === 'em-pausa'} />
               )}
               ItemSeparatorComponent={() => (
                 <View style={[styles.separator, { backgroundColor: t.border }]} />
@@ -112,13 +132,13 @@ export default function NextUpScreen() {
 }
 
 /**
- * O cabeçalho que abre e fecha o acervo guardado.
+ * O cabeçalho que abre e fecha a prateleira de séries em pausa.
  *
  * Fechado por padrão: são 48 séries paradas desde a importação, e abertas empurram para fora da
  * tela justamente o que dá para assistir hoje. `accessibilityState.expanded` para o leitor de tela
  * anunciar o estado — sem isso, é um botão que muda a tela sem avisar o que fez.
  */
-function GuardadasHeader({
+function EmPausaHeader({
   total,
   aberto,
   onToggle,
@@ -134,21 +154,33 @@ function GuardadasHeader({
     <View>
       <Pressable
         onPress={onToggle}
-        style={[styles.guardadasRow, { borderTopColor: t.border }]}
+        style={[styles.emPausaRow, { borderTopColor: t.border }]}
         accessibilityRole="button"
         accessibilityState={{ expanded: aberto }}
-        accessibilityLabel={`Guardadas, ${total} séries. ${aberto ? 'Tocar para recolher' : 'Tocar para ver'}.`}
+        accessibilityLabel={`Em pausa, ${total} séries. ${aberto ? 'Tocar para recolher' : 'Tocar para ver'}.`}
       >
-        <Text style={[styles.shelfHead, { color: t.fg }]}>Guardadas</Text>
-        <Text style={[styles.guardadasCount, { color: t.fgSubtle }]}>
-          {total} séries {aberto ? '▾' : '▸'}
-        </Text>
+        <Text style={[styles.shelfHead, { color: t.fg }]}>Em pausa</Text>
+        <View style={styles.emPausaCountRow}>
+          <Text style={[styles.emPausaCount, { color: t.fgSubtle }]}>{total} séries</Text>
+          {/*
+            Chevron de verdade no lugar dos caracteres ▾/▸.
+            Glifo de texto herda a métrica da fonte: desalinha da linha de base, muda de tamanho
+            com a fonte do sistema e some em algumas famílias. O ícone é desenhado para o eixo de
+            20px e gira com o estado, que é o gesto de "revelar" que a plataforma inteira usa.
+          */}
+          <Ionicons
+            name={aberto ? 'chevron-down' : 'chevron-forward'}
+            size={18}
+            color={t.fgSubtle}
+            aria-hidden
+          />
+        </View>
       </Pressable>
 
       {/* Sem citar a importação do TV Time: é verdade para este acervo hoje, não para o critério.
           O que define a prateleira é o silêncio de dois meses. */}
       {aberto ? (
-        <Text style={[styles.guardadasNote, { color: t.fgSubtle }]}>
+        <Text style={[styles.emPausaNote, { color: t.fgSubtle }]}>
           Sem nenhuma exibição nos últimos dois meses. Ficam aqui sem pressa — retome quando
           quiser.
         </Text>
@@ -185,7 +217,7 @@ function NextUpRow({ item, quieta = false }: { item: NextUpItem; quieta?: boolea
             {code}
             {item.episode.name ? ` · ${item.episode.name}` : ''}
           </Text>
-          {/* Nas guardadas a data é a mesma para quase todas; repeti-la 48 vezes é ruído, e a
+          {/* Nas séries em pausa a data é a mesma para quase todas; repeti-la 48 vezes é ruído, e a
               própria seção já diz de quando são. */}
           {quieta ? null : (
             <Text style={[styles.meta, { color: t.fgSubtle }]}>
@@ -212,10 +244,19 @@ function NextUpRow({ item, quieta = false }: { item: NextUpItem; quieta?: boolea
           O botão diz o que acontece ao ser apertado, não o que a pessoa fez. E diz a MESMA coisa
           que o web: dois rótulos parecidos para a mesma ação ("Marcar visto" aqui, "Marcar como
           visto" lá) fazem quem usa os dois desconfiar de que são ações diferentes.
+
+          Enquanto envia, um indicador de progresso no lugar do rótulo. Antes o botão só perdia
+          opacidade, o que é indistinguível de "desabilitado" — e como a marcação passa pela fila
+          offline, esse instante pode durar o tempo de a rede responder. Botão que não confirma que
+          ouviu é botão que se aperta duas vezes, e aqui apertar duas vezes registra duas exibições.
         */}
-        <Text style={[styles.markLabel, { color: quieta ? t.fg : t.accentFg }]}>
-          Marcar como visto
-        </Text>
+        {mark.isPending ? (
+          <ActivityIndicator size="small" color={quieta ? t.fg : t.accentFg} />
+        ) : (
+          <Text style={[styles.markLabel, { color: quieta ? t.fg : t.accentFg }]}>
+            Marcar como visto
+          </Text>
+        )}
       </Pressable>
     </View>
   );
@@ -234,7 +275,7 @@ const styles = StyleSheet.create({
   shelfHead: { fontSize: FontSize.lg, fontWeight: '700' },
   separator: { height: StyleSheet.hairlineWidth, marginLeft: Spacing[4] },
 
-  guardadasRow: {
+  emPausaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -244,8 +285,9 @@ const styles = StyleSheet.create({
     paddingTop: Spacing[4],
     minHeight: TouchTarget,
   },
-  guardadasCount: { fontSize: FontSize.sm },
-  guardadasNote: {
+  emPausaCountRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing[1] },
+  emPausaCount: { fontSize: FontSize.sm },
+  emPausaNote: {
     paddingHorizontal: Spacing[4],
     paddingTop: Spacing[2],
     paddingBottom: Spacing[3],

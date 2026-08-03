@@ -16,7 +16,7 @@ import './NextUpPage.css';
  * para assistir e terminava sem dizer o que retomar.
  *
  * Agora vai do mais acionável ao menos: o que você está assistindo, o que estreia em breve, e por
- * último o acervo guardado. O agrupamento vem do {@link HomeShelf} para que o app mostre as mesmas
+ * último o que está em pausa. O agrupamento vem do {@link HomeShelf} para que o app mostre as mesmas
  * prateleiras com os mesmos nomes.
  */
 export function NextUpPage() {
@@ -28,7 +28,7 @@ export function NextUpPage() {
   return (
     <QueryState query={query}>
       {(items) => {
-        const { emAndamento, guardadas } = HomeShelf.split(items);
+        const { emAndamento, emPausa } = HomeShelf.split(items);
         const proximas = HomeShelf.upcomingPremieres(premieres.data ?? []);
         const nome = profile.data?.displayName?.trim().split(/\s+/)[0];
 
@@ -40,7 +40,7 @@ export function NextUpPage() {
                 {nome ? `, ${nome}` : ''}.
               </h1>
               <p className="home-head__summary">
-                {HomeShelf.summary(emAndamento.length, guardadas.length)}
+                {HomeShelf.summary(emAndamento.length, emPausa.length)}
               </p>
             </header>
 
@@ -59,7 +59,7 @@ export function NextUpPage() {
 
             <PremiereStrip premieres={proximas} />
 
-            {guardadas.length > 0 ? <Guardadas items={guardadas} /> : null}
+            {emPausa.length > 0 ? <EmPausa items={emPausa} /> : null}
           </>
         );
       }}
@@ -68,20 +68,22 @@ export function NextUpPage() {
 }
 
 /**
- * O acervo guardado, fechado por padrão.
+ * O que você começou e parou, fechado por padrão.
  *
  * São 47 séries paradas na data da importação: abertas, empurram tudo que importa para fora da
  * tela; escondidas sem dizer, somem. Um `<details>` resolve os dois — anuncia quantas são, cabe em
  * uma linha, e abre com um clique (ou com Enter, porque é um elemento de verdade e não um `div`
  * que escuta clique).
  */
-function Guardadas({ items }: { items: readonly NextUpItem[] }) {
+function EmPausa({ items }: { items: readonly NextUpItem[] }) {
   const [aberto, setAberto] = useState(false);
 
   return (
     <details className="shelf" open={aberto} onToggle={(e) => setAberto(e.currentTarget.open)}>
       <summary className="shelf__summary">
-        <span className="shelf-head">Guardadas</span>
+        {/* "Em pausa", não "Guardadas": guardar é deliberado e já é o estado "Para depois".
+            Aqui é o oposto — você começou e parou. */}
+        <span className="shelf-head">Em pausa</span>
         <span className="shelf__count">{items.length} séries</span>
       </summary>
 
@@ -122,7 +124,7 @@ function NextUpRow({ item, quieta = false }: { item: NextUpItem; quieta?: boolea
             <span className="tabular nextup__code">{code}</span>
             {item.episode.name ? <span>{item.episode.name}</span> : null}
           </span>
-          {/* Nas guardadas a data é a mesma para quase todas; repeti-la 47 vezes é ruído, e a
+          {/* Nas séries em pausa a data é a mesma para quase todas; repeti-la 47 vezes é ruído, e a
               própria seção já explica de quando são. */}
           {quieta ? null : (
             <span className="nextup__when">Última atividade {formatWhen(item.lastActivityAt)}</span>

@@ -93,11 +93,21 @@ public sealed class SeriesEnrichmentService
             runtimesFilled, notFound, unmatched, orderAligned);
     }
 
-    private sealed record ApplyResult(
+    public sealed record ApplyResult(
         int SeasonsCreated, int EpisodesCreated, int EpisodesUpdated, int EpisodesRenumbered,
         int RuntimesFilled, int EpisodesNotFoundInTmdb, OrderAlignedSeries? OrderAligned);
 
-    private async Task<ApplyResult> ApplyAsync(Series s, TmdbShow show, CancellationToken ct)
+    /// <summary>
+    /// Grava os metadados do TMDB numa série e sincroniza o catálogo de temporadas/episódios.
+    ///
+    /// <para>
+    /// <b>Público porque é reaproveitado.</b> A série que entra pela barra de pesquisa
+    /// (<c>SeriesCatalogService</c>) nasce vazia e precisa exatamente disto: mesmo casamento de
+    /// episódios, mesma política de nome, mesmo tratamento de renumeração. Duplicar esta
+    /// orquestração lá seria manter duas versões do <c>CatalogMerger</c> em uso.
+    /// </para>
+    /// </summary>
+    public async Task<ApplyResult> ApplyAsync(Series s, TmdbShow show, CancellationToken ct)
     {
         var remote = await _tmdb.GetEpisodesAsync(show.TmdbId, ct);
 

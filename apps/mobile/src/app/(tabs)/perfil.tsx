@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Auth } from '@/api/auth';
 import {
   formatPercent,
@@ -95,12 +96,38 @@ export default function ProfileScreen() {
 
         <View style={[styles.divider, { backgroundColor: t.border }]} />
 
+        {/*
+          Ajustes deixou de ser aba e passou a morar aqui. Fica ACIMA de "Sair da conta" de
+          propósito: a lista desce da ação mais comum para a mais destrutiva, e sair da conta é a
+          única daqui que custa caro para desfazer — no celular, refazer o login exige digitar a
+          senha inteira. Ação perigosa por último é o que reduz o toque errado por inércia.
+        */}
+        <Pressable
+          onPress={() => router.push('/ajustes')}
+          style={[styles.row, { borderColor: t.border }]}
+          accessibilityRole="button"
+          accessibilityLabel="Ajustes"
+        >
+          <View style={styles.rowText}>
+            <Text style={[styles.rowTitle, { color: t.fg }]}>Ajustes</Text>
+            <Text style={[styles.rowHint, { color: t.fgMuted }]}>
+              Endereço da API, avisos de estreia, exportar seus dados e a fila de sincronização
+            </Text>
+          </View>
+          {/* A seta diz que isto LEVA a algum lugar, em vez de fazer algo aqui mesmo. */}
+          <Ionicons name="chevron-forward" size={20} color={t.fgSubtle} aria-hidden />
+        </Pressable>
+
         <Pressable
           onPress={sair}
           style={[styles.signOut, { borderColor: t.danger }]}
           accessibilityRole="button"
           accessibilityLabel="Sair da conta"
         >
+          {/* Ícone ACOMPANHANDO o rótulo, nunca no lugar dele: numa ação que custa caro desfazer —
+              refazer o login no celular exige digitar a senha inteira — o texto é o que impede o
+              toque por engano. O ícone só ajuda a achar a linha na varredura. */}
+          <Ionicons name="log-out-outline" size={18} color={t.danger} aria-hidden />
           <Text style={[styles.signOutText, { color: t.danger }]}>Sair da conta</Text>
         </Pressable>
       </ScrollView>
@@ -342,7 +369,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   linkText: { fontSize: FontSize.sm, fontWeight: '700' },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[3],
+    minHeight: TouchTarget,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+  },
+  // `flex: 1` para a seta ficar colada na borda direita em vez de logo após o texto.
+  rowText: { flex: 1, gap: 2 },
+  rowTitle: { fontSize: FontSize.base, fontWeight: '700' },
+  rowHint: { fontSize: FontSize.sm, lineHeight: 18 },
   signOut: {
+    flexDirection: 'row',
+    gap: Spacing[2],
     borderWidth: 1,
     borderRadius: Radius.md,
     minHeight: TouchTarget,

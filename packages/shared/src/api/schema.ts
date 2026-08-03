@@ -315,6 +315,86 @@ export interface paths {
             };
         };
         put?: never;
+        /** Adiciona uma série do TMDB ao acervo e passa a acompanhá-la. Repetir não duplica. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddSeriesBody"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AddSeriesResultDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/series/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Busca séries no TMDB para adicionar ao acervo. Marca as que você já tem. */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SeriesSearchResultDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -855,6 +935,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AddSeriesBody: {
+            /** Format: int32 */
+            tmdbId: number;
+        };
+        AddSeriesResultDto: {
+            /** Format: int64 */
+            seriesId: number;
+            name: string;
+            alreadyTracked: boolean;
+            /** Format: int32 */
+            episodesCreated: number;
+        };
         BulkMarkResult: {
             /** Format: int32 */
             marked: number;
@@ -1101,6 +1193,19 @@ export interface components {
             /** Format: date-time */
             lastWatchedAt: null | string;
             nextUp: null | components["schemas"]["EpisodeRefDto"];
+        };
+        SeriesSearchResultDto: {
+            /** Format: int32 */
+            tmdbId: number;
+            name: string;
+            originalName: null | string;
+            overview: null | string;
+            posterPath: null | string;
+            /** Format: date */
+            firstAirDate: null | string;
+            /** Format: int64 */
+            seriesId: number | null;
+            trackedStatus: null | string;
         };
         SessionDto: {
             accessToken: string;

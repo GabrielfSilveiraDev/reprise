@@ -1,0 +1,200 @@
+.search__intro {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  max-width: 60ch;
+}
+
+.search__field {
+  margin-bottom: var(--space-6);
+  max-width: 32rem;
+}
+
+/* A borda mora aqui, não no input: o foco destaca o campo inteiro, com lupa e botão dentro. */
+.search__caixa {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.search__caixa:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.search__lupa {
+  flex-shrink: 0;
+  color: var(--fg-subtle);
+}
+
+.search__input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--touch-target);
+  font: inherit;
+  font-size: var(--text-base);
+  color: var(--fg);
+  background: none;
+  border: none;
+}
+
+/* O contorno é da caixa; repeti-lo aqui desenharia dois retângulos concêntricos. */
+.search__input:focus {
+  outline: none;
+}
+
+/* O "x" nativo do type=search não existe no Firefox e muda de forma nos outros. O nosso é igual
+   em todo lugar, então o do navegador sai. */
+.search__input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search__limpar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  /* Alvo de toque cheio: o glifo tem 18px e o dedo precisa de 44. */
+  width: var(--touch-target);
+  height: var(--touch-target);
+  margin-right: calc(var(--space-3) * -1);
+  color: var(--fg-subtle);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.search__limpar:hover {
+  color: var(--fg);
+}
+
+.hits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/*
+ * Pôster | texto | ação.
+ *
+ * A coluna do meio é `minmax(0, 1fr)` e não `1fr`: sinopse longa numa grade estoura a faixa em vez
+ * de quebrar linha, e o resultado é a coluna de ação saindo da tela.
+ */
+.hit {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+/*
+ * A caixa da capa. A inicial fica no fundo e a imagem entra por cima, ocupando a mesma área —
+ * por isso `position: relative` aqui e `overflow: hidden`, senão a imagem ignoraria o raio.
+ */
+.hit__poster {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+.hit__poster-inicial {
+  color: var(--fg-subtle);
+  font-size: var(--text-lg);
+}
+
+.hit__poster-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hit__texto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.hit__nome {
+  font-weight: 600;
+  line-height: var(--leading-snug);
+}
+
+.hit__ano {
+  color: var(--fg-muted);
+  font-weight: 400;
+}
+
+.hit__original {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+/*
+ * Três linhas de sinopse. O suficiente para decidir se é a série certa, e pouco o bastante para o
+ * décimo resultado continuar alcançável sem rolar a página inteira.
+ */
+.hit__sinopse {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.hit__acao {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+/* Texto, não só cor — o estado tem de ser legível em preto e branco. */
+.hit__selo {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  text-align: center;
+  color: var(--state-fg);
+  background: var(--state-uptodate);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.hit__erro {
+  color: var(--danger);
+  font-size: var(--text-sm);
+  max-width: 16rem;
+}
+
+/*
+ * No celular a ação desce para baixo do texto e ocupa a largura toda: espremida numa terceira
+ * coluna de 320px, ela empurraria o nome da série para duas letras por linha.
+ */
+@media (max-width: 40rem) {
+  .hit {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .hit__acao {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+  }
+}

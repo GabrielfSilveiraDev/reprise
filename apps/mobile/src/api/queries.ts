@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  AddSeriesResult,
   NextUpItem,
   PendingAction,
   PendingActionDraft,
@@ -8,8 +9,10 @@ import type {
   Profile,
   SeriesDetail,
   SeriesListItem,
+  SeriesSearchResult,
   StatsOverviewDto,
 } from '@reprise/shared';
+import { openClient } from '@/api/client';
 import { SyncEngine } from '@/offline/sync-engine';
 
 /** Uma instância só, criada na primeira necessidade. */
@@ -27,12 +30,33 @@ export const keys = {
   premieres: ['premieres'] as const,
   calendar: (year: number, includeBackfill: boolean) => ['calendar', year, includeBackfill] as const,
   stats: (includeBackfill: boolean) => ['stats', includeBackfill] as const,
+  search: (term: string) => ['series-search', term] as const,
   pending: ['pending'] as const,
   deadLetters: ['dead-letters'] as const,
 };
 
+/**
+ * O corpo de erro da API, no formato ProblemDetails do ASP.NET.
+ *
+ * `String(objeto)` devolve `[object Object]` — era isso que chegava à tela quando a API recusava
+ * uma operação com um motivo escrito por extenso. Um erro que não diz o que houve é o mesmo que
+ * um erro sem tratamento, e aqui dói mais do que no web: no celular não há aba de rede para abrir
+ * e conferir o que o servidor de fato respondeu.
+ */
+function mensagemDoErro(error: unknown): string {
+  if (typeof error === 'string') return error;
+
+  if (error && typeof error === 'object') {
+    const problem = error as { detail?: unknown; title?: unknown };
+    if (typeof problem.detail === 'string' && problem.detail) return problem.detail;
+    if (typeof problem.title === 'string' && problem.title) return problem.title;
+  }
+
+  return 'A API recusou a operação.';
+}
+
 function unwrap<T>(result: { data?: T; error?: unknown }): T {
-  if (result.error !== undefined) throw new Error(String(result.error));
+  if (result.error !== undefined) throw new Error(mensagemDoErro(result.error));
   if (result.data === undefined) throw new Error('Resposta vazia da API.');
   return result.data;
 }
@@ -120,6 +144,71 @@ export function useCalendar(year: number, includeBackfill: boolean) {
       return sync.fetchWithCache(`calendar/${year}/${includeBackfill}`, async (c) =>
         unwrap(await c.GET('/stats/calendar', { params: { query: { year, includeBackfill } } })),
       );
+    },
+  });
+}
+
+/**
+ * Busca no TMDB. É a única leitura do app que NÃO passa pelo cache em disco, e de propósito.
+ *
+ * O cache existe para o acervo continuar legível no metrô. Uma busca é outra coisa: o resultado
+ * depende de um serviço externo, o termo é sempre novo, e guardar uma entrada por texto digitado
+ * encheria o SQLite de linhas que ninguém lê duas vezes. Sem rede aqui não há resposta possível —
+ * e a tela diz isso em vez de fingir que tem.
+ */
+export function useSeriesSearch(term: string) {
+  const termo = term.trim();
+  return useQuery({
+    queryKey: keys.search(termo),
+    queryFn: async (): Promise<SeriesSearchResult[]> => {
+      const client = await openClient();
+      return unwrap(await client.GET('/series/search', { params: { query: { q: termo } } }));
+    },
+    enabled: termo.length >= 2,
+    // Ao contrário do resto do app, aqui vale segurar: o resultado não muda em minutos e cada
+    // busca custa duas requisições ao TMDB do lado do servidor.
+    staleTime: 5 * 60_000,
+    /*
+     * `always` e não o padrão `online`.
+     *
+     * No modo padrão o react-query PAUSA a tentativa quando julga não haver rede, e query pausada
+     * fica em `pending` para sempre — a tela mostra o indicador de carregamento indefinidamente,
+     * sem erro e sem resultado. Num app que passa o dia entrando e saindo de rede, isso seria a
+     * regra, não a exceção.
+     *
+     * Aqui a falha precisa aparecer: esta é a única tela do app que não tem resposta em cache para
+     * oferecer, então "não deu para buscar, precisa de rede" é a informação útil.
+     */
+    networkMode: 'always',
+    retry: false,
+  });
+}
+
+/**
+ * Adiciona a série ao acervo.
+ *
+ * <b>Não passa pela fila offline</b>, ao contrário das marcações. A fila existe porque marcar um
+ * episódio é uma afirmação sobre um instante que já aconteceu — perder isso seria perder um fato.
+ * Adicionar uma série não é: ela vem de uma busca que exige rede, e enfileirar a adição de algo
+ * que você só pôde encontrar online não salvaria ninguém.
+ */
+export function useAddSeries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (tmdbId: number): Promise<AddSeriesResult> => {
+      const client = await openClient();
+      return unwrap(await client.POST('/series', { body: { tmdbId } }));
+    },
+    // Mesma razão da busca: sem isto o toque em "Adicionar" ficaria girando para sempre quando
+    // não houvesse rede, em vez de dizer que não deu.
+    networkMode: 'always',
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: keys.series }),
+        qc.invalidateQueries({ queryKey: keys.nextUp }),
+        qc.invalidateQueries({ queryKey: keys.profile }),
+        qc.invalidateQueries({ queryKey: ['series-search'] }),
+      ]);
     },
   });
 }

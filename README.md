@@ -49,6 +49,33 @@ dotnet run --project apps/api/Reprise.Api
 A API sobe em `http://localhost:5156` (definido em `launchSettings.json`) e publica o
 OpenAPI em `/openapi/v1.json`.
 
+### Testes da API
+
+```bash
+dotnet test apps/api/Reprise.slnx
+```
+
+**No Windows com Smart App Control ligado, use isto:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\testar-api.ps1
+```
+
+O `-ExecutionPolicy Bypass` vale só para essa invocação e não muda configuração nenhuma da máquina.
+É necessário porque o Windows vem com a política em `Restricted`, que recusa qualquer `.ps1` — se
+preferir rodar o script direto, `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` resolve de vez,
+mas é uma decisão de segurança e por isso não vai feita por padrão.
+
+Os testes de integração sobem um Postgres de verdade por Testcontainers, que carrega uma DLL de
+terceiro sem assinatura digital (`Docker.DotNet.Handler.Abstractions.dll`). O Smart App Control
+recusa carregá-la — evento 3077 do Code Integrity, erro `0x800711C7` — e os 17 testes de
+integração falham antes de rodar. Os outros 76 passam, o que faz a falha parecer um problema do
+projeto quando é da máquina.
+
+O script roda a suíte dentro de um container Linux, onde a política não alcança. Desligar o
+Smart App Control também resolveria, mas é irreversível: o Windows não deixa religá-lo sem
+reinstalar o sistema.
+
 ### Segredos
 
 A chave do TMDB **nunca** entra no repositório. Em desenvolvimento:

@@ -3,12 +3,14 @@ import { createRepriseClient } from '@reprise/shared';
 import { Auth } from './auth';
 import { WebSession } from './session';
 import type {
+  AddSeriesResult,
   CalendarDayDto,
   NextUpItem,
   Premiere,
   Profile,
   SeriesDetail,
   SeriesListItem,
+  SeriesSearchResult,
   StatsOverviewDto,
 } from '@reprise/shared';
 
@@ -33,6 +35,7 @@ async function client() {
 export const keys = {
   series: ['series'] as const,
   seriesDetail: (id: number) => ['series', id] as const,
+  search: (term: string) => ['series-search', term] as const,
   nextUp: ['next-up'] as const,
   premieres: ['premieres'] as const,
   profile: ['me'] as const,
@@ -77,6 +80,68 @@ export function useSeriesDetail(id: number) {
     queryKey: keys.seriesDetail(id),
     queryFn: async (): Promise<SeriesDetail> =>
       unwrap(await (await client()).GET('/series/{id}', { params: { path: { id } } })),
+  });
+}
+
+/**
+ * Busca no TMDB, para achar série que nunca esteve no export.
+ *
+ * `staleTime` alto de propósito: o resultado de "severance" não muda entre um minuto e outro, e
+ * cada busca custa DUAS requisições ao TMDB no servidor (uma pelos textos em português, outra pelo
+ * pôster em inglês). Reconsultar a cada foco na janela seria pagar isso à toa.
+ *
+ * Quem chama passa o termo já com atraso — ver `useDebounced` na página. Sem isso seria uma busca
+ * por tecla digitada.
+ */
+export function useSeriesSearch(term: string) {
+  const termo = term.trim();
+  return useQuery({
+    queryKey: keys.search(termo),
+    queryFn: async (): Promise<SeriesSearchResult[]> =>
+      unwrap(await (await client()).GET('/series/search', { params: { query: { q: termo } } })),
+    // O servidor recusa menos de 2 caracteres; não faz sentido perguntar para levar 400.
+    enabled: termo.length >= 2,
+    staleTime: 5 * 60_000,
+    /*
+     * `always` e não o padrão `online`.
+     *
+     * No modo padrão o react-query PAUSA a tentativa quando julga não haver rede, e uma query
+     * pausada fica em `pending` para sempre: a tela mostra "Carregando…" indefinidamente, sem erro
+     * e sem resultado. Foi exatamente o que apareceu aqui quando a API respondeu 503 por falta de
+     * chave do TMDB — o retry pausou e a mensagem nunca chegou à tela.
+     *
+     * Para uma busca isso é o pior comportamento possível. Ela depende de um serviço externo e não
+     * tem resposta em cache para oferecer: ou responde, ou falhou. Falhar em voz alta é o que
+     * permite à tela dizer o motivo.
+     */
+    networkMode: 'always',
+    // Um 400 (termo curto) ou 503 (sem chave) não melhora na segunda tentativa; só atrasa a
+    // mensagem em um segundo.
+    retry: false,
+  });
+}
+
+/**
+ * Adiciona a série ao acervo e passa a acompanhá-la.
+ *
+ * Invalida também a busca: o resultado carrega o "você já tem esta", e deixá-lo velho faria o
+ * botão continuar oferecendo adicionar o que acabou de entrar.
+ */
+export function useAddSeries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (tmdbId: number): Promise<AddSeriesResult> =>
+      unwrap(await (await client()).POST('/series', { body: { tmdbId } })),
+    // Mesma razão da busca: sem isto o botão ficaria em "Adicionando…" para sempre quando a
+    // requisição falhasse, em vez de mostrar o motivo ao lado dele.
+    networkMode: 'always',
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: keys.series }),
+        qc.invalidateQueries({ queryKey: keys.nextUp }),
+        qc.invalidateQueries({ queryKey: ['series-search'] }),
+      ]);
+    },
   });
 }
 

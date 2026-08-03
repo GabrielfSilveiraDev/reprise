@@ -37,6 +37,9 @@ type Schemas = components['schemas'];
 
 export type SeriesListItem = Schemas['SeriesListItemDto'];
 export type SeriesDetail = Schemas['SeriesDetailDto'];
+/** Um resultado da busca no TMDB. `seriesId` preenchido = a série já existe no acervo local. */
+export type SeriesSearchResult = Schemas['SeriesSearchResultDto'];
+export type AddSeriesResult = Schemas['AddSeriesResultDto'];
 export type Season = Schemas['SeasonDto'];
 export type Episode = Schemas['EpisodeDto'];
 export type EpisodeRef = Schemas['EpisodeRefDto'];

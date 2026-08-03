@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Reprise.Domain.Entities;
 using Reprise.Application.Abstractions;
 using Reprise.Application.Enrichment;
+using Reprise.Application.Features.Series;
 using Reprise.Application.Features.Stats;
 using Reprise.Infrastructure.Persistence;
 using Reprise.Infrastructure.Tmdb;
@@ -69,8 +70,13 @@ public static class DependencyInjection
             configure?.Invoke(o);
         });
 
+        // O TmdbClient guarda as respostas de busca aqui. `AddMemoryCache` é idempotente.
+        services.AddMemoryCache();
         services.AddSingleton<ITmdbClient, TmdbClient>();
         services.AddScoped<SeriesEnrichmentService>();
+        // A busca de séries novas também depende do TMDB, então segue a mesma sorte: existe quando
+        // há chave configurada, e não existe quando não há.
+        services.AddScoped<SeriesCatalogService>();
         return services;
     }
 }

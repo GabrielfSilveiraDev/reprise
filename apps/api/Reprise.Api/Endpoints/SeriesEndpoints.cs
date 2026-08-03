@@ -7,6 +7,18 @@ public static class SeriesEndpoints
 {
     public sealed record StatusBody(string Status);
 
+    public sealed record AddSeriesBody(int TmdbId);
+
+    /// <summary>
+    /// O que responder quando a instância subiu sem chave do TMDB. Não é erro do cliente nem bug do
+    /// servidor: é um recurso opcional desligado, e 503 com o motivo por extenso é o que permite à
+    /// tela dizer o que fazer em vez de mostrar "algo deu errado".
+    /// </summary>
+    private static readonly string SemTmdb =
+        "A busca de séries exige a chave v3 do TMDB (32 caracteres hexadecimais, em " +
+        "themoviedb.org > Configurações > API). Defina Tmdb__ApiKey e reinicie a API. " +
+        "Atenção: o 'API Read Access Token' da mesma página é a credencial v4 e não serve aqui.";
+
     public static void MapSeriesEndpoints(this IEndpointRouteBuilder app)
     {
         var g = app.MapGroup("/series").WithTags("Series");
@@ -16,6 +28,39 @@ public static class SeriesEndpoints
         g.MapGet("/", async (SeriesQueries q, CancellationToken ct) =>
                 TypedResults.Ok(await q.GetListAsync(ct)))
             .WithSummary("Lista as séries acompanhadas com progresso derivado do log de eventos.");
+
+        // A rota literal vem ANTES de "/{id:long}". A restrição :long já impediria "search" de cair
+        // no detalhe, mas a ordem deixa a intenção explícita para quem mexer aqui depois.
+        g.MapGet("/search", async Task<Results<Ok<IReadOnlyList<SeriesSearchResultDto>>, BadRequest<string>, ProblemHttpResult>> (
+                string? q, IServiceProvider sp, CancellationToken ct) =>
+            {
+                var termo = (q ?? string.Empty).Trim();
+                if (termo.Length < 2)
+                    return TypedResults.BadRequest("Digite ao menos 2 caracteres para buscar.");
+
+                var catalogo = sp.GetService<SeriesCatalogService>();
+                if (catalogo is null)
+                    return TypedResults.Problem(SemTmdb, statusCode: StatusCodes.Status503ServiceUnavailable);
+
+                return TypedResults.Ok(await catalogo.SearchAsync(termo, ct));
+            })
+            .WithSummary("Busca séries no TMDB para adicionar ao acervo. Marca as que você já tem.");
+
+        // POST e não PUT: o cliente manda o id do TMDB e o servidor decide o id local. Quem escolhe
+        // o endereço do recurso criado é o servidor, e é isso que POST significa.
+        g.MapPost("/", async Task<Results<Ok<AddSeriesResultDto>, NotFound<string>, ProblemHttpResult>> (
+                AddSeriesBody body, IServiceProvider sp, CancellationToken ct) =>
+            {
+                var catalogo = sp.GetService<SeriesCatalogService>();
+                if (catalogo is null)
+                    return TypedResults.Problem(SemTmdb, statusCode: StatusCodes.Status503ServiceUnavailable);
+
+                var resultado = await catalogo.AddAsync(body.TmdbId, ct);
+                return resultado is null
+                    ? TypedResults.NotFound($"O TMDB não conhece a série {body.TmdbId}.")
+                    : TypedResults.Ok(resultado);
+            })
+            .WithSummary("Adiciona uma série do TMDB ao acervo e passa a acompanhá-la. Repetir não duplica.");
 
         g.MapGet("/{id:long}", async Task<Results<Ok<SeriesDetailDto>, NotFound>> (
                 long id, SeriesQueries q, CancellationToken ct) =>

@@ -104,6 +104,12 @@ export default function RootLayout() {
             <Stack.Screen name="login" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="series/[id]" options={{ title: '' }} />
+            {/*
+              Ajustes saiu da barra de abas e virou destino do Perfil.
+              Ao contrário de `series/[id]`, aqui o título fica no cabeçalho: quem chega em Ajustes
+              chegou de outra tela e precisa da seta de voltar com um rótulo que diga onde está.
+            */}
+            <Stack.Screen name="ajustes" options={{ title: 'Ajustes' }} />
           </Stack>
         )}
       </ThemeProvider>

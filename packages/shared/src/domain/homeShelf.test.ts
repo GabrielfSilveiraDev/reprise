@@ -14,26 +14,26 @@ const item = (lastActivityAt: string | null) => ({ lastActivityAt });
 
 describe('HomeShelf.split', () => {
   it('separa o que está vivo do que está parado', () => {
-    const { emAndamento, guardadas } = HomeShelf.split(
+    const { emAndamento, emPausa } = HomeShelf.split(
       [item(haDias(1)), item(haDias(13)), item(haDias(209)), item(haDias(365))],
       AGORA,
     );
 
     assert.equal(emAndamento.length, 2);
-    assert.equal(guardadas.length, 2);
+    assert.equal(emPausa.length, 2);
   });
 
   it('o corte é em 60 dias, e a borda fica do lado de dentro', () => {
     assert.equal(HomeShelf.split([item(haDias(60))], AGORA).emAndamento.length, 1);
-    assert.equal(HomeShelf.split([item(haDias(61))], AGORA).guardadas.length, 1);
+    assert.equal(HomeShelf.split([item(haDias(61))], AGORA).emPausa.length, 1);
   });
 
-  it('sem atividade a série está guardada, não em andamento', () => {
-    assert.equal(HomeShelf.split([item(null)], AGORA).guardadas.length, 1);
+  it('sem atividade a série fica em pausa, não em andamento', () => {
+    assert.equal(HomeShelf.split([item(null)], AGORA).emPausa.length, 1);
   });
 
   it('data ilegível não derruba a tela nem inventa atividade', () => {
-    assert.equal(HomeShelf.split([item('não é data')], AGORA).guardadas.length, 1);
+    assert.equal(HomeShelf.split([item('não é data')], AGORA).emPausa.length, 1);
   });
 
   it('data no futuro é relógio torto, não abandono', () => {
@@ -45,9 +45,9 @@ describe('HomeShelf.split', () => {
     const b = item(haDias(30));
     const c = item(haDias(200));
     const d = item(haDias(300));
-    const { emAndamento, guardadas } = HomeShelf.split([a, c, b, d], AGORA);
+    const { emAndamento, emPausa } = HomeShelf.split([a, c, b, d], AGORA);
     assert.deepEqual(emAndamento, [a, b]);
-    assert.deepEqual(guardadas, [c, d]);
+    assert.deepEqual(emPausa, [c, d]);
   });
 });
 
@@ -73,14 +73,14 @@ describe('HomeShelf.greeting', () => {
 describe('HomeShelf.summary', () => {
   it('concorda o singular nos dois lados', () => {
     assert.match(HomeShelf.summary(1, 0), /^Uma série em andamento\b/);
-    assert.match(HomeShelf.summary(1, 1), /mais uma guardada/);
-    assert.match(HomeShelf.summary(0, 1), /^Uma série guardada/);
+    assert.match(HomeShelf.summary(1, 1), /mais uma em pausa/);
+    assert.match(HomeShelf.summary(0, 1), /^Uma série em pausa/);
   });
 
   it('descreve o acervo real sem cobrar nada de ninguém', () => {
     const texto = HomeShelf.summary(2, 47);
     assert.match(texto, /2 séries em andamento/);
-    assert.match(texto, /outras 47 guardadas/);
+    assert.match(texto, /outras 47 em pausa/);
     assert.doesNotMatch(texto, /pendente|atrasad|esperando você|falta/i);
   });
 

@@ -1,7 +1,9 @@
+using Reprise.Api;
 using Reprise.Api.Endpoints;
 using Reprise.Api.Security;
 using Reprise.Application;
 using Reprise.Infrastructure;
+using Reprise.Infrastructure.Tmdb;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +13,23 @@ var conn = builder.Configuration.GetConnectionString("Default")
 
 builder.Services.AddRepriseInfrastructure(conn);
 builder.Services.AddRepriseApplication();
+
+// O TMDB entra só quando há chave.
+//
+// É ele que alimenta a barra de pesquisa (séries novas, que nunca estiveram no export). Sem chave,
+// o construtor do TmdbClient estoura — então em vez de registrá-lo e derrubar a API na primeira
+// requisição, não registramos nada e as duas rotas que dependem dele respondem 503 dizendo o que
+// falta. O resto do app (acervo, marcações, estatísticas) não toca no TMDB e continua inteiro.
+var tmdbApiKey = builder.Configuration["Tmdb:ApiKey"] ?? Environment.GetEnvironmentVariable("Tmdb__ApiKey");
+if (TmdbClient.IsUsableApiKey(tmdbApiKey))
+{
+    builder.Services.AddRepriseTmdb();
+
+    // Só no host web: a CLI de importação roda e termina, então não tem pool de conexões para
+    // manter vivo. Ver TmdbConnectionWarmer para o porquê dos 45 segundos.
+    builder.Services.AddHostedService<TmdbConnectionWarmer>();
+}
+
 // Depois da Infrastructure de propósito: substitui o ICurrentUser semente pelo que lê o JWT.
 builder.Services.AddRepriseAuth(builder.Configuration);
 builder.Services.AddOpenApi();
