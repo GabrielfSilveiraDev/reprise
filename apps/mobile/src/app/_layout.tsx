@@ -8,6 +8,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ActivityIndicator, View } from 'react-native';
 import { AuthSession } from '@/api/session';
+import { DesignProvider } from '@/design/registry';
 import { useIsDark, useTheme } from '@/hooks/use-theme';
 
 /**
@@ -63,7 +64,22 @@ function useSessionGuard(): boolean | null {
   return signedIn;
 }
 
+/**
+ * A casca existe só para o {@link DesignProvider} ficar ACIMA de tudo que lê cor.
+ *
+ * O `useTheme()` passou a devolver os tokens do design escolhido, e um componente não enxerga um
+ * contexto que ele mesmo monta. Sem esta separação, a raiz leria o padrão e o app abriria no
+ * clássico por um quadro antes de saltar para o design certo.
+ */
 export default function RootLayout() {
+  return (
+    <DesignProvider>
+      <RootInterno />
+    </DesignProvider>
+  );
+}
+
+function RootInterno() {
   const t = useTheme();
   const isDark = useIsDark();
   const signedIn = useSessionGuard();

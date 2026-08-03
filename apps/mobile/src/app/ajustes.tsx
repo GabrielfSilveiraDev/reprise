@@ -7,8 +7,7 @@ import { formatEpisodeCode, formatWatchedAt } from '@reprise/shared';
 import { AccessToken, ApiEndpoint } from '@/api/client';
 import { DataExport } from '@/api/export';
 import { syncEngine, useDeadLetters, usePendingActions, usePremieres } from '@/api/queries';
-// EXPERIMENTO TEMPORÁRIO — remover com a seção "Desenho da tela Próximos".
-import { HOME_VARIANTS, useHomeVariant } from '@/components/home-variants';
+import { DESIGNS, useDesign } from '@/design/registry';
 import { Reminders } from '@/offline/reminders';
 import { FontSize, Radius, Spacing, TouchTarget } from '@/constants/theme';
 import { useAutoSync } from '@/hooks/use-auto-sync';
@@ -27,8 +26,7 @@ export default function SettingsScreen() {
   const status = useAutoSync();
   const qc = useQueryClient();
 
-  // EXPERIMENTO TEMPORÁRIO — ver home-variants.tsx.
-  const [variante, escolherVariante] = useHomeVariant();
+  const { design, escolher: escolherDesign } = useDesign();
 
   const [url, setUrl] = useState('');
   const [saved, setSaved] = useState<string | null>(null);
@@ -76,25 +74,19 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {/* O título saiu daqui: o cabeçalho do Stack já escreve "Ajustes" logo acima, e repetir
             a palavra duas vezes na mesma dobra é ruído. */}
-        {/*
-          ┌─────────────────────────────────────────────────────────────────────────────────┐
-          │  EXPERIMENTO TEMPORÁRIO — apagar esta seção inteira quando a decisão for tomada. │
-          │  Instruções completas no topo de components/home-variants.tsx.                   │
-          └─────────────────────────────────────────────────────────────────────────────────┘
-        */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: t.fg }]}>Desenho da tela Próximos</Text>
+          <Text style={[styles.sectionTitle, { color: t.fg }]}>Design do app</Text>
           <Text style={[styles.hint, { color: t.fgMuted }]}>
-            Experimento: quatro formas de responder "o que eu assisto agora?". Troque à vontade e
-            fique com a que funcionar — as outras vão embora depois.
+            Quatro desenhos do app inteiro. A escolha fica guardada neste aparelho e sobrevive a
+            fechar e reabrir — seus dados não mudam em nenhum deles.
           </Text>
 
-          {HOME_VARIANTS.map((v) => {
-            const ativa = v.id === variante;
+          {DESIGNS.map((v) => {
+            const ativa = v.id === design;
             return (
               <Pressable
                 key={v.id}
-                onPress={() => escolherVariante(v.id)}
+                onPress={() => void escolherDesign(v.id)}
                 style={[
                   styles.varianteLinha,
                   { borderColor: ativa ? t.accent : t.border, backgroundColor: t.bgRaised },

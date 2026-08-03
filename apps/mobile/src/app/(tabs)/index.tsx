@@ -7,9 +7,11 @@ import { router } from 'expo-router';
 import { HomeShelf, formatEpisodeCode, formatWhen, posterUrl } from '@reprise/shared';
 import type { NextUpItem } from '@reprise/shared';
 import { useMarkEpisode, useNextUp, usePremieres, useProfile } from '@/api/queries';
-// EXPERIMENTO TEMPORÁRIO — remover junto com o arquivo. Ver home-variants.tsx.
-import { HomeAlternativa, useHomeVariant } from '@/components/home-variants';
 import { Logo } from '@/components/logo';
+import CinemaProximos from '@/design/cinema/Proximos';
+import EditorialProximos from '@/design/editorial/Proximos';
+import PainelProximos from '@/design/painel/Proximos';
+import { useDesign } from '@/design/registry';
 import { PremiereStrip } from '@/components/premiere-strip';
 import { QueryState } from '@/components/query-state';
 import { SyncBar } from '@/components/sync-bar';
@@ -31,7 +33,22 @@ import { useTheme } from '@/hooks/use-theme';
  * `SectionList` e não `FlatList`: os cabeçalhos de prateleira grudam no topo enquanto se rola, o
  * que mantém visível de qual grupo é a linha que está na mão.
  */
-export default function NextUpScreen() {
+/**
+ * A rota é uma casca: quem desenha é o design escolhido em Ajustes.
+ *
+ * O desenho clássico continua morando neste arquivo, logo abaixo. Os outros três vivem em
+ * `@/design/<id>/`, e um design desconhecido cai aqui — é o que garante que o app abra mesmo com a
+ * preferência corrompida.
+ */
+export default function NextUpRoute() {
+  const { design } = useDesign();
+  if (design === 'cinema') return <CinemaProximos />;
+  if (design === 'editorial') return <EditorialProximos />;
+  if (design === 'painel') return <PainelProximos />;
+  return <ClassicoProximos />;
+}
+
+function ClassicoProximos() {
   const t = useTheme();
   const status = useAutoSync();
   const query = useNextUp();
@@ -42,28 +59,12 @@ export default function NextUpScreen() {
 
   const [emPausaAberto, setEmPausaAberto] = useState(false);
 
-  // EXPERIMENTO TEMPORÁRIO — ver components/home-variants.tsx para como remover.
-  const [variante] = useHomeVariant();
-
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: t.bg }]} edges={['top']}>
       <SyncBar status={status} />
 
       <QueryState query={query}>
         {(items) => {
-          // EXPERIMENTO TEMPORÁRIO — as alternativas vivem fora deste arquivo justamente para que
-          // apagá-las não deixe cicatriz aqui.
-          if (variante !== 'prateleiras') {
-            return (
-              <HomeAlternativa
-                id={variante}
-                items={items}
-                nome={profile.data?.displayName?.trim().split(/\s+/)[0]}
-                refreshing={query.isFetching}
-                onRefresh={() => query.refetch()}
-              />
-            );
-          }
 
           const { emAndamento, emPausa } = HomeShelf.split(items);
           const proximas = HomeShelf.upcomingPremieres(premieres.data ?? []);
