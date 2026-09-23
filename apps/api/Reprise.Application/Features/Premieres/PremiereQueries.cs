@@ -51,9 +51,9 @@ public sealed record PremiereDto(
 /// </para>
 ///
 /// <para>
-/// <b>Todos os episódios, e não só o próximo de cada série.</b> Quem escolhe o que a tela inicial
-/// mostra é o <c>HomeShelf</c>, no pacote compartilhado; os avisos de estreia do app usam esta
-/// mesma lista e precisam de cada episódio — agendar só o próximo deixaria o seguinte sem aviso.
+/// <b>Todos os episódios, e não só o próximo de cada série.</b> Quem recorta é o cliente — no web,
+/// a <c>PremiereAgenda</c> escolhe o que a tela inicial e a agenda mostram —, e um aviso de estreia
+/// precisa de cada episódio: agendar só o próximo deixaria o seguinte sem aviso.
 /// </para>
 /// </summary>
 public sealed class PremiereQueries

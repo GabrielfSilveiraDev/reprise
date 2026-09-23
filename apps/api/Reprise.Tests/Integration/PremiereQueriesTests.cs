@@ -12,7 +12,7 @@ namespace Reprise.Tests.Integration;
 /// Os casos cobrem o que a tela inicial passou a precisar dela: o resumo do episódio, a SUA última
 /// exibição na série — que é o que separa "estou assistindo" de "só acompanho" — e o fim do teto
 /// de 180 dias, que escondia a volta de Silo em 2027. A regra de quais estreias aparecem mora no
-/// <c>HomeShelf</c> do pacote compartilhado e é testada lá.
+/// cliente (no web, <c>PremiereAgenda</c>) e é testada lá.
 /// </para>
 /// </summary>
 public sealed class PremiereQueriesTests : IClassFixture<PostgresFixture>, IAsyncLifetime
@@ -83,8 +83,8 @@ public sealed class PremiereQueriesTests : IClassFixture<PostgresFixture>, IAsyn
     [Fact]
     public async Task Todos_os_episodios_futuros_vem_e_nao_so_o_proximo()
     {
-        // Os avisos de estreia do app agendam um por episódio a partir desta lista. Quem escolhe
-        // "um por série" é a tela, no HomeShelf — aqui cortar mataria o aviso da semana seguinte.
+        // Um aviso de estreia é agendado por episódio a partir desta lista. Quem recorta é a tela,
+        // no cliente — aqui cortar mataria o aviso da semana seguinte.
         await SemearAsync("Semanal",
             ("T1E1", Hoje.AddDays(2), "Um."),
             ("T1E2", Hoje.AddDays(9), "Dois."),

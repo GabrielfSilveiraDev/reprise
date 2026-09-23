@@ -18,9 +18,7 @@ Monorepo:
 | Caminho | Stack | Papel |
 |---|---|---|
 | `apps/api` | ASP.NET Core (.NET 10 LTS), Minimal APIs, EF Core, PostgreSQL | API + importador (CLI) |
-| `apps/web` | React + TypeScript + Vite + TanStack Query | cliente web |
-| `apps/mobile` | React Native (Expo) | app Android, offline-first |
-| `packages/shared` | TypeScript | tipos + cliente gerado do OpenAPI + domínio puro |
+| `apps/web` | React 19 + TypeScript + Vite + TanStack Router/Query + Tailwind | cliente web (tipos gerados do OpenAPI da API) |
 
 A API segue **Vertical Slice + CQRS lógico**, multi-tenant desde o dia 1
 (coluna `user_id` + query filter global do EF Core), rodando single-user por ora.
@@ -94,7 +92,6 @@ Postgres e — se foi o launcher que ligou — o Docker Desktop. É o que o atal
 
 ```powershell
 .\scripts\subir-reprise.ps1                  # o que o atalho faz
-.\scripts\subir-reprise.ps1 -Mobile          # também o Metro, para o Expo Go
 .\scripts\subir-reprise.ps1 -SemNavegador    # sobe tudo e sai, sem janela e sem encerrar
 .\scripts\subir-reprise.ps1 -Parar           # derruba o que estiver de pé
 ```
@@ -279,140 +276,99 @@ Matter, e a faixa de estreias da tela inicial só enxergava o que o catálogo sa
 - **Falha numa série não para as outras.** Ela vira aviso no `api.log` e é tentada de novo na
   rodada seguinte (hoje é o caso de *Monster*, cujo id no TMDB deixou de existir).
 
-É isso que alimenta as **Estreias** da tela inicial: o próximo episódio de cada série, desde que
-tenha data e resumo. Uma série que você está assistindo (com exibição nos últimos 60 dias) aparece
-a qualquer distância; as outras que você acompanha só aparecem se estrearem em até 45 dias. A
-regra mora no `HomeShelf`, no pacote compartilhado, e vale igual no web e no app.
+É isso que alimenta a **Agenda** e a faixa **Saindo em breve** da tela inicial. Quem recorta é o
+cliente: no web, a `PremiereAgenda` mostra na tela inicial os próximos 8 dias e, na Agenda, tudo —
+dia a dia nas duas primeiras semanas, mês a mês depois.
 
-## Cliente web
+## Cliente web (`apps/web`)
+
+Refeito do zero em setembro de 2026, a partir só da API. React 19 + TypeScript + Vite, e uma
+biblioteca para cada problema que já tem solução boa:
+
+| Peça | Biblioteca | Por quê |
+|---|---|---|
+| Rotas | TanStack Router | filtros, ano e episódio aberto moram na URL, tipados — link colado abre a mesma tela |
+| Dados | TanStack Query | cache, pré-busca ao passar o mouse e marcação otimista com "Desfazer" |
+| Cliente da API | openapi-fetch + openapi-typescript | tipos gerados do contrato da API; nenhum DTO redeclarado à mão |
+| Estilo | Tailwind CSS 4 + tailwind-merge | tokens próprios em variáveis CSS, tema claro e escuro |
+| Componentes | Radix UI | menus, diálogos, abas e interruptores acessíveis por teclado e leitor de tela |
+| Gráficos | Recharts | colunas por mês e por ano; o calendário e o mapa de episódios são SVG/CSS próprios |
+| Busca rápida | cmdk | Ctrl+K (ou `/`) para pular para qualquer série ou tela |
+| Datas e avisos | date-fns (pt-BR), sonner | |
 
 ```bash
 pnpm install
-pnpm --filter @reprise/web dev      # http://localhost:5173
+pnpm dev            # http://localhost:5173 — a API precisa estar em http://localhost:5156
 ```
 
-O Vite faz proxy de `/api` para a API, então em desenvolvimento não há CORS para manter.
+O navegador fala só com o Vite, que repassa `/api/*` para a API: a sessão nunca cruza origem e a
+API não precisa de CORS. `REPRISE_API_URL` troca o destino; num build de produção, `VITE_API_URL`
+diz onde a API está.
 
-**O cliente TypeScript é gerado, não escrito à mão.** Depois de mexer em qualquer endpoint:
+### Telas
+
+- **Agora** — a fila: o próximo episódio de cada série vista no último mês, com "Assisti" a um
+  toque e "Desfazer" no aviso. Abaixo, as estreias dos próximos 8 dias e, recolhidas, as séries
+  paradas e as nunca começadas.
+- **Acervo** — pôsteres com progresso em três partes (visto · lançado e não visto · por lançar),
+  filtro por estado, busca sem acento e ordenação. Quando uma série encerrada foi vista por inteiro,
+  sugere mover para Concluídas — sugestão, nunca ação automática.
+- **Série** — o **mapa de episódios**: uma linha por temporada, um quadrado por episódio, a cor
+  pela quantidade de vezes que foi visto. Abaixo, a lista por temporada (marcar, rever, marcar em
+  outra data, marcar até aqui, marcar a temporada) e "quando você viu": cada vez que a série foi
+  percorrida, numa régua de tempo.
+- **Agenda** — tudo o que vai sair nas séries em "Assistindo", no fuso de quem olha.
+- **Números** — tempo total, sequências, calendário do ano, colunas por mês e por ano, e onde o
+  tempo foi. Cada gráfico tem a tabela com os números por trás.
+- **Adicionar**, **Conta** (exportar os dados, tema, sair) e as telas de entrada (login por e-mail
+  ou usuário, cadastro, código de validação; a chave do servidor só aparece quando o cadeado da API
+  está ligado).
+
+### Decisões que vale saber
+
+- **"Libera às 04:00", e não "estreia às 04:00".** O `releasesAt` da API só é horário de exibição
+  na TV aberta; no streaming é uma estimativa que erra para depois, nunca para antes. A interface
+  diz o que é verdade nos dois casos: a partir daquele instante o episódio pode ser marcado.
+- **A sinopse do episódio é spoiler.** Nunca aparece na lista; no painel de detalhes vem borrada
+  até um clique, a não ser que o episódio já tenha sido visto.
+- **Clicar num episódio já visto abre opções**, não desmarca: rever (+1) e remover a última
+  exibição são coisas diferentes no Reprise.
+- **Uma renovação de sessão por vez, entre abas.** O refresh token é rotativo; quatro consultas com
+  o token vencido esperam a mesma renovação, e outra aba que já renovou tem a sessão adotada (Web
+  Locks + evento `storage`). Sem isso, abrir a tela inicial com o token vencido deslogaria a pessoa.
+
+### Organização
+
+```
+src/domain     regras puras, em classes e com teste (liberação, progresso, agenda, mapas…)
+src/api        cliente da API, sessão, renovação, consultas e mutações
+src/features   uma pasta por tela
+src/ui         componentes base (botão, pôster, menus, painel lateral…)
+src/app        rotas, moldura de navegação
+```
+
+### Contrato da API
 
 ```bash
-curl -s http://localhost:5156/openapi/v1.json -o packages/shared/openapi.json
-pnpm --filter @reprise/shared generate
+pnpm --filter @reprise/web api:sync    # com a API de pé: baixa /openapi/v1.json e gera os tipos
+pnpm --filter @reprise/web api:types   # só regenera a partir do openapi.json versionado
 ```
 
-Os endpoints usam `TypedResults`/`Results<Ok<T>, NotFound>` de propósito: `IResult` puro não
-declara o tipo da resposta e o OpenAPI sairia sem schema nenhum.
-
-### Nome das séries
-
-O título exibido é o **original** quando ele está em alfabeto latino, e o **inglês** quando não
-está — "ナルト- 疾風伝" não ajuda ninguém que não lê japonês. O título traduzido para português
-fica de fora de propósito: era o comportamento anterior e é justamente o que se quis evitar.
-A regra vive em `SeriesNamePolicy`, é pura e testada.
-
-### Estatísticas
-
-As agregações são SQL na Infrastructure — `FILTER (WHERE)`, `date_trunc`, `GROUP BY` sobre
-dezenas de milhares de eventos é o que o Postgres faz bem e o LINQ traduz mal. O contrato e os
-DTOs ficam na Application; só o SQL desce. **Atenção:** o query filter global do EF não alcança
-SQL cru, então todo comando lá filtra `user_id` explicitamente.
-
-Marcações em massa (o backfill do TV Time, todas com a mesma data) ficam **fora por padrão** —
-com elas dezembro/2025 engole qualquer gráfico temporal. O painel mostra quantas estão ocultas
-e oferece o toggle, numa linha de filtro única que reescopa todos os gráficos.
-
-Gráficos de uma série só, um acento por gráfico: colorir barra por tamanho duplicaria o
-comprimento num canal que não acrescenta nada. Cada gráfico tem tabela equivalente, tooltip é
-reforço e nunca o único caminho para o valor, e o heatmap usa rampa sequencial de uma cor.
-
-### Desenho
-
-Editorial e tipográfico, não uma grade de pôsteres com selo colorido. Duas densidades na
-lista (linha compacta para varrer o acervo, cartão expandido para navegar sem pressa) e,
-no detalhe, a **trilha de blocos**: um bloco por episódio, altura proporcional a quantas
-vezes você assistiu. A escala é relativa à própria série — numa série vista uma vez só, uma
-exibição já enche o bloco; numa que você reassistiu 17 vezes, uma exibição é um traço baixo.
-
-### Acessibilidade
-
-Requisito, não verniz. Verificado no navegador contra os dados reais:
-
-- **Contraste AA nos dois temas** — 11 pares medidos, texto ≥ 4,5:1 e objeto gráfico ≥ 3:1.
-- **Nenhum estado só por cor** — a contagem de exibições aparece como texto (`16×`), o não
-  assistido ganha contorno tracejado além do tom, e o item de navegação ativo combina peso,
-  cor e sublinhado.
-- **Teclado** — foco visível sempre, link de pular para o conteúdo, e a lista de episódios usa
-  foco itinerante: uma parada de tab para a lista toda, setas entre as linhas.
-  <kbd>M</kbd> marca (de novo = rewatch) · <kbd>U</kbd> desmarca · <kbd>A</kbd> marca até ali.
-- **Alvos de toque ≥ 44px** em todos os controles.
-- `prefers-reduced-motion` respeitado — nenhuma animação carrega significado.
-
-## App Android
-
-```bash
-pnpm --filter @reprise/mobile start          # Metro; leia o QR no Expo Go
-pnpm --filter @reprise/mobile android        # abre direto no aparelho/emulador
-```
-
-O celular **não enxerga o `localhost` do PC**. Suba a API escutando na rede e aponte o app para
-o IP da máquina:
-
-```bash
-dotnet run --project apps/api/Reprise.Api --urls http://0.0.0.0:5156
-```
-
-O endereço é configurável **em tempo de execução**, na aba Ajustes — trocar de rede não pode
-exigir recompilar. `EXPO_PUBLIC_API_URL` serve de valor inicial.
-
-O alvo é o Android. O alvo web do Expo não é suportado: o `expo-sqlite` lá roda em WebAssembly e
-não resolve dentro deste monorepo pnpm — e o cliente web do Reprise já é uma aplicação própria.
-
-### Offline não é cache, é fila
-
-O problema central não é guardar leitura — é **escrita repetida**. Num CRUD comum, reenviar uma
-requisição que já chegou é inofensivo. Aqui não: marcar duas vezes o mesmo episódio *significa*
-que você assistiu duas vezes. Um POST que o servidor processou mas cuja resposta se perdeu no
-elevador viraria, na retentativa, um rewatch que nunca aconteceu.
-
-Por isso o app gera um **UUID por ação enfileirada**, antes da primeira tentativa, e reenvia a
-mesma chave em cada retentativa. A API registra a chave em `processed_actions` no mesmo
-`SaveChanges` que grava o evento: ou os dois existem ou nenhum. O `watchedAt` também é carimbado
-no toque, não no envio — a exibição aconteceu quando o dedo tocou a tela, não quando o wi-fi voltou.
-
-A fila é enviada **em ordem estrita** e para no primeiro erro de rede: marcar e depois desmarcar
-não é o mesmo que o contrário. Um 4xx (episódio que sumiu num reprocessamento do catálogo) não
-pode travar a fila para sempre, então vira **carta morta** — sai do envio mas fica visível em
-Ajustes. Descartar em silêncio seria mentir sobre o que foi registrado.
-
-Uma fusão, e só uma, acontece na fila: desmarcar um episódio cuja marcação ainda **não saiu**
-anula as duas. Não é economia de rede, é correção — enviando as duas, o servidor removeria "a
-exibição mais recente", que pode ser um rewatch antigo e legítimo.
-
-### O que a tela mostra sem rede
-
-O número exibido é o do servidor **mais** a projeção da fila (`OutboxPlanner.project`). Sem isso,
-tocar "assisti" no metrô não mudaria nada e o app pareceria quebrado. A projeção é descartável de
-propósito: quando a fila esvazia, quem manda volta a ser a contagem derivada pelo servidor — o app
-nunca guarda um "assistido" próprio.
-
-O banco local guarda três coisas e só três: respostas da API como vieram, a fila, e o endereço da
-API. **Não é uma réplica** do banco do servidor: espelhar séries/episódios duplicaria a derivação
-que é a fonte única do projeto.
+O ASP.NET descreve todo número como `integer | string` (ele aceita número em texto na leitura);
+o script normaliza para `number` antes de gerar, porque na escrita a API sempre manda número.
 
 ### Testes
 
 ```bash
-pnpm --filter @reprise/shared test    # OutboxPlanner puro
-pnpm --filter @reprise/mobile test    # fila e cache contra SQLite real + API real
+pnpm test           # regras do domínio e renovação de sessão (Vitest)
+pnpm e2e            # fluxos de ponta a ponta, no desktop e no celular (Playwright)
 ```
 
-Rodam no executor nativo do Node (`node --test`), que carrega `.ts` direto — sem Jest, sem
-Vitest, sem passo de build. O `node:sqlite` faz o papel do `expo-sqlite`: mesmo motor, mesmo
-dialeto e **o mesmo schema**, importado de `sql-database.ts` em vez de recopiado. Os testes de
-entrega usam a API rodando e se pulam sozinhos quando ela não está no ar.
-
-É por isso que `Outbox` e `ResponseCache` recebem o banco de fora em vez de importar o módulo
-nativo: sem essa inversão, a peça mais arriscada do app só seria conferível com o celular na mão.
+Os testes de ponta a ponta sobem o Vite e respondem `/api` com uma API simulada em memória
+(`e2e/mock-api.ts`, tipada pelo mesmo schema), com relógio fixo e fuso de São Paulo — não precisam
+de banco, de API nem de conta. No Windows usam o Edge instalado; em outro sistema, rode antes
+`pnpm --filter @reprise/web exec playwright install chromium`. Com `CAPTURAS=<pasta>` eles também
+salvam capturas de todas as telas nos dois temas.
 
 ## Autenticação
 
@@ -447,8 +403,7 @@ curl -H "Authorization: Bearer <token>" http://localhost:5156/export -o reprise.
 
 **Completo e reconstruível**, não um resumo: cada exibição com data, origem e a marca de backfill,
 endereçada por coordenadas estáveis (`tvdbId` + temporada + episódio), não por ids internos que
-não significam nada fora desta instalação. No app, Ajustes → Exportar meus dados passa o arquivo
-para a folha de compartilhamento — salvar na pasta privada do aplicativo seria repetir o problema.
+não significam nada fora desta instalação. No web, Conta e dados → Baixar tudo em JSON.
 
 ## Roadmap
 
@@ -459,6 +414,8 @@ para a folha de compartilhamento — salvar na pasta privada do aplicativo seria
 5. ~~Mobile: paridade essencial + offline~~ ✅
 6. ~~Fase 2: export em JSON, calendário de estreias, notificações, rewatch como sessão
    e autenticação multiusuário~~ ✅
+7. ~~Web refeito do zero (setembro de 2026)~~ ✅ — o app Android e o pacote compartilhado saíram
+   junto com o web antigo; um cliente móvel novo, se vier, parte do mesmo contrato OpenAPI
 
 **Fora de escopo:** filmes. O modelo inteiro assume série → temporada → episódio, e acomodá-los
 exigiria tornar `watch_events.episode_id` polimórfico — mexer na tabela que é a fonte da verdade

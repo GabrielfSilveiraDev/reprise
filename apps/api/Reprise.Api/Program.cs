@@ -52,7 +52,7 @@ app.UseAccessTokenGate();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// OpenAPI em /openapi/v1.json — fonte do cliente TypeScript gerado (packages/shared).
+// OpenAPI em /openapi/v1.json — fonte dos tipos do cliente web (apps/web, `pnpm api:sync`).
 app.MapOpenApi();
 
 app.MapGet("/", () => Results.Ok(new { name = "Reprise API", openapi = "/openapi/v1.json" }));

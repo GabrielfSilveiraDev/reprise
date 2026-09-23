@@ -16,7 +16,7 @@ public sealed record TrackingUpdateResult(int Updated, IReadOnlyList<long> NotFo
 ///
 /// <para>
 /// <b>Por que existe a operação em lote.</b> A decisão de "esta série acabou e eu terminei" mora
-/// no <c>SeriesCompletion</c>, em TypeScript, compartilhado por web e Android e coberto por teste.
+/// no <c>CompletionAdvisor</c> do cliente web, em TypeScript e coberto por teste.
 /// Reimplementá-la aqui em C# criaria duas versões da mesma regra, que divergem no primeiro ajuste.
 /// Então o cliente decide QUAIS séries mudam e este serviço só aplica — e como definir um valor é
 /// naturalmente idempotente, repetir não faz estrago e não precisa de chave.

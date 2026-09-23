@@ -24,7 +24,7 @@ public static class SeriesEndpoints
         var g = app.MapGroup("/series").WithTags("Series");
 
         // Resultados TIPADOS (não IResult): é deles que o OpenAPI extrai os schemas de resposta,
-        // e é do OpenAPI que sai o cliente TypeScript de packages/shared.
+        // e é do OpenAPI que saem os tipos do cliente web (apps/web/src/api/schema.d.ts).
         g.MapGet("/", async (SeriesQueries q, CancellationToken ct) =>
                 TypedResults.Ok(await q.GetListAsync(ct)))
             .WithSummary("Lista as séries acompanhadas com progresso derivado do log de eventos.");
@@ -76,8 +76,8 @@ public static class SeriesEndpoints
                 TypedResults.Ok(await s.SetAsync(id, body.Status, ct)))
             .WithSummary("Muda o estado da série: Following, Archived, ForLater ou Finished.");
 
-        // Em lote, porque a regra de "isto acabou e eu terminei" mora no cliente (SeriesCompletion,
-        // compartilhado e testado) — reimplementá-la no servidor criaria duas versões dela.
+        // Em lote, porque a regra de "isto acabou e eu terminei" mora no cliente (CompletionAdvisor,
+        // no web, coberto por teste) — reimplementá-la no servidor criaria duas versões dela.
         g.MapPatch("/status", async (TrackingChange[] changes, TrackingService s, CancellationToken ct) =>
                 TypedResults.Ok(await s.ApplyAsync(changes, ct)))
             .WithSummary("Muda o estado de várias séries de uma vez. Definir um valor é idempotente.");
