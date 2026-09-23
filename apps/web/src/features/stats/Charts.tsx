@@ -18,7 +18,7 @@ export function ColumnChart({ data, height = 220 }: { data: BarDatum[]; height?:
           <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: c.ink3, fontSize: 11 }} interval="preserveStartEnd" minTickGap={8} />
           <YAxis tickLine={false} axisLine={false} tick={{ fill: c.ink3, fontSize: 11 }} allowDecimals={false} width={44} tickFormatter={(v: number) => Fmt.compact(v)} />
           <Tooltip cursor={{ fill: c.surface2 }} content={<ChartTooltip />} />
-          <Bar dataKey="exhibitions" fill={c.accent} radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} />
+          <Bar dataKey="exhibitions" fill={c.accent} radius={[c.barRadius, c.barRadius, 0, 0]} maxBarSize={24} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </div>

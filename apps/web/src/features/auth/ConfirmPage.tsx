@@ -53,7 +53,7 @@ export function ConfirmPage() {
           value={code}
           onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
           error={wrong ? 'Código inválido ou vencido.' : confirm.error && !wrong ? confirm.error.message : null}
-          className="code h-14 w-full rounded-xl border border-line bg-surface px-3.5 text-center text-2xl tracking-[0.5em] outline-none focus:border-line-strong"
+          className="code h-14 w-full rounded-control border border-line bg-surface px-3.5 text-center text-2xl tracking-[0.5em] outline-none focus:border-line-strong"
           required
           autoFocus={Boolean(search.email)}
         />

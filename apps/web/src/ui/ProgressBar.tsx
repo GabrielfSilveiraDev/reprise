@@ -20,7 +20,7 @@ export function ProgressBar({ numbers, className, thin = false }: { numbers: Pro
       aria-valuemax={p.total}
       aria-valuenow={p.watched}
       aria-valuetext={`${Fmt.number(p.watched)} de ${Fmt.number(p.total)} episódios vistos, ${p.summary}`}
-      className={cn('flex w-full overflow-hidden rounded-full bg-surface-3', thin ? 'h-1' : 'h-1.5', className)}
+      className={cn('flex w-full overflow-hidden rounded-pill bg-surface-3', thin ? 'h-1' : 'h-1.5', className)}
     >
       <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${watched}%` }} />
       {backlog > 0 && (

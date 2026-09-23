@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { type HeatCell, HeatmapYear } from '@/domain/HeatmapYear'
 import { Duration } from '@/domain/Duration'
 import { Fmt } from '@/lib/format'
+import { useThemeColors } from '@/lib/useThemeColors'
 
 const CELL = 12
 const GAP = 3
@@ -24,6 +25,8 @@ const WEEKDAYS: [number, string][] = [
 export function YearHeatmap({ heatmap }: { heatmap: HeatmapYear }) {
   const scroller = useRef<HTMLDivElement>(null)
   const [tip, setTip] = useState<{ cell: HeatCell; x: number; y: number } | null>(null)
+  // O canto do quadrado segue o design: arredondado na Brasa, quase reto na Sessão, reto na Grade.
+  const rx = Math.min(3, useThemeColors().barRadius)
   const width = LEFT + heatmap.weeks.length * STEP
   const height = TOP + 7 * STEP
 
@@ -62,7 +65,7 @@ export function YearHeatmap({ heatmap }: { heatmap: HeatmapYear }) {
                     y={TOP + row * STEP}
                     width={CELL}
                     height={CELL}
-                    rx={3}
+                    rx={rx}
                     className={clsx(cell.future ? 'fill-transparent stroke-line' : FILL[cell.level], 'transition-opacity hover:opacity-80')}
                     onMouseEnter={() => show(cell, column, row)}
                   />
@@ -95,7 +98,7 @@ export function YearHeatmap({ heatmap }: { heatmap: HeatmapYear }) {
         {HeatmapYear.LEGEND.map((step) => (
           <span key={step.level} className="flex items-center gap-1">
             <svg width={CELL} height={CELL} aria-hidden>
-              <rect width={CELL} height={CELL} rx={3} className={FILL[step.level]} />
+              <rect width={CELL} height={CELL} rx={rx} className={FILL[step.level]} />
             </svg>
             <span className="code mr-1.5">{step.label}</span>
           </span>

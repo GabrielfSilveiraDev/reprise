@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi, Link } from '@tanstack/react-router'
 import { ArrowDownUp, Flag, LibraryBig, Plus, Search, X } from 'lucide-react'
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTrackingActions } from '@/api/mutations'
 import { Queries } from '@/api/queries'
 import type { SeriesListItem } from '@/api/types'
@@ -9,11 +9,14 @@ import { CompletionAdvisor } from '@/domain/CompletionAdvisor'
 import { type LibraryFilter, type LibrarySort, LibraryView } from '@/domain/LibraryView'
 import { TrackingStatusInfo } from '@/domain/TrackingStatus'
 import { Fmt } from '@/lib/format'
+import { useDesigned } from '@/lib/useDesign'
 import { Button } from '@/ui/Button'
 import { Menu, MenuContent, MenuLabel, MenuRadio, MenuTrigger, Segmented } from '@/ui/Controls'
-import { EmptyState, ErrorState, Skeleton } from '@/ui/Feedback'
+import { EmptyState, ErrorState } from '@/ui/Feedback'
 import { PageHeader } from '@/ui/PageHeader'
-import { SeriesCard } from './SeriesCard'
+import { CollectionBrasa } from './CollectionBrasa'
+import { CollectionGrade } from './CollectionGrade'
+import { CollectionSessao } from './CollectionSessao'
 
 const route = getRouteApi('/_app/acervo')
 
@@ -49,6 +52,14 @@ export function LibraryPage() {
     count: counts[value],
   }))
 
+  // A barra de filtros é a mesma nos três designs; a coleção é de cada um. `null` = carregando.
+  const shown = isPending ? null : visible
+  const collection = useDesigned({
+    brasa: <CollectionBrasa series={shown} />,
+    sessao: <CollectionSessao series={shown} />,
+    grade: <CollectionGrade series={shown} />,
+  })
+
   return (
     <>
       <PageHeader
@@ -78,7 +89,7 @@ export function LibraryPage() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Filtrar pelo nome"
-              className="h-10 w-full rounded-xl border border-line bg-surface pr-9 pl-9 text-sm outline-none placeholder:text-ink-3 focus:border-line-strong"
+              className="h-10 w-full rounded-control border border-line bg-surface pr-9 pl-9 text-sm outline-none placeholder:text-ink-3 focus:border-line-strong"
             />
             {text && (
               <button type="button" onClick={() => setText('')} aria-label="Limpar filtro" className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-ink-3 hover:bg-surface-2">
@@ -102,36 +113,19 @@ export function LibraryPage() {
 
       {data && (filter === 'Following' || filter === 'todas') && <CompletionBanner series={data} />}
 
-      {isPending ? (
-        <Grid>
-          {Array.from({ length: 12 }, (_, i) => (
-            <div key={i}>
-              <Skeleton className="aspect-[2/3] rounded-xl" />
-              <Skeleton className="mt-2.5 h-4 w-3/4" />
-            </div>
-          ))}
-        </Grid>
-      ) : isError ? (
+      {isError ? (
         <ErrorState error={error} onRetry={() => void refetch()} />
-      ) : visible.length === 0 ? (
+      ) : !isPending && visible.length === 0 ? (
         <EmptyState icon={<LibraryBig />} title={text ? 'Nenhuma série com esse nome' : 'Nada aqui ainda'}>
           {text
             ? `Nenhuma série em ${filter === 'todas' ? 'todo o acervo' : TrackingStatusInfo.plural(filter).toLowerCase()} tem “${text}” no nome.`
             : TrackingStatusInfo.hint(filter === 'todas' ? 'Following' : filter)}
         </EmptyState>
       ) : (
-        <Grid>
-          {visible.map((s, i) => (
-            <SeriesCard key={s.id} series={s} index={i} />
-          ))}
-        </Grid>
+        collection
       )}
     </>
   )
-}
-
-function Grid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">{children}</div>
 }
 
 /**

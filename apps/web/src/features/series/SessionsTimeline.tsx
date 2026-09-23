@@ -83,7 +83,7 @@ function Strip({ sessions, now }: { sessions: RewatchSession[]; now: Date }) {
 
   return (
     <div className="relative h-12" aria-hidden>
-      <div className="absolute inset-x-0 top-3 h-2 rounded-full bg-surface-2" />
+      <div className="absolute inset-x-0 top-3 h-2 rounded-pill bg-surface-2" />
       {sessions.map((s) => {
         const left = pos(parseISO(s.startedAt).getTime())
         const width = Math.max(0.8, pos(parseISO(s.endedAt).getTime()) - left)
@@ -91,7 +91,7 @@ function Strip({ sessions, now }: { sessions: RewatchSession[]; now: Date }) {
           <div
             key={s.ordinal}
             title={`${s.ordinal}ª vez`}
-            className="absolute top-2 h-4 rounded-full bg-accent ring-2 ring-surface"
+            className="absolute top-2 h-4 rounded-pill bg-accent ring-2 ring-surface"
             style={{ left: `${left}%`, width: `${width}%`, minWidth: 6 }}
           />
         )

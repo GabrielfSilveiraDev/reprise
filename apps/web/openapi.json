@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5199/"
+      "url": "http://localhost:5156/"
     }
   ],
   "paths": {
@@ -421,12 +421,66 @@
         }
       }
     },
+    "/series/{id}/rewatch/dismissal": {
+      "put": {
+        "tags": [
+          "Series"
+        ],
+        "summary": "Tira a revisão da série da fila de próximos, até a próxima exibição repetida.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Series"
+        ],
+        "summary": "Devolve a revisão da série à fila de próximos.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/next-up": {
       "get": {
         "tags": [
           "Series"
         ],
-        "summary": "Próximo episódio não visto de cada série acompanhada, por atividade recente.",
+        "summary": "O que assistir agora: o próximo inédito das acompanhadas e o próximo das revisões em andamento.",
         "responses": {
           "200": {
             "description": "OK",
@@ -1266,7 +1320,8 @@
           "seriesName",
           "posterPath",
           "episode",
-          "lastActivityAt"
+          "lastActivityAt",
+          "isRewatch"
         ],
         "type": "object",
         "properties": {
@@ -1292,6 +1347,9 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "isRewatch": {
+            "type": "boolean"
           }
         }
       },

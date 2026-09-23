@@ -9,7 +9,7 @@ import { Poster } from '@/ui/Poster'
 /** Faixa horizontal de estreias próximas. No celular rola de lado, com encaixe por cartão. */
 export function PremiereRail({ entries, clock }: { entries: AgendaEntry[]; clock: ReleaseClock }) {
   return (
-    <ul className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+    <ul className="scrollbar-none -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:mx-0 lg:scroll-px-0 lg:px-0">
       {entries.map(({ premiere, instant }) => {
         const code = EpisodeCode.of(premiere)
         const day = clock.dayLabel(instant)

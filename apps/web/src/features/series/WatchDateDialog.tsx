@@ -24,7 +24,7 @@ export function WatchDateDialog({
     <Dialog.Root open={target !== null} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-surface p-6 shadow-pop data-[state=open]:animate-rise">
+        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-panel grade:border grade:border-line-strong bg-surface p-6 shadow-pop data-[state=open]:animate-rise">
           {target && <Form key={target.episode.id} target={target} onDone={onClose} />}
         </Dialog.Content>
       </Dialog.Portal>
@@ -71,7 +71,7 @@ function Form({ target, onDone }: { target: { seriesId: number; seriesName: stri
               setValue(toInput(p.date))
               setError(null)
             }}
-            className="rounded-full border border-line px-3 py-1.5 text-xs font-medium text-ink-2 hover:border-line-strong hover:text-ink"
+            className="rounded-pill border border-line px-3 py-1.5 text-xs font-medium text-ink-2 hover:border-line-strong hover:text-ink"
           >
             {p.label}
           </button>
@@ -89,7 +89,7 @@ function Form({ target, onDone }: { target: { seriesId: number; seriesName: stri
             setValue(e.target.value)
             setError(null)
           }}
-          className="h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-sm outline-none focus:border-line-strong"
+          className="h-11 w-full rounded-control border border-line bg-surface-2 px-3 text-sm outline-none focus:border-line-strong"
         />
       </label>
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}

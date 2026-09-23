@@ -531,6 +531,76 @@ export interface paths {
         };
         trace?: never;
     };
+    "/series/{id}/rewatch/dismissal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Tira a revisão da série da fila de próximos, até a próxima exibição repetida. */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** Devolve a revisão da série à fila de próximos. */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/next-up": {
         parameters: {
             query?: never;
@@ -538,7 +608,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Próximo episódio não visto de cada série acompanhada, por atividade recente. */
+        /** O que assistir agora: o próximo inédito das acompanhadas e o próximo das revisões em andamento. */
         get: {
             parameters: {
                 query?: never;
@@ -1074,6 +1144,7 @@ export interface components {
             episode: components["schemas"]["EpisodeRefDto"];
             /** Format: date-time */
             lastActivityAt: null | string;
+            isRewatch: boolean;
         };
         PremiereDto: {
             /** Format: int64 */

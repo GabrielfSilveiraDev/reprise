@@ -28,8 +28,8 @@ export function Sheet({
         <Dialog.Content
           className={cn(
             'fixed z-50 flex flex-col overflow-hidden bg-surface shadow-pop outline-none',
-            'inset-x-0 bottom-0 max-h-[88dvh] rounded-t-3xl',
-            'md:inset-y-3 md:right-3 md:left-auto md:max-h-none md:w-[440px] md:rounded-3xl',
+            'inset-x-0 bottom-0 max-h-[88dvh] rounded-t-panel grade:border-t grade:border-line-strong',
+            'md:inset-y-3 md:right-3 md:left-auto md:max-h-none md:w-[440px] md:rounded-panel grade:md:inset-y-0 grade:md:right-0 grade:md:border-l',
             'data-[state=open]:animate-rise',
           )}
         >
@@ -70,7 +70,7 @@ export function ConfirmDialog({
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
-        <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-surface p-6 shadow-pop data-[state=open]:animate-rise">
+        <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-panel bg-surface p-6 shadow-pop data-[state=open]:animate-rise grade:border grade:border-line-strong">
           <AlertDialog.Title className="headline text-2xl">{title}</AlertDialog.Title>
           <AlertDialog.Description asChild>
             <div className="mt-2 text-sm text-ink-2">{description}</div>

@@ -1,6 +1,13 @@
+// As fontes dos três designs. Registrar um @font-face não baixa nada: o navegador só busca o
+// arquivo de uma fonte quando alguma coisa na tela a usa — quem está na Brasa não paga pela Geist.
 import '@fontsource-variable/inter'
 import '@fontsource-variable/jetbrains-mono'
 import '@fontsource-variable/bricolage-grotesque/standard.css'
+import '@fontsource/instrument-serif'
+import '@fontsource/instrument-serif/400-italic.css'
+import '@fontsource-variable/instrument-sans/standard.css'
+import '@fontsource-variable/geist'
+import '@fontsource-variable/geist-mono'
 import './styles/index.css'
 
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -10,6 +17,7 @@ import { createRoot } from 'react-dom/client'
 import { Toaster } from 'sonner'
 import { api } from './api/RepriseApi'
 import { queryClient, router } from './app/router'
+import { design } from './lib/DesignController'
 import { theme } from './lib/ThemeController'
 import { TooltipProvider } from './ui/Controls'
 
@@ -19,7 +27,17 @@ api.sessions.subscribe(() => {
   if (!api.sessions.session) queryClient.clear()
 })
 
+// A barra do navegador no celular acompanha o fundo do design e do tema em uso. Lido da variável,
+// e não de uma tabela, para não existir um segundo lugar com as cores.
+const paintBrowserChrome = () => {
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--c-bg').trim()
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg)
+}
+theme.subscribe(paintBrowserChrome)
+design.subscribe(paintBrowserChrome)
+
 theme.apply()
+design.apply()
 
 function ThemedToaster() {
   const resolved = useSyncExternalStore(theme.subscribe, () => theme.resolved)
@@ -31,9 +49,9 @@ function ThemedToaster() {
       mobileOffset={{ bottom: 88 }}
       toastOptions={{
         classNames: {
-          toast: '!rounded-2xl !border-line !bg-surface !text-ink !shadow-pop',
+          toast: '!rounded-panel !border-line !bg-surface !text-ink !shadow-pop !font-sans grade:!border-line-strong',
           description: '!text-ink-3',
-          actionButton: '!bg-accent !text-accent-fg !rounded-lg !font-semibold',
+          actionButton: '!bg-accent !text-accent-fg !rounded-control-sm !font-semibold',
         },
       }}
     />

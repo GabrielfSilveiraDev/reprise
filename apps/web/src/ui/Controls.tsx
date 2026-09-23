@@ -15,7 +15,7 @@ export function MenuContent({ children, align = 'end' }: { children: ReactNode; 
         align={align}
         sideOffset={6}
         collisionPadding={12}
-        className="z-50 min-w-52 rounded-2xl border border-line bg-surface p-1.5 shadow-pop data-[state=open]:animate-rise"
+        className="z-50 min-w-52 rounded-panel border border-line bg-surface p-1.5 shadow-pop data-[state=open]:animate-rise grade:border-line-strong"
       >
         {children}
       </DropdownMenu.Content>
@@ -104,13 +104,13 @@ export function Segmented<T extends string>({
       value={value}
       onValueChange={(v) => v && onChange(v as T)}
       aria-label={label}
-      className={cn('inline-flex gap-1 rounded-2xl bg-surface-2 p-1', className)}
+      className={cn('inline-flex gap-1 rounded-control bg-surface-2 p-1 grade:gap-0 grade:border grade:border-line-strong grade:bg-transparent grade:p-0', className)}
     >
       {options.map((o) => (
         <ToggleGroup.Item
           key={o.value}
           value={o.value}
-          className="inline-flex h-8 items-center gap-1.5 rounded-xl px-3 text-[13px] font-medium whitespace-nowrap text-ink-3 transition-colors hover:text-ink data-[state=on]:bg-surface data-[state=on]:text-ink data-[state=on]:shadow-sm"
+          className="inline-flex h-8 items-center gap-1.5 rounded-control-sm px-3 text-[13px] font-medium whitespace-nowrap text-ink-3 transition-colors hover:text-ink data-[state=on]:bg-surface data-[state=on]:text-ink data-[state=on]:shadow-sm grade:h-9 grade:border-r grade:border-line-strong grade:last:border-r-0 grade:data-[state=on]:bg-ink grade:data-[state=on]:text-bg grade:data-[state=on]:shadow-none sessao:data-[state=on]:bg-ink sessao:data-[state=on]:text-bg"
         >
           {o.label}
           {o.count !== undefined && <span className="code text-[11px] text-ink-3">{o.count}</span>}
@@ -138,9 +138,9 @@ export function Switch({
       <RadixSwitch.Root
         checked={checked}
         onCheckedChange={onCheckedChange}
-        className="relative h-6 w-10 shrink-0 rounded-full bg-surface-3 transition-colors data-[state=checked]:bg-accent"
+        className="relative h-6 w-10 shrink-0 rounded-pill bg-surface-3 transition-colors data-[state=checked]:bg-accent"
       >
-        <RadixSwitch.Thumb className="block size-5 translate-x-0.5 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-[18px]" />
+        <RadixSwitch.Thumb className="block size-5 translate-x-0.5 rounded-pill bg-white shadow transition-transform data-[state=checked]:translate-x-[18px]" />
       </RadixSwitch.Root>
       <span className="text-sm">
         <span className="block font-medium">{label}</span>
@@ -192,7 +192,7 @@ export function Badge({
     ok: 'bg-surface-2 text-ok',
   }
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap [&_svg]:size-3', tones[tone], className)}>
+    <span className={cn('inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap [&_svg]:size-3 grade:font-mono grade:text-[10px] grade:font-medium grade:tracking-wide grade:uppercase sessao:tracking-wide', tones[tone], className)}>
       {children}
     </span>
   )

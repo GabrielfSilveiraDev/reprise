@@ -12,7 +12,7 @@ export function PageHeader({
   actions?: ReactNode
 }) {
   return (
-    <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+    <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 grade:border-b-2 grade:border-line-strong grade:pb-6">
       <div className="min-w-0">
         {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
         <h1 className="headline text-4xl text-balance sm:text-5xl">{title}</h1>
@@ -25,7 +25,7 @@ export function PageHeader({
 
 export function SectionTitle({ id, title, hint, action }: { id?: string; title: string; hint?: string; action?: ReactNode }) {
   return (
-    <div className="mb-4 flex items-end justify-between gap-4">
+    <div className="mb-4 flex items-end justify-between gap-4 grade:border-b grade:border-line-strong grade:pb-2">
       <div>
         <h2 id={id} className="headline text-2xl">
           {title}

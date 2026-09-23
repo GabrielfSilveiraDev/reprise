@@ -207,7 +207,7 @@ function TopSeries({ data }: { data: StatsOverview }) {
               <span className="code text-right text-xs text-ink-3">{i + 1}</span>
               <span className="truncate text-sm font-medium group-hover:text-accent-ink">{t.name}</span>
               <span className="flex items-center gap-2">
-                <span className="h-3 rounded-r-[4px] bg-accent" style={{ width: `${(t.seconds / max) * 100}%`, minWidth: 3 }} />
+                <span className="h-3 rounded-r-[4px] bg-accent grade:rounded-none" style={{ width: `${(t.seconds / max) * 100}%`, minWidth: 3 }} />
                 <span className="code shrink-0 text-xs text-ink-2">
                   {Duration.ofSeconds(t.seconds).toHours()}
                   <span className="hidden text-ink-3 sm:inline"> · {Fmt.plural(t.exhibitions, 'exib.', 'exib.')}</span>

@@ -12,7 +12,9 @@ import { Button } from '@/ui/Button'
 import { Segmented } from '@/ui/Controls'
 import { ErrorState, Skeleton } from '@/ui/Feedback'
 import { ConfirmDialog } from '@/ui/Overlay'
+import { cn } from '@/ui/cn'
 import { PageHeader } from '@/ui/PageHeader'
+import { DesignPicker } from './DesignPicker'
 
 export function AccountPage() {
   const session = useSession()
@@ -43,10 +45,31 @@ export function AccountPage() {
     <>
       <PageHeader title="Conta e dados" />
 
+      <Card
+        title="Aparência"
+        description="Três desenhos do mesmo Reprise — os dados e as regras são os mesmos, muda a forma. A escolha vale para este navegador."
+        className="mb-6"
+      >
+        <DesignPicker />
+        <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-5">
+          <span className="text-sm font-medium">Tema</span>
+          <Segmented<ThemePreference>
+            label="Tema"
+            value={preference}
+            onChange={(v) => theme.set(v)}
+            options={[
+              { value: 'system', label: <><Monitor className="size-4" /> Sistema</> },
+              { value: 'light', label: <><Sun className="size-4" /> Claro</> },
+              { value: 'dark', label: <><Moon className="size-4" /> Escuro</> },
+            ]}
+          />
+        </div>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card title="Você">
           <div className="flex items-center gap-4">
-            <span className="grid size-14 place-items-center rounded-full bg-accent-soft text-lg font-semibold text-accent-ink">{initialsOf(name || '?')}</span>
+            <span className="grid size-14 place-items-center rounded-pill bg-accent-soft text-lg font-semibold text-accent-ink">{initialsOf(name || '?')}</span>
             <div className="min-w-0">
               <p className="headline truncate text-2xl">{name}</p>
               <p className="truncate text-sm text-ink-3">{me.data?.email ?? session?.email}</p>
@@ -76,19 +99,6 @@ export function AccountPage() {
             <Button variant="primary" loading={exporter.isPending} icon={<Download className="size-4" />} onClick={() => exporter.mutate()}>
               Baixar tudo em JSON
             </Button>
-          </Card>
-
-          <Card title="Aparência">
-            <Segmented<ThemePreference>
-              label="Tema"
-              value={preference}
-              onChange={(v) => theme.set(v)}
-              options={[
-                { value: 'system', label: <><Monitor className="size-4" /> Sistema</> },
-                { value: 'light', label: <><Sun className="size-4" /> Claro</> },
-                { value: 'dark', label: <><Moon className="size-4" /> Escuro</> },
-              ]}
-            />
           </Card>
 
           {serverKey && (
@@ -128,9 +138,9 @@ export function AccountPage() {
   )
 }
 
-function Card({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+function Card({ title, description, children, className }: { title: string; description?: string; children: ReactNode; className?: string }) {
   return (
-    <section className="rounded-card border border-line bg-surface p-5">
+    <section className={cn('rounded-card border border-line bg-surface p-5 grade:border-line-strong', className)}>
       <h2 className="headline text-xl">{title}</h2>
       {description && <p className="mt-1 text-sm text-ink-3">{description}</p>}
       <div className="mt-4">{children}</div>

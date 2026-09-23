@@ -37,7 +37,7 @@ export function SeasonPanel({
           <Tabs.Trigger
             key={row.season.seasonNumber}
             value={String(row.season.seasonNumber)}
-            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-line bg-surface px-3.5 text-sm font-medium text-ink-2 transition-colors hover:border-line-strong data-[state=active]:border-ink data-[state=active]:bg-ink data-[state=active]:text-bg"
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-pill border border-line bg-surface px-3.5 text-sm font-medium text-ink-2 transition-colors hover:border-line-strong data-[state=active]:border-ink data-[state=active]:bg-ink data-[state=active]:text-bg"
           >
             {row.season.isSpecials ? 'Especiais' : `Temporada ${row.season.seasonNumber}`}
             <span className={clsx('code text-[11px] opacity-70', row.watched === row.total && row.total > 0 && 'text-ok opacity-100')}>

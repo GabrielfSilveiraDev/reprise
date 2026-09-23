@@ -1,29 +1,21 @@
 import { Check } from 'lucide-react'
-import { useState } from 'react'
-import { useEpisodeActions } from '@/api/mutations'
-import type { Episode, SeriesDetail } from '@/api/types'
-import { EpisodeCode } from '@/domain/EpisodeCode'
-import { SeriesProgress } from '@/domain/SeriesProgress'
 import { TmdbImage } from '@/domain/TmdbImage'
-import { ProductionStatusInfo } from '@/domain/TrackingStatus'
 import { Fmt } from '@/lib/format'
 import { Button } from '@/ui/Button'
 import { Poster } from '@/ui/Poster'
 import { ProgressBar } from '@/ui/ProgressBar'
+import { DismissRewatchButton, RewatchBadge } from '../home/RewatchBits'
+import { Overview } from './HeroParts'
+import type { HeroModel } from './SeriesHero'
 import { StatusMenu } from './StatusMenu'
 
 /**
- * A capa da série. O fundo é o próprio pôster, desfocado — cada série pinta a página com as
- * cores dela, sem precisar de uma imagem a mais do TMDB.
+ * A capa da série na Brasa. O fundo é o próprio pôster, desfocado — cada série pinta a página com
+ * as cores dela, sem precisar de uma imagem a mais do TMDB.
  */
-export function SeriesHero({ series, nextUp, onOpenEpisode }: { series: SeriesDetail; nextUp: Episode | null; onOpenEpisode: (id: number) => void }) {
-  const progress = new SeriesProgress(series)
-  const { mark } = useEpisodeActions()
-  const [expanded, setExpanded] = useState(false)
+export function HeroBrasa({ model }: { model: HeroModel }) {
+  const { series, progress, meta, tracked, next, nextCode } = model
   const backdrop = TmdbImage.url(series.posterPath, 'w342')
-  const year = series.firstAirDate?.slice(0, 4)
-  const meta = [year, ProductionStatusInfo.label(series.productionStatus), Fmt.plural(series.episodesTotal, 'episódio', 'episódios')].filter(Boolean)
-  const tracked = series.status !== 'Untracked'
 
   return (
     <section className="relative -mx-4 -mt-6 mb-12 overflow-hidden sm:-mx-6 lg:-mx-10 lg:-mt-10">
@@ -42,19 +34,20 @@ export function SeriesHero({ series, nextUp, onOpenEpisode }: { series: SeriesDe
 
           <div className="mt-6 flex flex-wrap items-center gap-2">
             <StatusMenu seriesId={series.id} status={series.status} />
-            {tracked && nextUp && (
+            {tracked && next && (
               <>
-                <Button
-                  variant="primary"
-                  loading={mark.isPending}
-                  icon={<Check className="size-4" />}
-                  onClick={() => mark.mutate({ seriesId: series.id, seriesName: series.name, episode: nextUp })}
-                >
-                  Assisti <span className="code font-semibold">{EpisodeCode.of(nextUp).toString()}</span>
+                <Button variant="primary" loading={model.marking} icon={<Check className="size-4" />} onClick={model.markNext}>
+                  Assisti <span className="code font-semibold">{nextCode}</span>
                 </Button>
-                <Button variant="ghost" onClick={() => onOpenEpisode(nextUp.id)} className="hidden sm:inline-flex">
-                  {nextUp.name ?? 'Próximo episódio'}
+                <Button variant="ghost" onClick={() => model.openEpisode(next.id)} className="hidden sm:inline-flex">
+                  {next.name ?? 'Próximo episódio'}
                 </Button>
+                {model.rewatch && (
+                  <span className="flex items-center gap-1">
+                    <RewatchBadge />
+                    <DismissRewatchButton label={`Tirar a revisão de ${series.name} do Continuar`} onClick={model.dismissRewatch} />
+                  </span>
+                )}
               </>
             )}
           </div>
@@ -69,16 +62,7 @@ export function SeriesHero({ series, nextUp, onOpenEpisode }: { series: SeriesDe
         </div>
       </div>
 
-      {series.overview && (
-        <div className="relative mt-8 max-w-3xl px-4 sm:px-6 lg:px-10">
-          <p className={expanded ? 'text-ink-2' : 'line-clamp-3 text-ink-2'}>{series.overview}</p>
-          {series.overview.length > 240 && (
-            <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-1 text-sm font-medium text-accent-ink hover:underline">
-              {expanded ? 'Menos' : 'Mais'}
-            </button>
-          )}
-        </div>
-      )}
+      <Overview text={series.overview} className="relative mt-8 max-w-3xl px-4 sm:px-6 lg:px-10" />
     </section>
   )
 }

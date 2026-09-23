@@ -19,7 +19,7 @@ export function StatusMenu({ seriesId, status }: { seriesId: number; status: str
 
   if (!current) {
     return (
-      <span className="inline-flex h-10 items-center rounded-xl border border-dashed border-line-strong px-3 text-sm text-ink-3">
+      <span className="inline-flex h-10 items-center rounded-control border border-dashed border-line-strong px-3 text-sm text-ink-3">
         Fora do acervo — adicione pela busca
       </span>
     )

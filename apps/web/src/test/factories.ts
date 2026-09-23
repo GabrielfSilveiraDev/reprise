@@ -100,6 +100,7 @@ export class Make {
       posterPath: null,
       episode: { id: Make.seq++, seasonNumber: 1, episodeNumber: 1, name: null },
       lastActivityAt: null,
+      isRewatch: false,
       ...overrides,
     }
   }

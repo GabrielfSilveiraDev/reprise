@@ -109,3 +109,40 @@ export function useAddSeries() {
     },
   })
 }
+
+export interface RewatchTarget {
+  seriesId: number
+  seriesName: string
+}
+
+/**
+ * Tirar uma revisão do Continuar. O cartão some na hora e o aviso oferece "Desfazer" — o botão fica
+ * ao lado do "Assisti", e um toque errado não pode custar uma ida à tela da série para consertar.
+ */
+export function useRewatchActions() {
+  const client = useQueryClient()
+  const cache = new WatchCache(client)
+
+  const restore = useMutation({
+    mutationFn: (t: RewatchTarget) => api.series.restoreRewatch(t.seriesId),
+    onError: fail,
+    onSettled: () => cache.invalidateNextUp(),
+  })
+
+  const dismiss = useMutation({
+    mutationFn: (t: RewatchTarget) => api.series.dismissRewatch(t.seriesId),
+    onMutate: (t) => cache.hideFromNextUp(t.seriesId),
+    onError: (error, _t, previous) => {
+      cache.restoreNextUp(previous)
+      fail(error)
+    },
+    onSuccess: (_d, t) =>
+      toast(`${t.seriesName} saiu do Continuar`, {
+        description: 'Volta sozinha se você remarcar outro episódio dela.',
+        action: { label: 'Desfazer', onClick: () => restore.mutate(t) },
+      }),
+    onSettled: () => cache.invalidateNextUp(),
+  })
+
+  return { dismiss, restore }
+}

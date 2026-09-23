@@ -43,6 +43,16 @@ export class SeriesResource extends Resource {
   async setStatuses(changes: TrackingChange[]): Promise<void> {
     await this.call(this.http.PATCH('/series/status', { body: changes }))
   }
+
+  /** Tira a revisão da fila de próximos — até a próxima exibição repetida, que a traz de volta. */
+  async dismissRewatch(id: number): Promise<void> {
+    await this.call(this.http.PUT('/series/{id}/rewatch/dismissal', { params: { path: { id } } }))
+  }
+
+  /** Desfaz {@link dismissRewatch}. */
+  async restoreRewatch(id: number): Promise<void> {
+    await this.call(this.http.DELETE('/series/{id}/rewatch/dismissal', { params: { path: { id } } }))
+  }
 }
 
 /**

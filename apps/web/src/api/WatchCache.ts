@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { Queries } from './queries'
-import type { SeriesDetail, WatchState } from './types'
+import type { NextUpItem, SeriesDetail, WatchState } from './types'
 
 /**
  * O cache do React Query visto pelo lado das marcações.
@@ -45,6 +45,26 @@ export class WatchCache {
 
   restore(seriesId: number, previous: SeriesDetail | undefined): void {
     if (previous) this.client.setQueryData(Queries.keys.seriesDetail(seriesId), previous)
+  }
+
+  /**
+   * Tira a série da fila em cache antes da resposta. Se ela ainda tiver um inédito esperando, o
+   * servidor a devolve na recarga — como item normal, sem a revisão —, e é o certo.
+   */
+  async hideFromNextUp(seriesId: number): Promise<NextUpItem[] | undefined> {
+    const key = Queries.keys.nextUp
+    await this.client.cancelQueries({ queryKey: key })
+    const previous = this.client.getQueryData<NextUpItem[]>(key)
+    if (previous) this.client.setQueryData<NextUpItem[]>(key, previous.filter((i) => i.seriesId !== seriesId))
+    return previous
+  }
+
+  restoreNextUp(previous: NextUpItem[] | undefined): void {
+    if (previous) this.client.setQueryData(Queries.keys.nextUp, previous)
+  }
+
+  invalidateNextUp(): Promise<void> {
+    return this.client.invalidateQueries({ queryKey: Queries.keys.nextUp })
   }
 
   /** Tudo o que deriva do log de exibições. */

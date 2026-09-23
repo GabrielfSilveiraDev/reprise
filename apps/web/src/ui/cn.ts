@@ -10,7 +10,7 @@ import { extendTailwindMerge } from 'tailwind-merge'
 const merge = extendTailwindMerge({
   extend: {
     theme: {
-      radius: ['card'],
+      radius: ['card', 'panel', 'control', 'control-sm', 'poster', 'pill'],
       shadow: ['pop'],
       animate: ['pop', 'rise', 'shimmer'],
     },

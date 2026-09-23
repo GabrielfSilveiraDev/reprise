@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './designs.css';
 
 /*
  * O tema é um atributo no <html> (data-theme), resolvido antes do primeiro pixel pelo script do
@@ -8,8 +9,17 @@
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 /*
+ * O design é outro atributo (data-design), mantido pelo DesignController. Quase tudo muda pelas
+ * variáveis de designs.css; estas variantes são para o pouco que é FORMA e não valor — um fio que
+ * só a Grade desenha, um título que só a Sessão põe em itálico. `grade:border-b` e afins.
+ */
+@custom-variant brasa (&:where([data-design='brasa'], [data-design='brasa'] *));
+@custom-variant sessao (&:where([data-design='sessao'], [data-design='sessao'] *));
+@custom-variant grade (&:where([data-design='grade'], [data-design='grade'] *));
+
+/*
  * `inline` faz cada utilitário apontar para a VARIÁVEL, e não para o valor: `bg-surface` vira
- * `background: var(--c-surface)`, e trocar de tema é só trocar as variáveis abaixo.
+ * `background: var(--c-surface)`, e trocar de tema ou de design é só trocar as variáveis.
  */
 @theme inline {
   --color-bg: var(--c-bg);
@@ -36,11 +46,22 @@
   --shadow-pop: var(--c-shadow-pop);
 }
 
+/*
+ * Estes valores são os da Brasa e só existem aqui para o Tailwind gerar os utilitários
+ * (`font-display`, `rounded-card`…). Os utilitários leem a variável, e quem manda nela é
+ * designs.css — por isso os raios têm NOMES DE PAPEL (cartão, controle, pôster, painel, pílula) e
+ * não de tamanho: na Sessão o controle é pílula e o pôster quase reto; na Grade, tudo é reto.
+ */
 @theme {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Bricolage Grotesque Variable', 'Inter Variable', ui-sans-serif, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code', monospace;
   --radius-card: 1rem;
+  --radius-panel: 1.5rem;
+  --radius-control: 0.75rem;
+  --radius-control-sm: 0.5rem;
+  --radius-poster: 0.75rem;
+  --radius-pill: 9999px;
   --animate-pop: pop 320ms cubic-bezier(0.2, 0.9, 0.3, 1.4);
   --animate-rise: rise 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
@@ -58,63 +79,6 @@
     from { background-position: 200% 0; }
     to { background-position: -200% 0; }
   }
-}
-
-/*
- * Paleta. Contrastes conferidos (WCAG, texto ≥ 4,5:1): ink-3 sobre bg 5,0 (claro) e 6,2 (escuro);
- * texto sobre o acento 5,2 e 6,7. A escala heat-1…4 é sequencial de um tom só — clara→escura no
- * tema claro, invertida no escuro — com o primeiro degrau a ≥ 2:1 da superfície.
- */
-:root {
-  color-scheme: light;
-  --c-bg: #f6f4f0;
-  --c-surface: #ffffff;
-  --c-surface-2: #efece6;
-  --c-surface-3: #e6e2da;
-  --c-line: #e3ded5;
-  --c-line-strong: #cfc8bc;
-  --c-ink: #1d1a16;
-  --c-ink-2: #4f4942;
-  --c-ink-3: #6f685f;
-  --c-accent: #c2410c;
-  --c-accent-fg: #ffffff;
-  --c-accent-ink: #b23a12;
-  --c-accent-soft: #fbe3d9;
-  --c-ok: #2f7d4f;
-  --c-warn: #9a5b00;
-  --c-danger: #b42318;
-  --c-heat-0: #eae6df;
-  --c-heat-1: #ee9670;
-  --c-heat-2: #e06a38;
-  --c-heat-3: #c24a1a;
-  --c-heat-4: #8a2b0b;
-  --c-shadow-pop: 0 1px 2px rgb(29 26 22 / 0.06), 0 12px 32px -8px rgb(29 26 22 / 0.18);
-}
-
-:root[data-theme='dark'] {
-  color-scheme: dark;
-  --c-bg: #121110;
-  --c-surface: #1a1917;
-  --c-surface-2: #222120;
-  --c-surface-3: #2c2a27;
-  --c-line: #2e2c29;
-  --c-line-strong: #403d38;
-  --c-ink: #f2efea;
-  --c-ink-2: #c9c3ba;
-  --c-ink-3: #9a938a;
-  --c-accent: #ff6b3d;
-  --c-accent-fg: #1a0e08;
-  --c-accent-ink: #ff8a63;
-  --c-accent-soft: #3a2019;
-  --c-ok: #5bc48a;
-  --c-warn: #e5a93b;
-  --c-danger: #ff6b5e;
-  --c-heat-0: #2a2825;
-  --c-heat-1: #7e3620;
-  --c-heat-2: #b8491f;
-  --c-heat-3: #ec6a36;
-  --c-heat-4: #ffae88;
-  --c-shadow-pop: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -12px rgb(0 0 0 / 0.7);
 }
 
 @layer base {
@@ -143,17 +107,21 @@
   }
 }
 
-/* Títulos: a Bricolage estreitada é a voz do Reprise. Números-herói, não — esses vão na Inter. */
+/*
+ * Títulos: a voz de cada design. Brasa, a Bricolage estreitada; Sessão, a Instrument Serif;
+ * Grade, a Geist pesada e apertada. Números-herói não usam isto — esses vão na fonte do texto.
+ */
 @utility headline {
   font-family: var(--font-display);
-  font-stretch: 82%;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.02;
+  font-stretch: var(--headline-stretch);
+  font-weight: var(--headline-weight);
+  font-style: var(--headline-style);
+  letter-spacing: var(--headline-tracking);
+  line-height: var(--headline-leading);
   font-optical-sizing: auto;
 }
 
-/* Código de episódio (S02E05) e horários: mono, sempre alinhado. */
+/* Código de episódio (S02E05) e horários: sempre alinhados. Mono na Brasa e na Grade. */
 @utility code {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -161,10 +129,10 @@
 }
 
 @utility eyebrow {
-  font-family: var(--font-mono);
+  font-family: var(--eyebrow-font);
   font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
+  font-weight: var(--eyebrow-weight);
+  letter-spacing: var(--eyebrow-tracking);
   text-transform: uppercase;
   color: var(--c-ink-3);
 }

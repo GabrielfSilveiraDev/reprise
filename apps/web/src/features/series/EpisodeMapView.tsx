@@ -75,7 +75,7 @@ export function EpisodeMapView({
                   onBlur={() => setTip(null)}
                   aria-label={`${cell.code.toSpoken()}${cell.episode.name ? `, ${cell.episode.name}` : ''}: ${describeCell(cell, clock)}`}
                   className={clsx(
-                    'size-[18px] rounded-[5px] transition-transform duration-150 hover:scale-125 focus-visible:scale-125 sm:size-5',
+                    'size-[18px] rounded-[5px] grade:rounded-none sessao:rounded-[2px] transition-transform duration-150 hover:scale-125 focus-visible:scale-125 sm:size-5',
                     cell.state === 'upcoming' ? 'border border-dashed border-line-strong' : HEAT_BG[cell.level],
                     cell.isNext && 'ring-2 ring-accent ring-offset-2 ring-offset-surface',
                   )}
@@ -108,15 +108,15 @@ export function MapLegend() {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-ink-3" aria-label="Legenda do mapa">
       <span className="flex items-center gap-1.5">
-        <span className="size-3 rounded-[3px] bg-heat-0" /> não visto
+        <span className="size-3 rounded-[3px] grade:rounded-none bg-heat-0" /> não visto
       </span>
       {[1, 2, 3, 4].map((n) => (
         <span key={n} className="flex items-center gap-1.5">
-          <span className={clsx('size-3 rounded-[3px]', HEAT_BG[n])} /> {n === 4 ? '4+' : `${n}×`}
+          <span className={clsx('size-3 rounded-[3px] grade:rounded-none', HEAT_BG[n])} /> {n === 4 ? '4+' : `${n}×`}
         </span>
       ))}
       <span className="flex items-center gap-1.5">
-        <span className="size-3 rounded-[3px] border border-dashed border-line-strong" /> a lançar
+        <span className="size-3 rounded-[3px] grade:rounded-none border border-dashed border-line-strong" /> a lançar
       </span>
     </div>
   )

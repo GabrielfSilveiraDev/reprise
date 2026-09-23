@@ -1,21 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Command } from 'cmdk'
-import { CalendarDays, ChartColumn, LibraryBig, Play, Plus, Search, UserRound } from 'lucide-react'
+import { CalendarDays, ChartColumn, Check, LibraryBig, Palette, Play, Plus, Search, UserRound } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Queries } from '@/api/queries'
 import { TmdbImage } from '@/domain/TmdbImage'
 import { TrackingStatusInfo } from '@/domain/TrackingStatus'
+import { design, DESIGNS } from '@/lib/DesignController'
+import { useDesign } from '@/lib/useDesign'
 
 /**
- * Ctrl+K (ou "/"): pular para qualquer série do acervo pelo nome, ir para uma tela, ou levar o
- * texto digitado para a busca no TMDB. O acervo vem do cache — filtrar 120 nomes na hora dispensa
- * servidor.
+ * Ctrl+K (ou "/"): pular para qualquer série do acervo pelo nome, ir para uma tela, trocar de
+ * design, ou levar o texto digitado para a busca no TMDB. O acervo vem do cache — filtrar 120
+ * nomes na hora dispensa servidor.
  */
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const { data: series } = useQuery({ ...Queries.seriesList(), enabled: open })
+  const currentDesign = useDesign()
 
   const go = (action: () => void) => {
     onOpenChange(false)
@@ -31,7 +34,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       label="Buscar no Reprise"
       loop
       overlayClassName="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
-      contentClassName="fixed top-[10vh] left-1/2 z-50 w-[min(94vw,620px)] -translate-x-1/2 overflow-hidden rounded-3xl border border-line bg-surface shadow-pop data-[state=open]:animate-rise"
+      contentClassName="fixed top-[10vh] left-1/2 z-50 w-[min(94vw,620px)] -translate-x-1/2 overflow-hidden rounded-panel border border-line bg-surface shadow-pop data-[state=open]:animate-rise grade:border-line-strong"
     >
       <div className="flex items-center gap-3 border-b border-line px-4">
         <Search className="size-5 shrink-0 text-ink-3" aria-hidden />
@@ -96,6 +99,17 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           <PaletteItem value="conta exportar sair tema" icon={<UserRound />} onSelect={() => go(() => void navigate({ to: '/conta' }))}>
             Conta e dados
           </PaletteItem>
+        </Command.Group>
+
+        <Command.Group heading="Design">
+          {DESIGNS.map((d) => (
+            <PaletteItem key={d.id} value={`design aparencia ${d.name} ${d.tagline}`} icon={<Palette />} onSelect={() => go(() => design.set(d.id))}>
+              <span className="flex-1">
+                {d.name} <span className="text-ink-3">· {d.tagline}</span>
+              </span>
+              {currentDesign === d.id && <Check className="!text-accent-ink" aria-label="em uso" />}
+            </PaletteItem>
+          ))}
         </Command.Group>
       </Command.List>
     </Command.Dialog>

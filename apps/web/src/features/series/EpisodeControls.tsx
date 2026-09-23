@@ -45,7 +45,7 @@ export function WatchControl({
         role="img"
         aria-label={`${code.toSpoken()} ainda não saiu: ${releaseLabel}`}
         title={releaseLabel}
-        className={clsx(dim, 'shrink-0 rounded-full border-2 border-dashed border-line-strong')}
+        className={clsx(dim, 'shrink-0 rounded-pill border-2 border-dashed border-line-strong')}
       />
     )
   }
@@ -59,7 +59,7 @@ export function WatchControl({
         aria-label={`Marcar ${code.toSpoken()} como visto`}
         className={clsx(
           dim,
-          'group/watch grid shrink-0 place-items-center rounded-full border-2 border-line-strong transition-colors hover:border-accent hover:bg-accent-soft',
+          'group/watch grid shrink-0 place-items-center rounded-pill border-2 border-line-strong transition-colors hover:border-accent hover:bg-accent-soft',
         )}
       >
         {busy ? (
@@ -78,7 +78,7 @@ export function WatchControl({
           type="button"
           disabled={busy}
           aria-label={`${code.toSpoken()}: visto ${episode.watchCount} ${episode.watchCount === 1 ? 'vez' : 'vezes'}. Opções`}
-          className={clsx(dim, 'grid shrink-0 animate-pop place-items-center rounded-full bg-accent text-accent-fg shadow-sm transition-[filter] hover:brightness-110')}
+          className={clsx(dim, 'grid shrink-0 animate-pop place-items-center rounded-pill bg-accent text-accent-fg shadow-sm transition-[filter] hover:brightness-110')}
         >
           {busy ? <LoaderCircle className="size-4 animate-spin" /> : <Check className="size-4" strokeWidth={3} />}
         </button>

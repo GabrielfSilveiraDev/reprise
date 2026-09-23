@@ -46,7 +46,7 @@ export function SearchPage() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Severance, Dark, Pokémon…"
-          className="h-14 w-full rounded-2xl border border-line bg-surface pr-12 pl-12 text-lg outline-none placeholder:text-ink-3 focus:border-line-strong focus:shadow-pop"
+          className="h-14 w-full rounded-control border border-line bg-surface pr-12 pl-12 text-lg outline-none placeholder:text-ink-3 focus:border-line-strong focus:shadow-pop"
         />
         {text && (
           <button type="button" onClick={() => setText('')} aria-label="Limpar" className="absolute top-1/2 right-3 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-ink-3 hover:bg-surface-2">
@@ -60,8 +60,8 @@ export function SearchPage() {
           <p className="eyebrow mb-2">Já no seu acervo</p>
           <div className="flex flex-wrap gap-2">
             {inLibrary.map((s) => (
-              <Link key={s.id} to="/serie/$seriesId" params={{ seriesId: s.id }} className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1 pr-3 pl-1 text-sm hover:border-line-strong">
-                <Poster path={s.posterPath} name={s.name} size="w92" sizes="24px" className="w-6 rounded-full" />
+              <Link key={s.id} to="/serie/$seriesId" params={{ seriesId: s.id }} className="inline-flex items-center gap-2 rounded-pill border border-line bg-surface py-1 pr-3 pl-1 text-sm hover:border-line-strong">
+                <Poster path={s.posterPath} name={s.name} size="w92" sizes="24px" className="w-6 rounded-pill" />
                 {s.name}
               </Link>
             ))}

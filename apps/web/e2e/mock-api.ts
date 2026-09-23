@@ -43,6 +43,8 @@ interface Spec {
   firstAirYear: number
   overview: string
   sessions?: number
+  /** Revisão em andamento: os N primeiros regulares foram remarcados nos últimos dias. */
+  rewatchingUpTo?: number
 }
 
 const SPECS: Spec[] = [
@@ -59,12 +61,15 @@ const SPECS: Spec[] = [
   { id: 11, name: 'O Relojoeiro', hue: 160, production: 'Returning Series', status: 'ForLater', seasons: [6], watched: 0, lastDaysAgo: null, firstAirYear: 2024, overview: 'Um relojoeiro consegue voltar exatamente um minuto no tempo.' },
   { id: 12, name: 'Meia-Noite em Lisboa', hue: 330, production: 'Ended', status: 'Archived', seasons: [8, 8], watched: 5, lastDaysAgo: 1200, firstAirYear: 2017, sessions: 1, overview: 'Um detetive insone resolve crimes só entre meia-noite e o amanhecer.' },
   { id: 13, name: 'Expresso Oriente', hue: 70, production: 'Returning Series', status: 'Following', seasons: [10], watched: 9, lastDaysAgo: 2, upcoming: { count: 3, firstInDays: 20, hourUtc: 2, newSeason: true }, firstAirYear: 2025, sessions: 1, overview: 'Passageiros de um trem transcontinental com uma parada que não está no mapa.' },
+  { id: 15, name: 'Casa de Vidro', hue: 300, production: 'Ended', status: 'Finished', seasons: [8, 8], watched: 16, lastDaysAgo: 500, firstAirYear: 2012, sessions: 2, rewatchingUpTo: 6, overview: 'Uma arquiteta volta à casa que projetou para a família e encontra cada cômodo como deixou.' },
   { id: 14, name: 'Terra Firme', hue: 120, production: 'Returning Series', status: 'Following', seasons: [8, 8], watched: 11, lastDaysAgo: 12, firstAirYear: 2023, sessions: 1, overview: 'Engenheiros tentam reerguer uma cidade depois de um terremoto.' },
 ]
 
 interface State {
   details: Map<number, Detail>
   hue: Map<number, number>
+  /** Quando cada revisão foi tirada da fila (ms). */
+  dismissals: Map<number, number>
 }
 
 function buildDetail(spec: Spec): Detail {
@@ -106,6 +111,19 @@ function buildDetail(spec: Spec): Detail {
     }
     seasons.push({ seasonNumber: season, name: null, isSpecials: false, episodes })
   })
+
+  // Revisão: os N primeiros foram vistos de novo, um por noite, terminando ontem à noite; o resto
+  // ficou com a data da primeira passagem, bem mais antiga.
+  if (spec.rewatchingUpTo) {
+    const upTo = spec.rewatchingUpTo
+    seasons
+      .flatMap((s) => s.episodes)
+      .forEach((e, i) => {
+        if (i >= upTo) return
+        e.watchCount = Math.max(2, e.watchCount + 1)
+        e.lastWatchedAt = iso(NOW.getTime() - (upTo - i) * 20 * 3600_000)
+      })
+  }
 
   if (spec.upcoming) {
     const u = spec.upcoming
@@ -212,7 +230,7 @@ function posterSvg(label: string, hue: number, wide = false): string {
  * só a primeira tela.
  */
 export class MockApi {
-  private readonly state: State = { details: new Map(), hue: new Map() }
+  private readonly state: State = { details: new Map(), hue: new Map(), dismissals: new Map() }
   readonly calls: { method: string; path: string; body: unknown }[] = []
 
   constructor() {
@@ -290,6 +308,13 @@ export class MockApi {
       this.setStatus(Number(m[1]), body.status)
       return this.json(route, { updated: 1, notFound: [] })
     }
+    if ((m = /^\/series\/(\d+)\/rewatch\/dismissal$/.exec(path))) {
+      // Um milissegundo antes de "agora": o relógio do teste é parado, e remarcar depois de tirar
+      // (no mesmo "agora") tem de trazer a revisão de volta, como no servidor.
+      if (method === 'PUT') this.state.dismissals.set(Number(m[1]), NOW.getTime() - 1)
+      else this.state.dismissals.delete(Number(m[1]))
+      return route.fulfill({ status: 204 })
+    }
     if ((m = /^\/series\/(\d+)$/.exec(path)) && method === 'GET') {
       const d = this.state.details.get(Number(m[1]))
       return d ? this.json(route, d) : route.fulfill({ status: 404 })
@@ -336,10 +361,27 @@ export class MockApi {
     return [...this.state.details.values()].map(listItem).sort((a, b) => (b.lastWatchedAt ?? '').localeCompare(a.lastWatchedAt ?? '') || a.name.localeCompare(b.name))
   }
 
+  /** A regra do servidor: revisão recente ganha do primeiro inédito; sem revisão, só as acompanhadas. */
   private nextUp(): S['NextUpItemDto'][] {
-    return this.list()
-      .filter((s) => s.status === 'Following' && s.nextUp)
-      .map((s) => ({ seriesId: s.id, seriesName: s.name, posterPath: s.posterPath, episode: s.nextUp!, lastActivityAt: s.lastWatchedAt }))
+    const out: S['NextUpItemDto'][] = []
+    for (const s of this.list()) {
+      const base = { seriesId: s.id, seriesName: s.name, posterPath: s.posterPath, lastActivityAt: s.lastWatchedAt }
+      const rewatch = this.rewatchNext(this.state.details.get(s.id)!)
+      if (rewatch) out.push({ ...base, episode: rewatch, isRewatch: true })
+      else if (s.status === 'Following' && s.nextUp) out.push({ ...base, episode: s.nextUp, isRewatch: false })
+    }
+    return out
+  }
+
+  private rewatchNext(d: Detail): S['EpisodeRefDto'] | null {
+    const regular = d.seasons.filter((s) => !s.isSpecials).flatMap((s) => s.episodes)
+    const cursor = regular.filter((e) => e.lastWatchedAt).sort((a, b) => b.lastWatchedAt!.localeCompare(a.lastWatchedAt!))[0]
+    if (!cursor || cursor.watchCount < 2) return null
+    const at = Date.parse(cursor.lastWatchedAt!)
+    if (NOW.getTime() - at > 30 * DAY) return null
+    if ((this.state.dismissals.get(d.id) ?? -Infinity) >= at) return null
+    const next = regular.slice(regular.indexOf(cursor) + 1).find((e) => !e.releasesAt || Date.parse(e.releasesAt) <= NOW.getTime())
+    return next ? { id: next.id, seasonNumber: next.seasonNumber, episodeNumber: next.episodeNumber, name: next.name } : null
   }
 
   private premieres(): S['PremiereDto'][] {

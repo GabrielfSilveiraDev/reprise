@@ -1,0 +1,269 @@
+/*
+ * Os três designs, como conjuntos COMPLETOS de variáveis. O design é um atributo no <html>
+ * (data-design), ao lado do tema (data-theme); os utilitários do Tailwind apontam para estas
+ * variáveis, então trocar de design é trocar os valores — nenhuma classe muda.
+ *
+ * Cada bloco declara TUDO, inclusive o que parece igual ao padrão, porque o seletor de Conta
+ * desenha uma amostra de cada design dentro da página (um <div data-design="…">): o que um bloco
+ * esquecesse, a amostra herdaria do design em uso, e a amostra mentiria.
+ *
+ * Ordem importa: o claro de cada design vem antes do escuro dele, e a Brasa (que também é o
+ * padrão, sem atributo) vem primeiro.
+ *
+ * Contrastes conferidos com scripts/check-contrast.mjs (WCAG, texto ≥ 4,5:1).
+ */
+
+/* ============================== Brasa ============================== */
+
+:root,
+[data-design='brasa'] {
+  color-scheme: light;
+  --c-bg: #f6f4f0;
+  --c-surface: #ffffff;
+  --c-surface-2: #efece6;
+  --c-surface-3: #e6e2da;
+  --c-line: #e3ded5;
+  --c-line-strong: #cfc8bc;
+  --c-ink: #1d1a16;
+  --c-ink-2: #4f4942;
+  --c-ink-3: #6f685f;
+  --c-accent: #c2410c;
+  --c-accent-fg: #ffffff;
+  --c-accent-ink: #b23a12;
+  --c-accent-soft: #fbe3d9;
+  --c-ok: #2f7d4f;
+  --c-warn: #9a5b00;
+  --c-danger: #b42318;
+  --c-heat-0: #eae6df;
+  --c-heat-1: #ee9670;
+  --c-heat-2: #e06a38;
+  --c-heat-3: #c24a1a;
+  --c-heat-4: #8a2b0b;
+  --c-shadow-pop: 0 1px 2px rgb(29 26 22 / 0.06), 0 12px 32px -8px rgb(29 26 22 / 0.18);
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', 'Inter Variable', ui-sans-serif, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code', monospace;
+
+  --headline-stretch: 82%;
+  --headline-weight: 700;
+  --headline-style: normal;
+  --headline-tracking: -0.02em;
+  --headline-leading: 1.02;
+  --eyebrow-font: var(--font-mono);
+  --eyebrow-weight: 500;
+  --eyebrow-tracking: 0.08em;
+
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-card: 1rem;
+  --radius-panel: 1.5rem;
+  --radius-control: 0.75rem;
+  --radius-control-sm: 0.5rem;
+  --radius-poster: 0.75rem;
+  --radius-pill: 9999px;
+}
+
+[data-theme='dark'],
+[data-theme='dark'] [data-design='brasa'] {
+  color-scheme: dark;
+  --c-bg: #121110;
+  --c-surface: #1a1917;
+  --c-surface-2: #222120;
+  --c-surface-3: #2c2a27;
+  --c-line: #2e2c29;
+  --c-line-strong: #403d38;
+  --c-ink: #f2efea;
+  --c-ink-2: #c9c3ba;
+  --c-ink-3: #9a938a;
+  --c-accent: #ff6b3d;
+  --c-accent-fg: #1a0e08;
+  --c-accent-ink: #ff8a63;
+  --c-accent-soft: #3a2019;
+  --c-ok: #5bc48a;
+  --c-warn: #e5a93b;
+  --c-danger: #ff6b5e;
+  --c-heat-0: #2a2825;
+  --c-heat-1: #7e3620;
+  --c-heat-2: #b8491f;
+  --c-heat-3: #ec6a36;
+  --c-heat-4: #ffae88;
+  --c-shadow-pop: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -12px rgb(0 0 0 / 0.7);
+}
+
+/* ============================== Sessão ==============================
+ * A sala de cinema. No claro, o papel creme de um programa impresso; no escuro, a sala com a luz
+ * apagada. O acento é o dourado do letreiro — e, como dourado não tem contraste para texto em
+ * papel claro, o "tom de texto" do acento é um bronze.
+ */
+
+[data-design='sessao'] {
+  color-scheme: light;
+  --c-bg: #f3efe7;
+  --c-surface: #fbf8f2;
+  --c-surface-2: #ece6da;
+  --c-surface-3: #e0d8c9;
+  --c-line: #e1d9ca;
+  --c-line-strong: #c4b9a5;
+  --c-ink: #17130e;
+  --c-ink-2: #4a4035;
+  --c-ink-3: #6b6052;
+  --c-accent: #8c5e0c;
+  --c-accent-fg: #fffaf0;
+  --c-accent-ink: #7f550c;
+  --c-accent-soft: #efe2c2;
+  --c-ok: #2b7549;
+  --c-warn: #8f5c06;
+  --c-danger: #a8281e;
+  --c-heat-0: #e6dfd1;
+  --c-heat-1: #d8ad5c;
+  --c-heat-2: #bf8d30;
+  --c-heat-3: #9a6c16;
+  --c-heat-4: #5f410a;
+  --c-shadow-pop: 0 1px 2px rgb(23 19 14 / 0.08), 0 20px 44px -14px rgb(23 19 14 / 0.3);
+
+  --font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --font-mono: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --headline-stretch: 100%;
+  --headline-weight: 400;
+  --headline-style: normal;
+  --headline-tracking: -0.01em;
+  --headline-leading: 1;
+  --eyebrow-font: var(--font-sans);
+  --eyebrow-weight: 600;
+  --eyebrow-tracking: 0.2em;
+
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.375rem;
+  --radius-2xl: 0.5rem;
+  --radius-3xl: 0.625rem;
+  --radius-card: 0.375rem;
+  --radius-panel: 0.625rem;
+  --radius-control: 9999px;
+  --radius-control-sm: 9999px;
+  --radius-poster: 0.25rem;
+  --radius-pill: 9999px;
+}
+
+[data-design='sessao'][data-theme='dark'],
+[data-theme='dark'] [data-design='sessao'] {
+  color-scheme: dark;
+  --c-bg: #0b0a09;
+  --c-surface: #141210;
+  --c-surface-2: #1d1a17;
+  --c-surface-3: #27231f;
+  --c-line: #25221e;
+  --c-line-strong: #3b362f;
+  --c-ink: #f3ede2;
+  --c-ink-2: #cfc6b7;
+  --c-ink-3: #9d9383;
+  --c-accent: #e6c06a;
+  --c-accent-fg: #1a1305;
+  --c-accent-ink: #ecca7f;
+  --c-accent-soft: #2c2412;
+  --c-ok: #6cc08e;
+  --c-warn: #e6b04a;
+  --c-danger: #f06a5c;
+  --c-heat-0: #221f1b;
+  --c-heat-1: #5a4720;
+  --c-heat-2: #8b6c2a;
+  --c-heat-3: #c09538;
+  --c-heat-4: #f0cf7a;
+  --c-shadow-pop: 0 1px 2px rgb(0 0 0 / 0.5), 0 28px 64px -18px rgb(0 0 0 / 0.9);
+}
+
+/* ============================== Grade ==============================
+ * A grade de programação impressa no jornal. Papel-jornal e tinta preta, fios em vez de sombras,
+ * nenhum canto arredondado, e um único azul-sinal para o que é ação. As sombras são deslocadas e
+ * duras, como um carimbo — é o único volume que o design admite.
+ */
+
+[data-design='grade'] {
+  color-scheme: light;
+  --c-bg: #f2f1ec;
+  --c-surface: #fcfcfa;
+  --c-surface-2: #e9e8e2;
+  --c-surface-3: #dcdbd4;
+  --c-line: #d6d5ce;
+  --c-line-strong: #111110;
+  --c-ink: #0f0f0e;
+  --c-ink-2: #3a3a37;
+  --c-ink-3: #5e5e59;
+  --c-accent: #1f3ee6;
+  --c-accent-fg: #ffffff;
+  --c-accent-ink: #1b37cf;
+  --c-accent-soft: #dde3ff;
+  --c-ok: #1b7a3d;
+  --c-warn: #875800;
+  --c-danger: #c21f18;
+  --c-heat-0: #e3e2dc;
+  --c-heat-1: #a7b4ff;
+  --c-heat-2: #6c82ff;
+  --c-heat-3: #2f4df0;
+  --c-heat-4: #16248f;
+  --c-shadow-pop: 4px 4px 0 0 #0f0f0e;
+
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'Cascadia Code', monospace;
+
+  --headline-stretch: 100%;
+  --headline-weight: 700;
+  --headline-style: normal;
+  --headline-tracking: -0.045em;
+  --headline-leading: 0.95;
+  --eyebrow-font: var(--font-mono);
+  --eyebrow-weight: 500;
+  --eyebrow-tracking: 0.04em;
+
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-card: 0;
+  --radius-panel: 0;
+  --radius-control: 0;
+  --radius-control-sm: 0;
+  --radius-poster: 0;
+  --radius-pill: 0;
+}
+
+[data-design='grade'][data-theme='dark'],
+[data-theme='dark'] [data-design='grade'] {
+  color-scheme: dark;
+  --c-bg: #0c0c0b;
+  --c-surface: #131312;
+  --c-surface-2: #1c1c1a;
+  --c-surface-3: #282826;
+  --c-line: #2b2b29;
+  --c-line-strong: #edede8;
+  --c-ink: #efefea;
+  --c-ink-2: #c3c3bd;
+  --c-ink-3: #95958f;
+  --c-accent: #7b8dff;
+  --c-accent-fg: #070a1f;
+  --c-accent-ink: #9eabff;
+  --c-accent-soft: #1b2150;
+  --c-ok: #52c27a;
+  --c-warn: #e0a83a;
+  --c-danger: #ff6a5c;
+  --c-heat-0: #222220;
+  --c-heat-1: #2a3aa4;
+  --c-heat-2: #3f5ae6;
+  --c-heat-3: #6f85ff;
+  --c-heat-4: #b3beff;
+  --c-shadow-pop: 4px 4px 0 0 rgb(239 239 234 / 0.22);
+}

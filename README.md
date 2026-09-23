@@ -47,6 +47,16 @@ dotnet run --project apps/api/Reprise.Api
 A API sobe em `http://localhost:5156` (definido em `launchSettings.json`) e publica o
 OpenAPI em `/openapi/v1.json`.
 
+A API não migra o banco sozinha. Depois de puxar código com migração nova (a mais recente é
+`RewatchDismissal`, a coluna que guarda quando uma revisão foi tirada da fila), aplique:
+
+```bash
+dotnet ef database update --project apps/api/Reprise.Infrastructure --startup-project apps/api/Reprise.Infrastructure
+```
+
+A conexão vem de `ConnectionStrings__Default` no ambiente (a do `.env`); sem ela, o padrão do
+docker-compose.
+
 ### Testes da API
 
 ```bash
@@ -290,7 +300,7 @@ biblioteca para cada problema que já tem solução boa:
 | Rotas | TanStack Router | filtros, ano e episódio aberto moram na URL, tipados — link colado abre a mesma tela |
 | Dados | TanStack Query | cache, pré-busca ao passar o mouse e marcação otimista com "Desfazer" |
 | Cliente da API | openapi-fetch + openapi-typescript | tipos gerados do contrato da API; nenhum DTO redeclarado à mão |
-| Estilo | Tailwind CSS 4 + tailwind-merge | tokens próprios em variáveis CSS, tema claro e escuro |
+| Estilo | Tailwind CSS 4 + tailwind-merge | tokens próprios em variáveis CSS: três designs, cada um em claro e escuro |
 | Componentes | Radix UI | menus, diálogos, abas e interruptores acessíveis por teclado e leitor de tela |
 | Gráficos | Recharts | colunas por mês e por ano; o calendário e o mapa de episódios são SVG/CSS próprios |
 | Busca rápida | cmdk | Ctrl+K (ou `/`) para pular para qualquer série ou tela |
@@ -308,7 +318,10 @@ diz onde a API está.
 ### Telas
 
 - **Agora** — a fila: o próximo episódio de cada série vista no último mês, com "Assisti" a um
-  toque e "Desfazer" no aviso. Abaixo, as estreias dos próximos 8 dias e, recolhidas, as séries
+  toque e "Desfazer" no aviso. **Revisões entram também**, em qualquer estado (inclusive
+  Concluída): se a última coisa que você fez numa série foi remarcar um episódio já visto, o
+  próximo é o seguinte a ele, com o selo "Revendo" — e um X tira a revisão da fila até você
+  remarcar outro episódio dela. Abaixo, as estreias dos próximos 8 dias e, recolhidas, as séries
   paradas e as nunca começadas.
 - **Acervo** — pôsteres com progresso em três partes (visto · lançado e não visto · por lançar),
   filtro por estado, busca sem acento e ordenação. Quando uma série encerrada foi vista por inteiro,
@@ -320,9 +333,35 @@ diz onde a API está.
 - **Agenda** — tudo o que vai sair nas séries em "Assistindo", no fuso de quem olha.
 - **Números** — tempo total, sequências, calendário do ano, colunas por mês e por ano, e onde o
   tempo foi. Cada gráfico tem a tabela com os números por trás.
-- **Adicionar**, **Conta** (exportar os dados, tema, sair) e as telas de entrada (login por e-mail
-  ou usuário, cadastro, código de validação; a chave do servidor só aparece quando o cadeado da API
-  está ligado).
+- **Adicionar**, **Conta** (design e tema, exportar os dados, sair) e as telas de entrada (login
+  por e-mail ou usuário, cadastro, código de validação; a chave do servidor só aparece quando o
+  cadeado da API está ligado).
+
+### Três designs
+
+O mesmo app em três desenhos, escolhidos em **Conta → Aparência** (ou pela paleta, Ctrl+K →
+"design"). A escolha é do navegador, como o tema, e cada design tem claro e escuro:
+
+| Design | Ideia | Tipografia | Forma |
+|---|---|---|---|
+| **Brasa** | quente e editorial | Bricolage Grotesque estreitada + Inter | barra lateral, cartões arredondados, laranja |
+| **Sessão** | sala escura de cinema | Instrument Serif + Instrument Sans | letreiro no topo, palco com o pôster desfocado, faixas de cartazes, dourado |
+| **Grade** | grade de programação de jornal | Geist + Geist Mono | faixa de transmissão, abas numeradas, tabelas com fios, nada arredondado, azul-sinal |
+
+Como é montado, do mais barato ao mais caro:
+
+1. **Variáveis.** `src/styles/designs.css` tem um conjunto completo de variáveis por design e tema
+   (cores, fontes, voz dos títulos, raios). Os raios têm nome de papel — `rounded-card`,
+   `rounded-control`, `rounded-poster`, `rounded-panel`, `rounded-pill` — porque na Sessão o botão é
+   pílula e o pôster quase reto, e na Grade tudo é reto. `node scripts/check-contrast.mjs` confere o
+   contraste das seis paletas lendo o próprio CSS.
+2. **Variantes.** `grade:` e `sessao:` para o pouco que é forma e não valor (um fio só na Grade).
+3. **Vistas.** Onde o design muda a estrutura — a moldura, a tela inicial, a coleção do acervo, a
+   capa da série e a arte do login — cada tela tem um **modelo** (dados e regras, um só) e uma
+   **vista por design** (`HomeBrasa`, `HomeSessao`, `HomeGrade`…), escolhida por `useDesigned`.
+   O `Record` obriga a declarar as três: um design novo que esqueça uma tela não compila.
+
+Agenda, Números, Buscar e Conta são as mesmas telas nos três, vestidas pelas variáveis.
 
 ### Decisões que vale saber
 
@@ -342,9 +381,10 @@ diz onde a API está.
 ```
 src/domain     regras puras, em classes e com teste (liberação, progresso, agenda, mapas…)
 src/api        cliente da API, sessão, renovação, consultas e mutações
-src/features   uma pasta por tela
+src/features   uma pasta por tela; as vistas por design moram junto (HomeSessao.tsx, CollectionGrade.tsx…)
 src/ui         componentes base (botão, pôster, menus, painel lateral…)
-src/app        rotas, moldura de navegação
+src/app        rotas; src/app/shell tem a moldura de cada design
+src/styles     index.css (utilitários) e designs.css (as variáveis dos três designs)
 ```
 
 ### Contrato da API
@@ -368,7 +408,8 @@ Os testes de ponta a ponta sobem o Vite e respondem `/api` com uma API simulada 
 (`e2e/mock-api.ts`, tipada pelo mesmo schema), com relógio fixo e fuso de São Paulo — não precisam
 de banco, de API nem de conta. No Windows usam o Edge instalado; em outro sistema, rode antes
 `pnpm --filter @reprise/web exec playwright install chromium`. Com `CAPTURAS=<pasta>` eles também
-salvam capturas de todas as telas nos dois temas.
+salvam capturas de todas as telas nos três designs e nos dois temas (120 imagens);
+`CAPTURAS_DESIGN=grade` limita a um design.
 
 ## Autenticação
 

@@ -25,7 +25,7 @@ export function Field({
           type={isPassword && reveal ? 'text' : type}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
-          className="h-12 w-full rounded-xl border border-line bg-surface px-3.5 text-[15px] outline-none transition-colors placeholder:text-ink-3 focus:border-line-strong aria-[invalid]:border-danger"
+          className="h-12 w-full rounded-control border border-line bg-surface px-3.5 text-[15px] outline-none transition-colors placeholder:text-ink-3 focus:border-line-strong aria-[invalid]:border-danger"
           {...props}
         />
         {isPassword && (

@@ -23,7 +23,7 @@ export function Poster({ path, name, size = 'w185', sizes = '160px', className, 
   const showImage = src && !failed
 
   return (
-    <div className={cn('relative aspect-[2/3] overflow-hidden rounded-xl bg-surface-3', className)}>
+    <div className={cn('relative aspect-[2/3] overflow-hidden rounded-poster bg-surface-3', className)}>
       {showImage ? (
         <img
           src={src}
