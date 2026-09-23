@@ -51,19 +51,15 @@
 
 .EXAMPLE
     .\scripts\subir-reprise.ps1                  # o que o atalho faz
-    .\scripts\subir-reprise.ps1 -Mobile          # também o Metro, para o Expo Go
     .\scripts\subir-reprise.ps1 -SemNavegador    # sobe tudo e sai: sem janela e sem encerrar
     .\scripts\subir-reprise.ps1 -Parar           # derruba o que estiver de pé
 #>
 [CmdletBinding()]
 param(
-    # Sobe também o servidor de desenvolvimento do Expo (Metro), na porta 8081.
-    [switch]$Mobile,
-
     # Sobe os serviços e sai, sem abrir janela e sem encerrar nada depois. Para desenvolvimento.
     [switch]$SemNavegador,
 
-    # Derruba o que estiver de pé: janela, API, web, Metro e o container do Postgres.
+    # Derruba o que estiver de pé: janela, API, web e o container do Postgres.
     [switch]$Parar,
 
     # Com -Parar, desliga também o Docker Desktop. Sem isto o -Parar só para o container, porque
@@ -84,7 +80,6 @@ $arqIcone  = Join-Path $pastaApp 'reprise.ico'
 
 $PORTA_API   = 5156
 $PORTA_WEB   = 5173
-$PORTA_METRO = 8081
 $URL_WEB     = "http://localhost:$PORTA_WEB/"
 
 # =============================================================================================
@@ -571,7 +566,7 @@ function Import-DotEnv([string]$caminho) {
     }
 }
 
-function New-Servicos([switch]$ComMetro) {
+function New-Servicos {
     $node   = (Get-Command node -ErrorAction Stop).Source
     $dotnet = (Get-Command dotnet -ErrorAction Stop).Source
 
@@ -589,23 +584,11 @@ function New-Servicos([switch]$ComMetro) {
     # O web fica em localhost: é aberto nesta máquina, e o Vite em 0.0.0.0 publicaria o servidor
     # de desenvolvimento para a rede inteira sem necessidade.
     $web = [ServicoOculto]::new('web', $PORTA_WEB, $node,
-        "`"$(Join-Path $raiz 'node_modules\vite\bin\vite.js')`"",
+        "`"$(Join-Path $raiz 'apps\web\node_modules\vite\bin\vite.js')`"",
         (Join-Path $raiz 'apps\web'), (Join-Path $pastaLogs 'web.log'),
         'vite[\\/]bin[\\/]vite\.js')
 
-    $lista = @($api, $web)
-
-    if ($ComMetro) {
-        $metro = [ServicoOculto]::new('Metro', $PORTA_METRO, $node,
-            "`"$(Join-Path $raiz 'node_modules\expo\bin\cli')`" start --port $PORTA_METRO",
-            (Join-Path $raiz 'apps\mobile'), (Join-Path $pastaLogs 'metro.log'),
-            'expo[\\/]bin[\\/]cli')
-        # Sem terminal não há quem responda a um prompt do Expo; CI faz ele não perguntar.
-        $metro.Ambiente['CI'] = '1'
-        $lista += $metro
-    }
-
-    return $lista
+    return @($api, $web)
 }
 
 function Remove-JanelasLegadas {
@@ -662,7 +645,7 @@ if ($Parar) {
     [Registro]::Escrever('Parando o Reprise (-Parar).')
     try { [JanelaDoApp]::new($perfil, $URL_WEB).Fechar() } catch { }
     Remove-JanelasLegadas
-    foreach ($s in @(New-Servicos -ComMetro)) { $s.Derrubar($raiz); $s.LimparSobras($raiz) }
+    foreach ($s in @(New-Servicos)) { $s.Derrubar($raiz); $s.LimparSobras($raiz) }
     $docker.PararBanco()
     if ($DesligarDocker) { $docker.Desligar() }
     [Registro]::Escrever('Reprise parado.')
@@ -689,7 +672,7 @@ if (-not $temOTurno) {
 
 [Registro]::Rotacionar((Join-Path $pastaLogs 'launcher.log'))
 [Registro]::Arquivo = Join-Path $pastaLogs 'launcher.log'
-[Registro]::Escrever("Launcher iniciado (pid $PID$(if ($Mobile) { ', com Metro' })$(if ($SemNavegador) { ', sem navegador' })).")
+[Registro]::Escrever("Launcher iniciado (pid $PID$(if ($SemNavegador) { ', sem navegador' })).")
 
 $script:pedidoDeEncerrar = $false
 $script:janela = $null
@@ -724,7 +707,7 @@ try {
     $docker.SubirBanco(90, $enquantoEspera)
 
     Remove-JanelasLegadas
-    $servicos = @(New-Servicos -ComMetro:$Mobile)
+    $servicos = @(New-Servicos)
     foreach ($s in $servicos) { Start-OuReaproveitar $s }
 
     foreach ($s in $servicos) {
@@ -747,11 +730,6 @@ try {
     $script:janela.Abrir()
     $sucesso = $true
     $bandeja.Text = 'Reprise — feche a janela para encerrar'
-
-    if ($Mobile) {
-        $ip = (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway } | Select-Object -First 1).IPv4Address.IPAddress
-        $bandeja.ShowBalloonTip(8000, 'Reprise — Expo Go', "exp://$($ip):$PORTA_METRO", [System.Windows.Forms.ToolTipIcon]::Info)
-    }
 
     while (-not $script:pedidoDeEncerrar -and $script:janela.Aberta()) {
         [System.Windows.Forms.Application]::DoEvents()

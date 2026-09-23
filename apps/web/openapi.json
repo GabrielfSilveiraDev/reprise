@@ -1,0 +1,2137 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Reprise.Api | v1",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5199/"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "Reprise.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Cria a conta e envia o código de validação. Não devolve sessão.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/confirm": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Valida a conta com o código de seis dígitos e já devolve a sessão.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/resend": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Reenvia o código. Responde igual em todos os casos, de propósito.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Autentica por e-mail ou nome de usuário e devolve o par de tokens.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Troca o refresh token por um par novo. O antigo é consumido.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Encerra a sessão. Idempotente: sair duas vezes não é erro.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/series": {
+      "get": {
+        "tags": [
+          "Series"
+        ],
+        "summary": "Lista as séries acompanhadas com progresso derivado do log de eventos.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SeriesListItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Series"
+        ],
+        "summary": "Adiciona uma série do TMDB ao acervo e passa a acompanhá-la. Repetir não duplica.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSeriesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddSeriesResultDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/search": {
+      "get": {
+        "tags": [
+          "Series"
+        ],
+        "summary": "Busca séries no TMDB para adicionar ao acervo. Marca as que você já tem.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SeriesSearchResultDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/{id}": {
+      "get": {
+        "tags": [
+          "Series"
+        ],
+        "summary": "Detalhe da série: temporadas e episódios com contagem de exibições (trilha de rewatch).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/series/{id}/status": {
+      "patch": {
+        "tags": [
+          "Series"
+        ],
+        "summary": "Muda o estado da série: Following, Archived, ForLater ou Finished.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingUpdateResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/status": {
+      "patch": {
+        "tags": [
+          "Series"
+        ],
+        "summary": "Muda o estado de várias séries de uma vez. Definir um valor é idempotente.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrackingChange"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingUpdateResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/next-up": {
+      "get": {
+        "tags": [
+          "Series"
+        ],
+        "summary": "Próximo episódio não visto de cada série acompanhada, por atividade recente.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NextUpItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/episodes/{id}/watch": {
+      "post": {
+        "tags": [
+          "Watching"
+        ],
+        "summary": "Marca o episódio como visto (novo evento). Repetir = rewatch.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MarkBody"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchStateDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Watching"
+        ],
+        "summary": "Remove a exibição mais recente do episódio (decrementa o rewatch).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "clientKey",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchStateDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/series/{id}/seasons/{seasonNumber}/watch": {
+      "post": {
+        "tags": [
+          "Watching"
+        ],
+        "summary": "Marca todos os episódios ainda não vistos da temporada.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "seasonNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MarkBody"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkMarkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/{id}/watch-up-to": {
+      "post": {
+        "tags": [
+          "Watching"
+        ],
+        "summary": "Marca todos os episódios regulares até (temporada, episódio), ainda não vistos.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkUpToBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkMarkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Perfil do dono dos dados e o tamanho do acervo dele.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/export": {
+      "get": {
+        "tags": [
+          "Export"
+        ],
+        "summary": "Export completo e reconstruível: perfil, séries e todas as exibições.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/premieres": {
+      "get": {
+        "tags": [
+          "Premieres"
+        ],
+        "summary": "Episódios ainda por estrear das séries acompanhadas, do mais próximo ao mais distante. Sem withinDays, sem limite de distância.",
+        "parameters": [
+          {
+            "name": "withinDays",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PremiereDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/overview": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Resumo, distribuição por ano/mês, top séries e sequências. Backfill fora por padrão.",
+        "parameters": [
+          {
+            "name": "includeBackfill",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsOverviewDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/calendar": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Exibições por dia de um ano, para o heatmap. Só dias com atividade.",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "includeBackfill",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarDayDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddSeriesBody": {
+        "required": [
+          "tmdbId"
+        ],
+        "type": "object",
+        "properties": {
+          "tmdbId": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AddSeriesResultDto": {
+        "required": [
+          "seriesId",
+          "name",
+          "alreadyTracked",
+          "episodesCreated"
+        ],
+        "type": "object",
+        "properties": {
+          "seriesId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "alreadyTracked": {
+            "type": "boolean"
+          },
+          "episodesCreated": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "BulkMarkResult": {
+        "required": [
+          "marked"
+        ],
+        "type": "object",
+        "properties": {
+          "marked": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "CalendarDayDto": {
+        "required": [
+          "date",
+          "exhibitions",
+          "seconds"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "exhibitions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "seconds": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ConfirmBody": {
+        "required": [
+          "email",
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "EpisodeDto": {
+        "required": [
+          "id",
+          "seasonNumber",
+          "episodeNumber",
+          "name",
+          "runtimeSeconds",
+          "isSpecial",
+          "watchCount",
+          "lastWatchedAt",
+          "stillPath",
+          "overview",
+          "airDate",
+          "releasesAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seasonNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episodeNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "runtimeSeconds": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "isSpecial": {
+            "type": "boolean"
+          },
+          "watchCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastWatchedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "stillPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "overview": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "airDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "releasesAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "EpisodeRefDto": {
+        "required": [
+          "id",
+          "seasonNumber",
+          "episodeNumber",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seasonNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episodeNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ExportDocument": {
+        "required": [
+          "format",
+          "exportedAt",
+          "profile",
+          "series",
+          "watchEvents"
+        ],
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "exportedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ExportedProfile"
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExportedSeries"
+            }
+          },
+          "watchEvents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExportedWatchEvent"
+            }
+          }
+        }
+      },
+      "ExportedProfile": {
+        "required": [
+          "displayName",
+          "email",
+          "memberSince"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "memberSince": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ExportedSeries": {
+        "required": [
+          "tvdbId",
+          "tmdbId",
+          "name",
+          "originalName",
+          "status",
+          "productionStatus",
+          "addedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "tvdbId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "tmdbId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "originalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "productionStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ExportedWatchEvent": {
+        "required": [
+          "seriesTvdbId",
+          "seriesName",
+          "seasonNumber",
+          "episodeNumber",
+          "episodeName",
+          "watchedAt",
+          "source",
+          "isBackfill",
+          "sourceKey"
+        ],
+        "type": "object",
+        "properties": {
+          "seriesTvdbId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "seriesName": {
+            "type": "string"
+          },
+          "seasonNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episodeNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episodeName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "watchedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string"
+          },
+          "isBackfill": {
+            "type": "boolean"
+          },
+          "sourceKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "HttpValidationProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "LoginBody": {
+        "required": [
+          "identifier",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "MarkBody": {
+        "required": [
+          "watchedAt",
+          "clientKey"
+        ],
+        "type": "object",
+        "properties": {
+          "watchedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "clientKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MarkUpToBody": {
+        "required": [
+          "seasonNumber",
+          "episodeNumber",
+          "watchedAt",
+          "clientKey"
+        ],
+        "type": "object",
+        "properties": {
+          "seasonNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episodeNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "watchedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "clientKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "NextUpItemDto": {
+        "required": [
+          "seriesId",
+          "seriesName",
+          "posterPath",
+          "episode",
+          "lastActivityAt"
+        ],
+        "type": "object",
+        "properties": {
+          "seriesId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seriesName": {
+            "type": "string"
+          },
+          "posterPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "episode": {
+            "$ref": "#/components/schemas/EpisodeRefDto"
+          },
+          "lastActivityAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "PremiereDto": {
+        "required": [
+          "episodeId",
+          "seriesId",
+          "seriesName",
+          "posterPath",
+          "seasonNumber",
+          "episodeNumber",
+          "episodeName",
+          "stillPath",
+          "airDate",
+          "releasesAt",
+          "isSeasonPremiere",
+          "overview",
+          "lastActivityAt"
+        ],
+        "type": "object",
+        "properties": {
+          "episodeId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seriesId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seriesName": {
+            "type": "string"
+          },
+          "posterPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "seasonNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episodeNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episodeName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "stillPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "airDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "releasesAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "isSeasonPremiere": {
+            "type": "boolean"
+          },
+          "overview": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastActivityAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ProfileDto": {
+        "required": [
+          "displayName",
+          "email",
+          "memberSince",
+          "seriesTracked",
+          "seriesFollowing",
+          "seriesFinished",
+          "seriesArchived",
+          "catalogEpisodes",
+          "seriesWithoutMetadata",
+          "lastImportedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "memberSince": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "seriesTracked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "seriesFollowing": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "seriesFinished": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "seriesArchived": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "catalogEpisodes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "seriesWithoutMetadata": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastImportedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "RefreshBody": {
+        "required": [
+          "refreshToken"
+        ],
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
+          }
+        }
+      },
+      "RegisterBody": {
+        "required": [
+          "email",
+          "password",
+          "displayName",
+          "userName"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "userName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RegistrationDto": {
+        "required": [
+          "email",
+          "emailSent",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "emailSent": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ResendBody": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "RewatchSessionDto": {
+        "required": [
+          "ordinal",
+          "startedAt",
+          "endedAt",
+          "exhibitions",
+          "distinctEpisodes",
+          "totalSeconds",
+          "spanDays"
+        ],
+        "type": "object",
+        "properties": {
+          "ordinal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "exhibitions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "distinctEpisodes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "spanDays": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "SeasonDto": {
+        "required": [
+          "seasonNumber",
+          "name",
+          "isSpecials",
+          "episodes"
+        ],
+        "type": "object",
+        "properties": {
+          "seasonNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isSpecials": {
+            "type": "boolean"
+          },
+          "episodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EpisodeDto"
+            }
+          }
+        }
+      },
+      "SeriesDetailDto": {
+        "required": [
+          "id",
+          "tvdbId",
+          "name",
+          "originalName",
+          "overview",
+          "posterPath",
+          "status",
+          "productionStatus",
+          "firstAirDate",
+          "episodesTotal",
+          "episodesAired",
+          "episodesWatched",
+          "completionRatio",
+          "seasons",
+          "sessions",
+          "backfillExhibitions"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tvdbId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "originalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "overview": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "posterPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "productionStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "firstAirDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "episodesTotal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episodesAired": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episodesWatched": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completionRatio": {
+            "type": "number",
+            "format": "double"
+          },
+          "seasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeasonDto"
+            }
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RewatchSessionDto"
+            }
+          },
+          "backfillExhibitions": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "SeriesListItemDto": {
+        "required": [
+          "id",
+          "tvdbId",
+          "name",
+          "posterPath",
+          "status",
+          "productionStatus",
+          "episodesTotal",
+          "episodesAired",
+          "episodesWatched",
+          "completionRatio",
+          "lastWatchedAt",
+          "nextUp"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tvdbId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "posterPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "productionStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "episodesTotal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episodesAired": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episodesWatched": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completionRatio": {
+            "type": "number",
+            "format": "double"
+          },
+          "lastWatchedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "nextUp": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EpisodeRefDto"
+              }
+            ]
+          }
+        }
+      },
+      "SeriesSearchResultDto": {
+        "required": [
+          "tmdbId",
+          "name",
+          "originalName",
+          "overview",
+          "posterPath",
+          "firstAirDate",
+          "seriesId",
+          "trackedStatus"
+        ],
+        "type": "object",
+        "properties": {
+          "tmdbId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "originalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "overview": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "posterPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "firstAirDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "seriesId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "trackedStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SessionDto": {
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "accessTokenExpiresAt",
+          "userId",
+          "displayName",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "accessTokenExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "StatsOverviewDto": {
+        "required": [
+          "summary",
+          "byYear",
+          "byMonth",
+          "topSeries",
+          "streaks",
+          "availableYears"
+        ],
+        "type": "object",
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/StatsSummaryDto"
+          },
+          "byYear": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketDto"
+            }
+          },
+          "byMonth": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketDto"
+            }
+          },
+          "topSeries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TopSeriesDto"
+            }
+          },
+          "streaks": {
+            "$ref": "#/components/schemas/StreaksDto"
+          },
+          "availableYears": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "StatsSummaryDto": {
+        "required": [
+          "exhibitions",
+          "distinctEpisodes",
+          "seriesCount",
+          "totalSeconds",
+          "backfillExhibitions",
+          "rewatchRate",
+          "firstWatchedAt",
+          "lastWatchedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "exhibitions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "distinctEpisodes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "seriesCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "backfillExhibitions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rewatchRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "firstWatchedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastWatchedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "StatusBody": {
+        "required": [
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "StreaksDto": {
+        "required": [
+          "longestDays",
+          "currentDays",
+          "longestStartedAt",
+          "longestEndedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "longestDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currentDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "longestStartedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "longestEndedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          }
+        }
+      },
+      "TimeBucketDto": {
+        "required": [
+          "label",
+          "exhibitions",
+          "seconds"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "exhibitions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "seconds": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "TopSeriesDto": {
+        "required": [
+          "seriesId",
+          "name",
+          "exhibitions",
+          "distinctEpisodes",
+          "seconds"
+        ],
+        "type": "object",
+        "properties": {
+          "seriesId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "exhibitions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "distinctEpisodes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "seconds": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "TrackingChange": {
+        "required": [
+          "seriesId",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "seriesId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "TrackingUpdateResult": {
+        "required": [
+          "updated",
+          "notFound"
+        ],
+        "type": "object",
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notFound": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        }
+      },
+      "WatchStateDto": {
+        "required": [
+          "episodeId",
+          "watchCount",
+          "lastWatchedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "episodeId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "watchCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastWatchedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Reprise.Api"
+    },
+    {
+      "name": "Auth"
+    },
+    {
+      "name": "Series"
+    },
+    {
+      "name": "Watching"
+    },
+    {
+      "name": "Profile"
+    },
+    {
+      "name": "Export"
+    },
+    {
+      "name": "Premieres"
+    },
+    {
+      "name": "Stats"
+    }
+  ]
+}

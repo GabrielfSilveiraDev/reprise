@@ -14,9 +14,9 @@ project.lock.json
 node_modules/
 dist/
 .vite/
-.expo/
-web-build/
 coverage/
+test-results/
+playwright-report/
 *.tsbuildinfo
 npm-debug.log*
 pnpm-debug.log*

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Reprise — seu diário de séries. Cada exibição conta." />
+    <meta name="theme-color" content="#F6F4F0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121110" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Reprise</title>
+    <script>
+      // Antes do primeiro pixel: aplica o tema salvo (ou o do sistema) para a página não
+      // piscar clara e depois escurecer. O ThemeController assume daqui em diante.
+      ;(function () {
+        var pref = 'system'
+        try { pref = localStorage.getItem('reprise.theme') || 'system' } catch (e) {}
+        var dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
