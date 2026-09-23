@@ -86,6 +86,40 @@ dotnet user-secrets set "Tmdb:ApiKey" "<sua-chave-v3>" --project apps/api/Repris
 
 Fora do dev, use a variável de ambiente `Tmdb__ApiKey` (é o que o Compose e a CLI leem).
 
+## Abrindo com um clique (Windows)
+
+`scripts/subir-reprise.ps1` sobe banco, API e web **em segundo plano** e abre o Reprise numa
+**janela própria** do navegador. Fechar essa janela encerra tudo: API, web, o container do
+Postgres e — se foi o launcher que ligou — o Docker Desktop. É o que o atalho do Desktop executa.
+
+```powershell
+.\scripts\subir-reprise.ps1                  # o que o atalho faz
+.\scripts\subir-reprise.ps1 -Mobile          # também o Metro, para o Expo Go
+.\scripts\subir-reprise.ps1 -SemNavegador    # sobe tudo e sai, sem janela e sem encerrar
+.\scripts\subir-reprise.ps1 -Parar           # derruba o que estiver de pé
+```
+
+- **Nenhum terminal aparece.** O atalho chama `conhost.exe --headless`; API e web sobem sem
+  janela. Enquanto o Reprise está aberto há um ícone na bandeja, com "Abrir outra janela" e
+  "Encerrar o Reprise". A saída de cada serviço vai para `%LOCALAPPDATA%\Reprise\logs`, e a
+  execução anterior fica guardada como `*.anterior.log`.
+- **A janela tem perfil próprio** (`%LOCALAPPDATA%\Reprise\navegador`). É o que permite saber que
+  ela fechou — uma aba no navegador de sempre não tem processo próprio para observar. Por isso o
+  login é feito uma vez nessa janela, que não compartilha sessão com o navegador de uso.
+- **O Docker só é desligado se o launcher o ligou.** Se ele já estava de pé por causa de outro
+  projeto, só o container do Reprise para.
+- **Os sockets do Docker são afastados antes de ligá-lo.** Nesta máquina o Docker Desktop deixa
+  para trás sockets que o Windows não deixa apagar (erro 1920), e toda partida depois de um
+  desligamento quebrava tentando removê-los. O launcher move `Docker\run` e
+  `docker-secrets-engine` para `*.antiga-*` antes de ligar o Docker; essas pastas só podem ser
+  apagadas depois de reiniciar o Windows, e o launcher tenta a cada partida. Se o Docker quebrar
+  mesmo assim, a mensagem de erro traz o que ele registrou.
+- **Portas fixas:** web na 5173 e API na 5156, sem plano B. Porta ocupada por outro programa
+  vira erro com o nome dele, em vez de o Vite subir calado em outra porta.
+- **O Vite é chamado direto, sem `pnpm dev`.** O `pnpm` confere as dependências antes de rodar e
+  pode disparar um `install` que *pergunta* antes de mexer no `node_modules` — sem terminal
+  visível, ninguém responde e o web nunca sobe. Depois de mudar dependências, rode `pnpm install`.
+
 ## Importando o export do TV Time
 
 O export vem do pedido de GDPR do TV Time. A fonte da verdade é

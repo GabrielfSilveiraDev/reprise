@@ -45,6 +45,13 @@ export default defineConfig({
 
   server: {
     port: 5173,
+    /*
+     * Porta fixa, sem plano B. Sem isto, com a 5173 ocupada o Vite sobe calado na 5174 — e o
+     * launcher, o atalho e o navegador continuam apontando para a 5173. Foi assim que o Reprise
+     * "abriu" numa porta onde não havia nada. Falhar alto é melhor: o launcher lê o erro e diz
+     * quem está ocupando a porta.
+     */
+    strictPort: true,
     ...(ALLOWED_HOSTS.length > 0 ? { allowedHosts: ALLOWED_HOSTS } : {}),
     // Proxy em vez de CORS na API: em desenvolvimento o front fala com a própria origem,
     // então não há preflight nem configuração de CORS para manter em sincronia.
