@@ -10,6 +10,10 @@ import './PremiereStrip.css';
  * respondem a mesma pergunta no futuro. O que muda é a forma — aqui há largura para uma grade,
  * enquanto no celular é uma faixa que rola de lado.
  *
+ * <b>Um cartão por série, com o resumo.</b> Quem escolhe o que entra é o `HomeShelf` (o próximo
+ * episódio de cada série, e só quando ele tem data e resumo); aqui só se desenha. O resumo é o
+ * que faz o cartão valer a leitura — sem ele era "T2E5" e uma data, o que a tela da série já diz.
+ *
  * Nada aqui se marca como assistido: o episódio ainda não foi ao ar.
  */
 export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] }) {
@@ -22,7 +26,7 @@ export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] })
           Estreias
         </h2>
         <span className="premieres__count">
-          {premieres.length} {premieres.length === 1 ? 'episódio' : 'episódios'}
+          {premieres.length} {premieres.length === 1 ? 'série' : 'séries'}
         </span>
       </div>
 
@@ -48,10 +52,14 @@ export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] })
                 <span className="premiere__when">{quando}</span>
                 <span className="premiere__series">{p.seriesName}</span>
                 <span className="premiere__episode">
-                  {formatEpisodeCode(p.seasonNumber, p.episodeNumber)}
+                  <span className="tabular">{formatEpisodeCode(p.seasonNumber, p.episodeNumber)}</span>
+                  {p.episodeName ? ` · ${p.episodeName}` : ''}
                   {/* Estreia de temporada é a notícia; o sétimo episódio não é. */}
                   {p.isSeasonPremiere ? ' · nova temporada' : ''}
                 </span>
+                {/* Cortado em quatro linhas para os cartões da grade terem altura parecida; o
+                    texto inteiro está no detalhe do episódio, na tela da série. */}
+                {p.overview ? <span className="premiere__overview">{p.overview}</span> : null}
               </Link>
             </li>
           );

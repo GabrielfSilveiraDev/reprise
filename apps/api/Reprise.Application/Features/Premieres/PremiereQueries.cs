@@ -22,7 +22,18 @@ public sealed record PremiereDto(
     /// </summary>
     DateTimeOffset? ReleasesAt,
     /// <summary>Estreia de temporada — o episódio 1 de uma temporada é a notícia, não o 7.</summary>
-    bool IsSeasonPremiere);
+    bool IsSeasonPremiere,
+    /// <summary>
+    /// Sinopse do episódio, quando o TMDB já a publicou. Para estreia distante quase nunca existe:
+    /// ela costuma aparecer na semana em que o episódio sai.
+    /// </summary>
+    string? Overview,
+    /// <summary>
+    /// Sua exibição mais recente nesta série — a mesma medida do <c>NextUpItemDto</c>. É o que
+    /// permite ao cliente distinguir a série que você está assistindo da que só acompanha: a
+    /// estreia da primeira interessa a qualquer distância, a da segunda só quando está perto.
+    /// </summary>
+    DateTimeOffset? LastActivityAt);
 
 /// <summary>
 /// O que ainda vai estrear.
@@ -34,8 +45,15 @@ public sealed record PremiereDto(
 /// </para>
 ///
 /// <para>
-/// A data vem do TMDB pelo enriquecimento, então o calendário só sabe o que o catálogo sabe: uma
-/// série ainda não reprocessada não aparece aqui, e isso é uma limitação da fonte, não um bug.
+/// A data vem do TMDB pelo enriquecimento, então o calendário só sabe o que o catálogo sabe. É
+/// por isso que o catálogo das séries em produção se atualiza sozinho (<c>CatalogRefresh</c>):
+/// antes dele, a volta de Silo em 2027 simplesmente não existia aqui.
+/// </para>
+///
+/// <para>
+/// <b>Todos os episódios, e não só o próximo de cada série.</b> Quem escolhe o que a tela inicial
+/// mostra é o <c>HomeShelf</c>, no pacote compartilhado; os avisos de estreia do app usam esta
+/// mesma lista e precisam de cada episódio — agendar só o próximo deixaria o seguinte sem aviso.
 /// </para>
 /// </summary>
 public sealed class PremiereQueries
@@ -44,11 +62,16 @@ public sealed class PremiereQueries
 
     public PremiereQueries(IRepriseDbContext db) => _db = db;
 
+    /// <param name="withinDays">
+    /// Horizonte opcional. <b>Sem ele não há limite</b>: o próximo episódio de uma série que você
+    /// está assistindo interessa mesmo que só saia no ano que vem, e o conjunto é pequeno por
+    /// natureza — episódios futuros de séries acompanhadas, dezenas e não milhares.
+    /// </param>
     public async Task<IReadOnlyList<PremiereDto>> GetUpcomingAsync(
-        DateTimeOffset now, int withinDays = 180, CancellationToken ct = default)
+        DateTimeOffset now, int? withinDays = null, CancellationToken ct = default)
     {
         var hojeUtc = DateOnly.FromDateTime(now.UtcDateTime);
-        var limit = hojeUtc.AddDays(withinDays);
+        var desde = hojeUtc.AddDays(-2);
 
         /*
          * O SQL traz um dia a MAIS do que o necessário, e o filtro fino acontece na memória.
@@ -64,9 +87,17 @@ public sealed class PremiereQueries
          * futuros de séries acompanhadas —, então filtrar depois custa nada e mantém a regra num
          * lugar só.
          */
-        var candidatos = await _db.Episodes
+        var episodios = _db.Episodes
             .AsNoTracking()
-            .Where(e => e.AirDate != null && e.AirDate >= hojeUtc.AddDays(-2) && e.AirDate <= limit)
+            .Where(e => e.AirDate != null && e.AirDate >= desde);
+
+        if (withinDays is int dias)
+        {
+            var limite = hojeUtc.AddDays(dias);
+            episodios = episodios.Where(e => e.AirDate <= limite);
+        }
+
+        var candidatos = await episodios
             .Where(e => _db.TrackedSeries.Any(t => t.SeriesId == e.SeriesId && t.Status == SeriesStatus.Following))
             .Select(e => new
             {
@@ -81,6 +112,7 @@ public sealed class PremiereQueries
                 e.EpisodeNumber,
                 e.Name,
                 e.StillPath,
+                e.Overview,
                 AirDate = e.AirDate!.Value
             })
             .ToListAsync(ct);
@@ -97,6 +129,8 @@ public sealed class PremiereQueries
             .GroupBy(e => new { e.SeriesId, e.SeasonNumber })
             .ToDictionary(g => g.Key, g => g.Min(e => e.EpisodeNumber));
 
+        var ultima = await UltimaExibicaoAsync(upcoming.Select(e => e.SeriesId).Distinct().ToList(), ct);
+
         return upcoming
             .OrderBy(e => e.AirDate)
             .ThenBy(e => e.SeriesName)
@@ -107,7 +141,33 @@ public sealed class PremiereQueries
                 ReleaseSchedule.ReleasesAt(
                     new EpisodeRelease(e.AirDate, e.TvmazeAirDate, e.TvmazeAirStamp, e.OriginCountry)),
                 IsSeasonPremiere: e.EpisodeNumber == 1
-                    || e.EpisodeNumber == firstOfSeason[new { e.SeriesId, e.SeasonNumber }]))
+                    || e.EpisodeNumber == firstOfSeason[new { e.SeriesId, e.SeasonNumber }],
+                e.Overview,
+                ultima.TryGetValue(e.SeriesId, out var last) ? last : null))
             .ToList();
+    }
+
+    /// <summary>
+    /// Sua exibição mais recente em cada série da lista.
+    ///
+    /// <para>
+    /// Mesmo critério do <c>NextUpItemDto.LastActivityAt</c>, contando as marcações em massa: é o
+    /// par dele que decide, no cliente, o que é "estou assistindo" — e uma série não pode estar em
+    /// andamento numa prateleira e em pausa na outra. O filtro global de tenant faz disto a SUA
+    /// última exibição, nunca a de quem mais acompanhe a série.
+    /// </para>
+    /// </summary>
+    private async Task<Dictionary<long, DateTimeOffset>> UltimaExibicaoAsync(
+        IReadOnlyCollection<long> series, CancellationToken ct)
+    {
+        if (series.Count == 0) return [];
+
+        var linhas = await _db.WatchEvents
+            .Where(w => series.Contains(w.Episode.SeriesId))
+            .GroupBy(w => w.Episode.SeriesId)
+            .Select(g => new { SeriesId = g.Key, Last = g.Max(w => w.WatchedAt) })
+            .ToListAsync(ct);
+
+        return linhas.ToDictionary(x => x.SeriesId, x => x.Last);
     }
 }

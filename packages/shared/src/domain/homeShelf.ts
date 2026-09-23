@@ -27,10 +27,17 @@ export interface ShelfItemLike {
   readonly lastActivityAt: string | null | undefined;
 }
 
-/** O bastante de uma estreia para saber se ela ainda interessa hoje. */
+/** O bastante de uma estreia para decidir se ela aparece. Os clientes passam o DTO inteiro. */
 export interface PremiereLike {
+  readonly seriesId: number;
+  readonly seasonNumber: number;
+  readonly episodeNumber: number;
   /** `YYYY-MM-DD`. */
   readonly airDate: string;
+  /** Sinopse do episódio. Sem ela a estreia não entra — ver {@link HomeShelf.upcomingPremieres}. */
+  readonly overview?: string | null;
+  /** Sua exibição mais recente na série: é o que diz se você a está assistindo. */
+  readonly lastActivityAt?: string | null;
 }
 
 /**
@@ -41,9 +48,10 @@ export interface PremiereLike {
 const DIAS_EM_ANDAMENTO = 60;
 
 /**
- * <b>45 dias de estreias.</b> A tela abria com episódios de novembro do ano seguinte, o que empurra
- * o que dá para assistir hoje para baixo da dobra. Estreia só é notícia quando está perto o
- * bastante para mudar o que você faz nesta semana.
+ * <b>45 dias de estreias</b> — para as séries que você acompanha mas não está assistindo. A tela
+ * abria com episódios de novembro do ano seguinte, o que empurra o que dá para assistir hoje para
+ * baixo da dobra: a estreia de uma série parada só é notícia quando está perto o bastante para
+ * mudar o que você faz nesta semana. A da série em andamento é notícia a qualquer distância.
  */
 const DIAS_DE_ESTREIA = 45;
 
@@ -76,15 +84,16 @@ export class HomeShelf {
     const emPausa: T[] = [];
 
     for (const item of items) {
-      (HomeShelf.isAtiva(item, now) ? emAndamento : emPausa).push(item);
+      (HomeShelf.isAtiva(item.lastActivityAt, now) ? emAndamento : emPausa).push(item);
     }
 
     return { emAndamento, emPausa };
   }
 
-  private static isAtiva(item: ShelfItemLike, now: Date): boolean {
-    if (!item.lastActivityAt) return false;
-    const quando = new Date(item.lastActivityAt);
+  /** Está assistindo? — o mesmo corte para as prateleiras e para a distância das estreias. */
+  private static isAtiva(lastActivityAt: string | null | undefined, now: Date): boolean {
+    if (!lastActivityAt) return false;
+    const quando = new Date(lastActivityAt);
     if (Number.isNaN(quando.getTime())) return false;
 
     const dias = (now.getTime() - quando.getTime()) / 86_400_000;
@@ -119,7 +128,22 @@ export class HomeShelf {
   }
 
   /**
-   * Só as estreias próximas o bastante para importar.
+   * As estreias da tela inicial: o próximo episódio de cada série, quando já dá para dizer algo
+   * sobre ele. Do mais próximo ao mais distante.
+   *
+   * <b>Um por série.</b> A faixa mostrava cada episódio até o fim do horizonte, e uma série semanal
+   * a ocupava inteira — seis cartões de Dark Matter e nenhum de outra série. O que se quer saber é
+   * quando sai o PRÓXIMO de cada uma; o seguinte aparece quando este for ao ar.
+   *
+   * <b>A distância depende de você estar assistindo.</b> Série em andamento (exibição nos últimos
+   * {@link DIAS_EM_ANDAMENTO} dias, o mesmo corte das prateleiras) aparece a qualquer distância: a
+   * volta de Silo daqui a dez meses é notícia para quem acabou de terminar a temporada anterior.
+   * As demais séries acompanhadas, só quando a estreia está a até {@link DIAS_DE_ESTREIA} dias.
+   *
+   * <b>Só com data e resumo.</b> Um cartão com "Episódio 1" e nada mais não diz nada — e é o que
+   * existe para quase toda estreia distante. Se o próximo episódio ainda não tem resumo, a série
+   * sai da faixa em vez de ceder o lugar ao episódio seguinte: mostrar o 6 enquanto o 5 não saiu
+   * seria mentir sobre qual é o próximo.
    *
    * Também descarta o que já foi ao ar: o episódio que estreou ontem não é estreia, é pendência —
    * e aparece sozinho na lista de "próximos" assim que a sincronização passar.
@@ -131,12 +155,53 @@ export class HomeShelf {
     const hoje = HomeShelf.startOfLocalDay(now);
     const limite = hoje + DIAS_DE_ESTREIA * 86_400_000;
 
-    return premieres.filter((p) => {
-      // Meio-dia UTC: a data de exibição não tem hora, e qualquer fuso do Brasil ou da Europa cai
-      // no mesmo dia do calendário a partir daí.
-      const quando = new Date(`${p.airDate}T12:00:00Z`).getTime();
-      return !Number.isNaN(quando) && quando >= hoje && quando <= limite;
-    });
+    // Primeiro o próximo de cada série, e só depois os filtros — é a ordem que impede o episódio
+    // seguinte de ocupar o lugar de um próximo que não tem resumo.
+    const proximos = new Map<number, { premiere: T; quando: number }>();
+    for (const p of premieres) {
+      const quando = HomeShelf.diaDaEstreia(p.airDate);
+      if (quando === null || quando < hoje) continue;
+
+      const atual = proximos.get(p.seriesId);
+      if (!atual || HomeShelf.vemAntes(p, quando, atual.premiere, atual.quando)) {
+        proximos.set(p.seriesId, { premiere: p, quando });
+      }
+    }
+
+    return [...proximos.values()]
+      .filter(
+        ({ premiere, quando }) =>
+          HomeShelf.temResumo(premiere) &&
+          (quando <= limite || HomeShelf.isAtiva(premiere.lastActivityAt, now)),
+      )
+      .sort((a, b) => a.quando - b.quando)
+      .map(({ premiere }) => premiere);
+  }
+
+  /**
+   * Meio-dia UTC da data: a data de exibição não tem hora, e qualquer fuso do Brasil ou da Europa
+   * cai no mesmo dia do calendário a partir daí.
+   */
+  private static diaDaEstreia(airDate: string): number | null {
+    const quando = new Date(`${airDate}T12:00:00Z`).getTime();
+    return Number.isNaN(quando) ? null : quando;
+  }
+
+  /** Ordem de exibição: a data primeiro; no mesmo dia (estreia dupla), o menor episódio. */
+  private static vemAntes(
+    a: PremiereLike,
+    quandoA: number,
+    b: PremiereLike,
+    quandoB: number,
+  ): boolean {
+    if (quandoA !== quandoB) return quandoA < quandoB;
+    if (a.seasonNumber !== b.seasonNumber) return a.seasonNumber < b.seasonNumber;
+    return a.episodeNumber < b.episodeNumber;
+  }
+
+  /** Resumo em branco é o mesmo que nenhum: não há o que ler no cartão. */
+  private static temResumo(p: PremiereLike): boolean {
+    return typeof p.overview === 'string' && p.overview.trim().length > 0;
   }
 
   private static startOfLocalDay(date: Date): number {

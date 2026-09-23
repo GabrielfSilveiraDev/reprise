@@ -19,11 +19,20 @@
   color: var(--fg-subtle);
 }
 
-/* Grade, não faixa que rola: aqui há largura. No celular a mesma informação é horizontal. */
+/*
+ * Grade, não faixa que rola: aqui há largura. No celular a mesma informação é horizontal.
+ * 15rem e não os 11rem de antes: o cartão agora carrega um resumo, e numa coluna estreita ele
+ * vira uma tira de três palavras por linha.
+ */
 .premieres__list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   gap: var(--space-3);
+  /* O reset que as outras listas do app têm (`.nextup`) e esta não tinha: sem ele cada cartão
+     ganhava uma bolinha de marcador ao lado e a grade entrava recuada em relação ao título. */
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .premiere__link {
@@ -95,4 +104,21 @@
 .premiere__episode {
   font-size: var(--text-xs);
   color: var(--fg-subtle);
+}
+
+/*
+ * Quatro linhas no máximo: é o bastante para saber do que o episódio trata, e mantém os cartões
+ * da mesma fileira com alturas parecidas. `line-clamp` corta só o desenho — leitor de tela lê o
+ * texto inteiro.
+ */
+.premiere__overview {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--fg-muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
 }

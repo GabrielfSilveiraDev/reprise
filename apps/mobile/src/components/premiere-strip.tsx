@@ -16,6 +16,9 @@ import { useTheme } from '@/hooks/use-theme';
  *
  * Horizontal e compacta porque é contexto, não tarefa: nada aqui se marca como assistido — o
  * episódio ainda nem foi ao ar.
+ *
+ * <b>Um cartão por série, com o resumo.</b> Quem escolhe o que entra é o `HomeShelf` (o próximo
+ * episódio de cada série, e só quando ele tem data e resumo) — a mesma regra do web.
  */
 export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] }) {
   const t = useTheme();
@@ -26,7 +29,7 @@ export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] })
       <View style={styles.head}>
         <Text style={[styles.title, { color: t.fgSubtle }]}>Estreias</Text>
         <Text style={[styles.count, { color: t.fgSubtle }]}>
-          {premieres.length} {premieres.length === 1 ? 'episódio' : 'episódios'}
+          {premieres.length} {premieres.length === 1 ? 'série' : 'séries'}
         </Text>
       </View>
 
@@ -59,9 +62,15 @@ export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] })
               </Text>
               <Text style={[styles.episode, { color: t.fgSubtle }]} numberOfLines={1}>
                 {formatEpisodeCode(p.seasonNumber, p.episodeNumber)}
+                {p.episodeName ? ` · ${p.episodeName}` : ''}
                 {/* Estreia de temporada é a notícia; o sétimo episódio não é. */}
                 {p.isSeasonPremiere ? ' · nova temporada' : ''}
               </Text>
+              {p.overview ? (
+                <Text style={[styles.overview, { color: t.fgMuted }]} numberOfLines={4}>
+                  {p.overview}
+                </Text>
+              ) : null}
             </View>
           </Pressable>
         ))}
@@ -86,8 +95,10 @@ const styles = StyleSheet.create({
   title: EyebrowStyle,
   count: { fontSize: FontSize.xs },
   strip: { gap: Spacing[3], paddingHorizontal: Spacing[4], paddingBottom: Spacing[2] },
+  // 220 e não 160: o cartão agora carrega o resumo, e numa coluna estreita ele vira uma tira de
+  // duas palavras por linha. Ainda cabe o começo do cartão seguinte, que é o convite para rolar.
   card: {
-    width: 160,
+    width: 220,
     borderWidth: 1,
     borderRadius: Radius.md,
     padding: Spacing[2],
@@ -97,4 +108,5 @@ const styles = StyleSheet.create({
   when: { fontSize: FontSize.xs, fontWeight: '700' },
   series: { fontSize: FontSize.sm, fontWeight: '700' },
   episode: { fontSize: FontSize.xs },
+  overview: { fontSize: FontSize.xs, lineHeight: 17, marginTop: Spacing[1] },
 });

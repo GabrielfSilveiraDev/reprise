@@ -261,6 +261,29 @@ esta integração existe para evitar.
 **Não reposiciona episódio.** Quando TVmaze e TMDB repartem a série em temporadas diferentes, o
 episódio sem par simplesmente não recebe data do TVmaze e continua valendo pelo TMDB.
 
+## O catálogo se atualiza sozinho
+
+Com a chave do TMDB configurada, a API mantém em dia as séries que alguém acompanha e que o TMDB
+não dá por encerradas. Ela confere na partida e depois de hora em hora, e reconsulta no TMDB e no
+TVmaze cada série cuja última consulta tem mais de **12 horas**. É o mesmo caminho do `enrich` e do
+`agenda`, inclusive a regra de nunca apagar episódio. Ver `CatalogRefresh`.
+
+Existe porque a CLI só roda quando alguém lembra dela. Em setembro de 2026 o catálogo estava sem
+a volta de Silo (julho de 2027), sem duas temporadas já datadas e sem o resumo do próximo Dark
+Matter, e a faixa de estreias da tela inicial só enxergava o que o catálogo sabia.
+
+- **Série encerrada ou cancelada fica de fora**, porque não ganha episódio. Se uma delas voltar,
+  rode o `enrich --force`.
+- **O marco é `series.updated_at`**, que só o enriquecimento escreve. Se a API fechar no meio de
+  uma rodada, a próxima retoma de onde parou.
+- **Falha numa série não para as outras.** Ela vira aviso no `api.log` e é tentada de novo na
+  rodada seguinte (hoje é o caso de *Monster*, cujo id no TMDB deixou de existir).
+
+É isso que alimenta as **Estreias** da tela inicial: o próximo episódio de cada série, desde que
+tenha data e resumo. Uma série que você está assistindo (com exibição nos últimos 60 dias) aparece
+a qualquer distância; as outras que você acompanha só aparecem se estrearem em até 45 dias. A
+regra mora no `HomeShelf`, no pacote compartilhado, e vale igual no web e no app.
+
 ## Cliente web
 
 ```bash

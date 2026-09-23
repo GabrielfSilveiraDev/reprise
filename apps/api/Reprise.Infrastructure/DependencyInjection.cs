@@ -6,6 +6,7 @@ using Reprise.Application.Abstractions;
 using Reprise.Application.Enrichment;
 using Reprise.Application.Features.Series;
 using Reprise.Application.Features.Stats;
+using Reprise.Infrastructure.Catalog;
 using Reprise.Infrastructure.Persistence;
 using Reprise.Infrastructure.Tmdb;
 using Reprise.Infrastructure.Tvmaze;
@@ -101,6 +102,21 @@ public static class DependencyInjection
         });
 
         services.AddScoped<TvmazeScheduleSync>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registra a atualização automática do catálogo (<see cref="CatalogRefresh"/>).
+    ///
+    /// <para>
+    /// Chamada à parte, depois de <see cref="AddRepriseTmdb"/> e <see cref="AddRepriseTvmaze"/>,
+    /// porque depende das duas fontes — e, como o TMDB, só faz sentido quando há chave. Quem decide
+    /// isso é o host: a API a registra dentro do mesmo <c>if</c> da chave do TMDB.
+    /// </para>
+    /// </summary>
+    public static IServiceCollection AddRepriseCatalogRefresh(this IServiceCollection services)
+    {
+        services.AddScoped<CatalogRefresh>();
         return services;
     }
 }

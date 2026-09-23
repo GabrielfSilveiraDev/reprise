@@ -86,73 +86,92 @@ public sealed class TvmazeScheduleSync
             ct.ThrowIfCancellationRequested();
             progress?.Report(s.Name);
 
-            TvmazeShow? show;
-            try
+            var r = await SincronizarAsync(s, ct);
+            if (r.Show is not null) matched++;
+
+            if (r.Falha is { } motivo)
             {
-                show = await ResolveAsync(s, ct);
-            }
-            catch (Exception ex)
-            {
-                // Uma série que falha não pode interromper as outras: a sincronização é longa e
-                // reexecutá-la do zero por causa de um erro de rede custaria todas as consultas já
-                // feitas.
-                misses.Add(new TvmazeMiss(s.Name, $"erro ao consultar: {ex.GetType().Name}"));
+                misses.Add(new TvmazeMiss(s.Name, motivo));
                 continue;
             }
 
-            if (show is null)
-            {
-                misses.Add(new TvmazeMiss(s.Name, "não encontrada no TVmaze"));
-                continue;
-            }
-
-            s.TvmazeId = show.Id;
-            matched++;
-
-            IReadOnlyList<TvmazeEpisode> remotos;
-            try
-            {
-                remotos = await _tvmaze.GetEpisodesAsync(show.Id, ct);
-            }
-            catch (Exception ex)
-            {
-                misses.Add(new TvmazeMiss(s.Name, $"erro ao buscar episódios: {ex.GetType().Name}"));
-                continue;
-            }
-
-            var porPosicao = remotos
-                .Where(e => e.AirDate is not null)
-                .GroupBy(e => (e.SeasonNumber, e.EpisodeNumber))
-                .ToDictionary(g => g.Key, g => g.First());
-
-            var locais = await _db.Episodes.Where(e => e.SeriesId == s.Id).ToListAsync(ct);
-
-            var divergiuNaSerie = 0;
-            foreach (var local in locais)
-            {
-                if (!porPosicao.TryGetValue((local.SeasonNumber, local.EpisodeNumber), out var remoto)) continue;
-
-                local.TvmazeAirDate = remoto.AirDate;
-                local.TvmazeAirStamp = remoto.AirStamp;
-
-                datados++;
-                if (remoto.HasDeclaredTime) comHora++;
-                if (local.AirDate is { } tmdb && remoto.AirDate is { } tv && tmdb != tv)
-                {
-                    divergentes++;
-                    divergiuNaSerie++;
-                }
-            }
-
-            if (divergiuNaSerie > 0)
-                divergencias.Add($"{s.Name} ({show.Network ?? "?"}): {divergiuNaSerie} episódio(s) com data diferente do TMDB");
-
-            // Grava por série, e não tudo no fim: numa sincronização de mais de cem séries, uma
-            // falha no meio não deve devolver o trabalho todo para o começo.
-            await _db.SaveChangesAsync(ct);
+            datados += r.Datados;
+            comHora += r.ComHora;
+            divergentes += r.Divergentes;
+            if (r.Divergentes > 0)
+                divergencias.Add($"{s.Name} ({r.Show!.Network ?? "?"}): {r.Divergentes} episódio(s) com data diferente do TMDB");
         }
 
         return new TvmazeSyncReport(considered, matched, datados, comHora, divergentes, misses, divergencias);
+    }
+
+    /// <summary>
+    /// Sincroniza uma série só — o caminho da atualização automática do catálogo, que acabou de
+    /// trazer episódios novos do TMDB e precisa da agenda deles agora, e não na próxima varredura.
+    /// </summary>
+    /// <returns>Por que a série não foi sincronizada, ou nulo quando foi.</returns>
+    public async Task<string?> SyncSeriesAsync(Series s, CancellationToken ct = default) =>
+        (await SincronizarAsync(s, ct)).Falha;
+
+    /// <summary>O que aconteceu com uma série. <see cref="Show"/> preenchido e <see cref="Falha"/> também: casou, mas os episódios não vieram.</summary>
+    private sealed record Resultado(TvmazeShow? Show, int Datados, int ComHora, int Divergentes, string? Falha);
+
+    private async Task<Resultado> SincronizarAsync(Series s, CancellationToken ct)
+    {
+        TvmazeShow? show;
+        try
+        {
+            show = await ResolveAsync(s, ct);
+        }
+        catch (Exception ex)
+        {
+            // Uma série que falha não pode interromper as outras: a sincronização é longa e
+            // reexecutá-la do zero por causa de um erro de rede custaria todas as consultas já
+            // feitas.
+            return new Resultado(null, 0, 0, 0, $"erro ao consultar: {ex.GetType().Name}");
+        }
+
+        if (show is null) return new Resultado(null, 0, 0, 0, "não encontrada no TVmaze");
+
+        s.TvmazeId = show.Id;
+
+        IReadOnlyList<TvmazeEpisode> remotos;
+        try
+        {
+            remotos = await _tvmaze.GetEpisodesAsync(show.Id, ct);
+        }
+        catch (Exception ex)
+        {
+            // O casamento vale mesmo sem os episódios: grava o id para a próxima vez não ter de
+            // procurar de novo.
+            await _db.SaveChangesAsync(ct);
+            return new Resultado(show, 0, 0, 0, $"erro ao buscar episódios: {ex.GetType().Name}");
+        }
+
+        var porPosicao = remotos
+            .Where(e => e.AirDate is not null)
+            .GroupBy(e => (e.SeasonNumber, e.EpisodeNumber))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var locais = await _db.Episodes.Where(e => e.SeriesId == s.Id).ToListAsync(ct);
+
+        int datados = 0, comHora = 0, divergentes = 0;
+        foreach (var local in locais)
+        {
+            if (!porPosicao.TryGetValue((local.SeasonNumber, local.EpisodeNumber), out var remoto)) continue;
+
+            local.TvmazeAirDate = remoto.AirDate;
+            local.TvmazeAirStamp = remoto.AirStamp;
+
+            datados++;
+            if (remoto.HasDeclaredTime) comHora++;
+            if (local.AirDate is { } tmdb && remoto.AirDate is { } tv && tmdb != tv) divergentes++;
+        }
+
+        // Grava por série, e não tudo no fim: numa sincronização de mais de cem séries, uma
+        // falha no meio não deve devolver o trabalho todo para o começo.
+        await _db.SaveChangesAsync(ct);
+        return new Resultado(show, datados, comHora, divergentes, null);
     }
 
     /// <summary>

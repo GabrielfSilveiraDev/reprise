@@ -686,7 +686,7 @@
         "tags": [
           "Premieres"
         ],
-        "summary": "Episódios ainda por estrear das séries acompanhadas, do mais próximo ao mais distante.",
+        "summary": "Episódios ainda por estrear das séries acompanhadas, do mais próximo ao mais distante. Sem withinDays, sem limite de distância.",
         "parameters": [
           {
             "name": "withinDays",
@@ -1397,7 +1397,9 @@
           "stillPath",
           "airDate",
           "releasesAt",
-          "isSeasonPremiere"
+          "isSeasonPremiere",
+          "overview",
+          "lastActivityAt"
         ],
         "type": "object",
         "properties": {
@@ -1467,6 +1469,19 @@
           },
           "isSeasonPremiere": {
             "type": "boolean"
+          },
+          "overview": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastActivityAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

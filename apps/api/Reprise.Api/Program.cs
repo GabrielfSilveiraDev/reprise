@@ -28,6 +28,13 @@ if (TmdbClient.IsUsableApiKey(tmdbApiKey))
     // Só no host web: a CLI de importação roda e termina, então não tem pool de conexões para
     // manter vivo. Ver TmdbConnectionWarmer para o porquê dos 45 segundos.
     builder.Services.AddHostedService<TmdbConnectionWarmer>();
+
+    // O catálogo das séries em produção se atualiza sozinho — sem isso a tela inicial não fica
+    // sabendo de temporada nova nem do resumo do próximo episódio. Depende do TMDB, daí morar
+    // dentro deste `if`; o TVmaze, que não tem chave, completa a agenda. Ver CatalogRefresh.
+    builder.Services.AddRepriseTvmaze();
+    builder.Services.AddRepriseCatalogRefresh();
+    builder.Services.AddHostedService<CatalogRefreshWorker>();
 }
 
 // Depois da Infrastructure de propósito: substitui o ICurrentUser semente pelo que lê o JWT.

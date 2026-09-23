@@ -823,7 +823,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Episódios ainda por estrear das séries acompanhadas, do mais próximo ao mais distante. */
+        /** Episódios ainda por estrear das séries acompanhadas, do mais próximo ao mais distante. Sem withinDays, sem limite de distância. */
         get: {
             parameters: {
                 query?: {
@@ -1091,6 +1091,9 @@ export interface components {
             /** Format: date-time */
             releasesAt: null | string;
             isSeasonPremiere: boolean;
+            overview: null | string;
+            /** Format: date-time */
+            lastActivityAt: null | string;
         };
         ProfileDto: {
             displayName: string;

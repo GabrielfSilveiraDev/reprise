@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { HomeShelf, formatEpisodeCode, formatWhen, posterUrl } from '@reprise/shared';
+import { Airing, HomeShelf, formatEpisodeCode, posterUrl } from '@reprise/shared';
 import type { NextUpItem } from '@reprise/shared';
 import { useNextUp, usePremieres, useProfile } from '@/api/queries';
 import { QueryState } from '@/components/query-state';
@@ -73,11 +73,21 @@ export default function CinemaProximos() {
               {estreias.length > 0 ? (
                 <View style={{ paddingHorizontal: t.shape.space(4), gap: t.shape.space(2), marginTop: t.shape.space(5) }}>
                   <Text style={[t.shape.section, { color: t.fg }]}>Estreias</Text>
+                  {/* Uma por série, e só com data e resumo — a regra é do HomeShelf. A data sai do
+                      Airing, que ancora a air_date no meio-dia UTC: lida crua, ela vira meia-noite
+                      UTC e, no Brasil, a véspera. */}
                   {estreias.slice(0, 4).map((p) => (
-                    <Text key={`${p.seriesId}-${p.airDate}`} style={{ color: t.fgMuted, fontSize: t.shape.font.sm }}>
-                      {p.seriesName} · {formatEpisodeCode(p.seasonNumber, p.episodeNumber)} ·{' '}
-                      {formatWhen(p.airDate)}
-                    </Text>
+                    <View key={p.episodeId} style={{ gap: 2 }}>
+                      <Text style={{ color: t.fgMuted, fontSize: t.shape.font.sm }}>
+                        {p.seriesName} · {formatEpisodeCode(p.seasonNumber, p.episodeNumber)} ·{' '}
+                        {Airing.label(p.airDate, undefined, p.releasesAt)}
+                      </Text>
+                      {p.overview ? (
+                        <Text style={{ color: t.fgSubtle, fontSize: t.shape.font.xs }} numberOfLines={3}>
+                          {p.overview}
+                        </Text>
+                      ) : null}
+                    </View>
                   ))}
                 </View>
               ) : null}
