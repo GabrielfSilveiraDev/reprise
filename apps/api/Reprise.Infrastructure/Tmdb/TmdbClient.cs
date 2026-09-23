@@ -122,7 +122,10 @@ public sealed class TmdbClient : ITmdbClient, IDisposable
             PickPoster(show.Images?.Posters, show.PosterPath),
             show.FirstAirDate is { } d ? DateOnly.FromDateTime(d) : null,
             show.Status,
-            AverageRuntimeSeconds(show.EpisodeRunTime));
+            AverageRuntimeSeconds(show.EpisodeRunTime),
+            // O TMDB devolve uma lista; na prática é um país só, e quando são vários o primeiro
+            // é o principal. Guardar mais de um não ajudaria: o fuso tem de ser um.
+            show.OriginCountry?.FirstOrDefault());
     }
 
     /// <inheritdoc />

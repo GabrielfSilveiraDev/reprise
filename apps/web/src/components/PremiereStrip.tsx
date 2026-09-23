@@ -31,7 +31,7 @@ export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] })
           const still = stillUrl(p.stillPath, 'w300');
           // A âncora de meio-dia UTC estava escrita aqui e em mais três lugares; agora mora com
           // a regra de estreia, que é de quem ela é.
-          const quando = Airing.label(p.airDate);
+          const quando = Airing.label(p.airDate, undefined, p.releasesAt);
 
           return (
             <li key={p.episodeId} className="premiere">

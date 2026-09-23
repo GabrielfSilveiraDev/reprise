@@ -76,7 +76,9 @@ public class RepriseDbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(500).IsRequired();
+            e.Property(x => x.OriginCountry).HasMaxLength(2);       // ISO 3166-1 alfa-2
             e.HasIndex(x => x.TvdbId).IsUnique().HasFilter(null);   // catálogo global; casamento pelo TheTVDB
+            e.HasIndex(x => x.TvmazeId);
             e.HasIndex(x => x.TmdbId).IsUnique();
         });
 

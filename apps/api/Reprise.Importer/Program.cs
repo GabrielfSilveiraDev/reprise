@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Reprise.Application;
 using Reprise.Application.Enrichment;
@@ -7,7 +8,10 @@ using Reprise.Application.Features.Watching;
 using Reprise.Application.Import;
 using Reprise.Importer;
 using Reprise.Domain.Entities;
+using Reprise.Application.Abstractions;
 using Reprise.Infrastructure;
+using Reprise.Infrastructure.Persistence;
+using Reprise.Infrastructure.Tvmaze;
 
 // CLI do Reprise. Idempotente e reexecutável nos dois modos.
 //   reprise-import <caminho.zip|.csv> [--dry-run]      importa o export do TV Time
@@ -17,6 +21,10 @@ using Reprise.Infrastructure;
 //   reprise-import passwd --email <e> --password <p> [--name <nome>] [--user <usuario>]
 //       define a senha de uma conta (cria se não existir). É como o dono entra na própria conta
 //       depois que a autenticação passou a existir.
+//   reprise-import paises [--force]
+//       preenche o país de origem das séries — é o que diz em que fuso a data de estreia vale
+//   reprise-import agenda [--force] [--mudou <day|week|month>]
+//       traz do TVmaze a data e o horário de estreia de cada episódio
 
 var positional = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
 
@@ -26,6 +34,8 @@ if (positional.Length == 0)
     Console.Error.WriteLine("     reprise-import enrich [--force] [--tvdb <id>]");
     Console.Error.WriteLine("     reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]");
     Console.Error.WriteLine("     reprise-import passwd --email <e> --password <p> [--name <nome>] [--user <usuario>]");
+    Console.Error.WriteLine("     reprise-import paises [--force]");
+    Console.Error.WriteLine("     reprise-import agenda [--force] [--mudou <day|week|month>]");
     return 1;
 }
 
@@ -37,6 +47,8 @@ return positional[0].ToLowerInvariant() switch
     "enrich" => await RunEnrichAsync(args, positional, conn),
     "backfill" => await RunBackfillAsync(args, conn),
     "passwd" => await RunPasswdAsync(args, conn),
+    "paises" => await RunOriginCountryAsync(args, conn),
+    "agenda" => await RunTvmazeAsync(args, conn),
     _ => await RunImportAsync(args, positional, conn)
 };
 
@@ -262,4 +274,185 @@ static async Task<int> RunEnrichAsync(string[] args, string[] positional, string
     EnrichmentReportPrinter.Print(Console.Out, report);
 
     return report.NeedsAttention ? 3 : 0; // 3 = concluiu, mas há séries a resolver manualmente
+}
+
+
+/// <summary>
+/// Preenche <c>series.origin_country</c> a partir do TMDB.
+///
+/// <para>
+/// Existe como comando próprio, e não como parte do <c>enrich</c>, por uma questão de proporção:
+/// o enriquecimento reprocessa o catálogo inteiro — episódios, temporadas, runtimes, nomes —, e
+/// aqui a necessidade é preencher UMA coluna que nasceu depois dos dados. Rodar <c>enrich
+/// --force</c> para isso mexeria em milhares de linhas para atualizar 118 campos.
+/// </para>
+///
+/// <para>
+/// O país é o que permite saber <b>quando</b> um episódio sai: a <c>air_date</c> do TMDB não tem
+/// hora nem fuso, e sem o país não dá para distinguir uma estreia japonesa de uma americana no
+/// mesmo dia do calendário. Ver <c>ReleaseSchedule</c>. Sem esta coluna tudo cai no padrão
+/// conservador (Pacífico americano), que acerta a maioria do acervo e atrasa o resto.
+/// </para>
+/// </summary>
+static async Task<int> RunOriginCountryAsync(string[] args, string conn)
+{
+    if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("Tmdb__ApiKey")))
+    {
+        Console.Error.WriteLine("Variável de ambiente Tmdb__ApiKey não definida.");
+        return 1;
+    }
+
+    var force = args.Contains("--force");
+
+    var services = new ServiceCollection();
+    services.AddRepriseInfrastructure(conn);
+    services.AddRepriseApplication();
+    services.AddRepriseTmdb();
+    await using var provider = services.BuildServiceProvider();
+    using var scope = provider.CreateScope();
+
+    var db = scope.ServiceProvider.GetRequiredService<RepriseDbContext>();
+    var tmdb = scope.ServiceProvider.GetRequiredService<ITmdbClient>();
+
+    // Sem --force, só quem ainda não tem: reexecutar depois de acrescentar séries custa poucas
+    // chamadas em vez de 118.
+    var alvos = await db.Series
+        .Where(s => s.TmdbId != null && (force || s.OriginCountry == null))
+        .OrderBy(s => s.Name)
+        .ToListAsync();
+
+    Console.WriteLine($"Séries a consultar: {alvos.Count}");
+
+    var preenchidas = 0;
+    var semPais = new List<string>();
+    var falharam = new List<string>();
+
+    foreach (var s in alvos)
+    {
+        // Um id morto não pode derrubar o lote. Acontece de verdade: série que o TMDB fundiu ou
+        // removeu devolve 404, e abortar aqui jogaria fora as outras 115 consultas já pagas.
+        TmdbShow? show;
+        try
+        {
+            show = await tmdb.GetShowAsync(s.TmdbId!.Value);
+        }
+        catch (Exception ex)
+        {
+            falharam.Add($"{s.Name} (tmdb {s.TmdbId}): {ex.GetType().Name}");
+            continue;
+        }
+
+        if (show?.OriginCountry is { Length: > 0 } pais)
+        {
+            s.OriginCountry = pais;
+            preenchidas++;
+        }
+        else
+        {
+            // Não é erro: o TMDB tem séries sem país declarado. Elas caem no padrão conservador.
+            semPais.Add(s.Name);
+        }
+    }
+
+    await db.SaveChangesAsync();
+
+    Console.WriteLine($"Preenchidas: {preenchidas}");
+    if (semPais.Count > 0)
+    {
+        Console.WriteLine($"Sem país no TMDB ({semPais.Count}) — ficam no padrão conservador:");
+        foreach (var nome in semPais) Console.WriteLine($"  - {nome}");
+    }
+    if (falharam.Count > 0)
+    {
+        Console.WriteLine($"Não consultadas ({falharam.Count}) — ficam no padrão conservador:");
+        foreach (var linha in falharam) Console.WriteLine($"  - {linha}");
+    }
+
+    var porPais = await db.Series
+        .Where(s => s.OriginCountry != null)
+        .GroupBy(s => s.OriginCountry!)
+        .Select(g => new { Pais = g.Key, Total = g.Count() })
+        .OrderByDescending(x => x.Total)
+        .ToListAsync();
+
+    Console.WriteLine("Distribuição:");
+    foreach (var linha in porPais) Console.WriteLine($"  {linha.Pais}: {linha.Total}");
+
+    return 0;
+}
+
+
+/// <summary>
+/// Sincroniza a agenda de estreias com o TVmaze.
+///
+/// <para>
+/// <b>Não precisa de chave.</b> Ao contrário do <c>enrich</c>, que depende do TMDB, este comando
+/// roda numa instalação recém-clonada — o que importa, porque é dele que sai a correção de
+/// "estreou hoje" para episódio que só sai amanhã.
+/// </para>
+///
+/// <para>
+/// <c>--mudou</c> é o modo de manutenção: em vez de varrer o acervo, pergunta ao TVmaze o que
+/// mudou na janela e reconsulta só isso. É o que vale rodar periodicamente.
+/// </para>
+/// </summary>
+static async Task<int> RunTvmazeAsync(string[] args, string conn)
+{
+    static string? Flag(string[] a, string name)
+    {
+        var i = Array.IndexOf(a, name);
+        return i >= 0 && i + 1 < a.Length ? a[i + 1] : null;
+    }
+
+    var force = args.Contains("--force");
+    var mudou = Flag(args, "--mudou");
+
+    if (mudou is not null && mudou is not ("day" or "week" or "month"))
+    {
+        Console.Error.WriteLine("--mudou aceita day, week ou month.");
+        return 1;
+    }
+
+    var services = new ServiceCollection();
+    services.AddRepriseInfrastructure(conn);
+    services.AddRepriseApplication();
+    services.AddRepriseTvmaze();
+    await using var provider = services.BuildServiceProvider();
+    using var scope = provider.CreateScope();
+
+    var sync = scope.ServiceProvider.GetRequiredService<TvmazeScheduleSync>();
+
+    var feitas = 0;
+    var progresso = new Progress<string>(nome => Console.WriteLine($"  [{++feitas,3}] {nome}"));
+
+    Console.WriteLine(mudou is not null
+        ? $"Sincronizando as séries alteradas no TVmaze (janela: {mudou})…"
+        : force
+            ? "Sincronizando TODAS as séries com o TVmaze (--force)…"
+            : "Sincronizando as séries ainda sem id do TVmaze…");
+
+    var r = await sync.SyncAsync(force, mudou, progresso);
+
+    Console.WriteLine();
+    Console.WriteLine($"Séries consideradas ....... {r.SeriesConsidered}");
+    Console.WriteLine($"Casadas no TVmaze ......... {r.SeriesMatched}");
+    Console.WriteLine($"Episódios com data ........ {r.EpisodesDated}");
+    Console.WriteLine($"  com horário exato ....... {r.EpisodesWithExactTime}  (TV linear)");
+    Console.WriteLine($"  data diferente do TMDB .. {r.DatesDifferentFromTmdb}");
+
+    if (r.Divergences.Count > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine("Onde as fontes discordam (o TVmaze manda):");
+        foreach (var d in r.Divergences) Console.WriteLine($"  - {d}");
+    }
+
+    if (r.Misses.Count > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine($"Sem agenda do TVmaze ({r.Misses.Count}) — continuam pelo TMDB:");
+        foreach (var m in r.Misses) Console.WriteLine($"  - {m.SeriesName}: {m.Reason}");
+    }
+
+    return 0;
 }

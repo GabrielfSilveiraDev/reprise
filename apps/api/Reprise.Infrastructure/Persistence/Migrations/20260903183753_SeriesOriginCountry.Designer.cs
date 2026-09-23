@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Reprise.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Reprise.Infrastructure.Persistence;
 namespace Reprise.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(RepriseDbContext))]
-    partial class RepriseDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260903183753_SeriesOriginCountry")]
+    partial class SeriesOriginCountry
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -237,14 +240,6 @@ namespace Reprise.Infrastructure.Persistence.Migrations
                     b.Property<int?>("TmdbId")
                         .HasColumnType("integer")
                         .HasColumnName("tmdb_id");
-
-                    b.Property<DateOnly?>("TvmazeAirDate")
-                        .HasColumnType("date")
-                        .HasColumnName("tvmaze_air_date");
-
-                    b.Property<DateTimeOffset?>("TvmazeAirStamp")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("tvmaze_air_stamp");
 
                     b.HasKey("Id")
                         .HasName("pk_episodes");
@@ -510,10 +505,6 @@ namespace Reprise.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("tvdb_id");
 
-                    b.Property<int?>("TvmazeId")
-                        .HasColumnType("integer")
-                        .HasColumnName("tvmaze_id");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -528,9 +519,6 @@ namespace Reprise.Infrastructure.Persistence.Migrations
                     b.HasIndex("TvdbId")
                         .IsUnique()
                         .HasDatabaseName("ix_series_tvdb_id");
-
-                    b.HasIndex("TvmazeId")
-                        .HasDatabaseName("ix_series_tvmaze_id");
 
                     b.ToTable("series", (string)null);
                 });

@@ -33,7 +33,7 @@ public sealed class WatchingServiceTests : IClassFixture<PostgresFixture>, IAsyn
     [Fact]
     public async Task Marcar_episodio_que_ainda_nao_estreou_e_recusado()
     {
-        var ids = await SemearAsync(("Ontem", -1), ("Semana que vem", 7));
+        var ids = await SemearAsync(("Dias atrás", -3), ("Semana que vem", 7));
 
         await using var db = _pg.CreateContext(_eu);
         var resultado = await Servico(db).MarkAsync(ids["Semana que vem"], watchedAt: null);
@@ -43,13 +43,29 @@ public sealed class WatchingServiceTests : IClassFixture<PostgresFixture>, IAsyn
         Assert.Equal(0, await db.WatchEvents.CountAsync());
     }
 
+    /// <summary>
+    /// O caso do Silo T3E10: <c>air_date</c> é hoje no calendário americano, mas o dia ainda não
+    /// terminou lá — a tela diz "Estreia amanhã", e o botão tem de concordar com a tela.
+    /// </summary>
+    [Fact]
+    public async Task Marcar_episodio_de_hoje_que_ainda_nao_saiu_na_origem_e_recusado()
+    {
+        var ids = await SemearAsync(("Hoje", 0));
+
+        await using var db = _pg.CreateContext(_eu);
+        var resultado = await Servico(db).MarkAsync(ids["Hoje"], watchedAt: null);
+
+        Assert.Equal(MarkRefusal.NotAiredYet, resultado.Refusal);
+        Assert.Equal(0, await db.WatchEvents.CountAsync());
+    }
+
     [Fact]
     public async Task Marcar_episodio_ja_exibido_continua_funcionando()
     {
-        var ids = await SemearAsync(("Ontem", -1));
+        var ids = await SemearAsync(("Dias atrás", -3));
 
         await using var db = _pg.CreateContext(_eu);
-        var resultado = await Servico(db).MarkAsync(ids["Ontem"], watchedAt: null);
+        var resultado = await Servico(db).MarkAsync(ids["Dias atrás"], watchedAt: null);
 
         Assert.Equal(MarkRefusal.None, resultado.Refusal);
         Assert.Equal(1, resultado.State!.WatchCount);
@@ -70,10 +86,10 @@ public sealed class WatchingServiceTests : IClassFixture<PostgresFixture>, IAsyn
     [Fact]
     public async Task Marcar_com_data_no_futuro_e_recusado()
     {
-        var ids = await SemearAsync(("Ontem", -1));
+        var ids = await SemearAsync(("Dias atrás", -3));
 
         await using var db = _pg.CreateContext(_eu);
-        var resultado = await Servico(db).MarkAsync(ids["Ontem"], DateTimeOffset.UtcNow.AddDays(30));
+        var resultado = await Servico(db).MarkAsync(ids["Dias atrás"], DateTimeOffset.UtcNow.AddDays(30));
 
         Assert.Equal(MarkRefusal.WatchedInTheFuture, resultado.Refusal);
         Assert.Equal(0, await db.WatchEvents.CountAsync());
@@ -83,10 +99,10 @@ public sealed class WatchingServiceTests : IClassFixture<PostgresFixture>, IAsyn
     public async Task Relogio_adiantado_nao_derruba_a_marcacao()
     {
         // Celular meia hora à frente é comum; recusar por isso seria trocar um defeito por outro.
-        var ids = await SemearAsync(("Ontem", -1));
+        var ids = await SemearAsync(("Dias atrás", -3));
 
         await using var db = _pg.CreateContext(_eu);
-        var resultado = await Servico(db).MarkAsync(ids["Ontem"], DateTimeOffset.UtcNow.AddMinutes(30));
+        var resultado = await Servico(db).MarkAsync(ids["Dias atrás"], DateTimeOffset.UtcNow.AddMinutes(30));
 
         Assert.Equal(MarkRefusal.None, resultado.Refusal);
     }
@@ -94,7 +110,9 @@ public sealed class WatchingServiceTests : IClassFixture<PostgresFixture>, IAsyn
     [Fact]
     public async Task Marcar_a_temporada_pula_em_silencio_o_que_ainda_nao_estreou()
     {
-        var ids = await SemearAsync(("E1", -30), ("E2", -1), ("E3", 7), ("E4", 14));
+        // E2 três dias atrás, e não ontem: "ontem" em UTC ainda não saiu no Pacífico entre 0h e 8h
+        // UTC, e o teste passava ou falhava conforme a hora em que a suíte rodava.
+        var ids = await SemearAsync(("E1", -30), ("E2", -3), ("E3", 7), ("E4", 14));
         var serie = await SerieIdAsync();
 
         await using var db = _pg.CreateContext(_eu);
@@ -136,7 +154,9 @@ public sealed class WatchingServiceTests : IClassFixture<PostgresFixture>, IAsyn
         await using var db = _pg.CreateContext(_eu);
         var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        var serie = new Series { Name = "Série de teste" };
+        // País declarado de propósito: sem ele a regra de lançamento cai no padrão, e o teste
+        // passaria a depender do fuso do padrão em vez de afirmar algo sobre a série.
+        var serie = new Series { Name = "Série de teste", OriginCountry = "US" };
         db.Series.Add(serie);
         await db.SaveChangesAsync();
 

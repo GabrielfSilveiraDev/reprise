@@ -8,6 +8,7 @@ using Reprise.Application.Features.Series;
 using Reprise.Application.Features.Stats;
 using Reprise.Infrastructure.Persistence;
 using Reprise.Infrastructure.Tmdb;
+using Reprise.Infrastructure.Tvmaze;
 
 namespace Reprise.Infrastructure;
 
@@ -77,6 +78,29 @@ public static class DependencyInjection
         // A busca de séries novas também depende do TMDB, então segue a mesma sorte: existe quando
         // há chave configurada, e não existe quando não há.
         services.AddScoped<SeriesCatalogService>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registra o cliente do TVmaze e a sincronização de agenda.
+    ///
+    /// <para>
+    /// Separado do TMDB de propósito: são fontes independentes, e o TVmaze <b>não exige chave</b>.
+    /// Prendê-lo ao <c>AddRepriseTmdb</c> faria a agenda depender de um segredo que ela não usa —
+    /// quem não configurou o TMDB continuaria sem datas corretas sem motivo nenhum.
+    /// </para>
+    /// </summary>
+    public static IServiceCollection AddRepriseTvmaze(this IServiceCollection services)
+    {
+        services.AddHttpClient<ITvmazeClient, TvmazeClient>(http =>
+        {
+            http.BaseAddress = new Uri("https://api.tvmaze.com/");
+            http.Timeout = TimeSpan.FromSeconds(30);
+            // A API é pública e pede identificação de quem chama.
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Reprise/0.1 (rastreador pessoal de series)");
+        });
+
+        services.AddScoped<TvmazeScheduleSync>();
         return services;
     }
 }

@@ -59,7 +59,7 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
       case 'M':
         event.preventDefault();
         // O atalho obedece à mesma regra do botão: o teclado não é uma porta dos fundos.
-        if (Airing.hasAired(episode.airDate)) onMark(episode);
+        if (Airing.hasReleased(episode.releasesAt, episode.airDate)) onMark(episode);
         break;
       case 'u':
       case 'U':
@@ -81,7 +81,11 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
       {episodes.map((episode, index) => {
         const watched = episode.watchCount > 0;
         const busy = busyEpisodeId === episode.id;
-        const aired = Airing.hasAired(episode.airDate);
+        // Episódio não lançado não se marca — nem por botão, nem por atalho, nem no servidor.
+        const aired = Airing.hasReleased(episode.releasesAt, episode.airDate);
+        // O texto fala pelo instante de estreia (fuso de origem da série); o BOTÃO continua
+        // pela data, permissivo. Ver Airing: são perguntas diferentes de propósito.
+        const quando = Airing.label(episode.airDate, undefined, episode.releasesAt);
 
         return (
           <li
@@ -144,7 +148,7 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
               {watched
                 ? formatWatchedAt(episode.lastWatchedAt)
                 : aired
-                  ? (Airing.label(episode.airDate) ?? '')
+                  ? (quando ?? '')
                   : ''}
             </span>
 
@@ -173,7 +177,7 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
                   </span>
                 </button>
               ) : (
-                <span className="episode__soon">{Airing.label(episode.airDate)}</span>
+                <span className="episode__soon">{quando}</span>
               )}
 
               {/*

@@ -41,7 +41,7 @@ export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] })
             style={[styles.card, { backgroundColor: t.bgRaised, borderColor: t.border }]}
             onPress={() => router.push(`/series/${p.seriesId}`)}
             accessibilityRole="button"
-            accessibilityLabel={`${p.seriesName}, ${formatEpisodeCode(p.seasonNumber, p.episodeNumber)}, estreia ${quando(p.airDate)}${p.isSeasonPremiere ? '. Estreia de temporada.' : ''}`}
+            accessibilityLabel={`${p.seriesName}, ${formatEpisodeCode(p.seasonNumber, p.episodeNumber)}, estreia ${quando(p.airDate, p.releasesAt)}${p.isSeasonPremiere ? '. Estreia de temporada.' : ''}`}
           >
             <EpisodeThumb
               seasonNumber={p.seasonNumber}
@@ -52,7 +52,7 @@ export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] })
 
             <View style={styles.text}>
               <Text style={[styles.when, { color: t.accent }]} numberOfLines={1}>
-                {quando(p.airDate)}
+                {quando(p.airDate, p.releasesAt)}
               </Text>
               <Text style={[styles.series, { color: t.fg }]} numberOfLines={2}>
                 {p.seriesName}
@@ -70,9 +70,9 @@ export function PremiereStrip({ premieres }: { premieres: readonly Premiere[] })
   );
 }
 
-/** A âncora de meio-dia UTC e o verbo certo moram no `Airing`, junto com a regra de estreia. */
-function quando(airDate: string): string {
-  return Airing.label(airDate) ?? '';
+/** O verbo certo e o instante de estreia moram no `Airing`, junto com a regra. */
+function quando(airDate: string, releasesAt?: string | null): string {
+  return Airing.label(airDate, undefined, releasesAt) ?? '';
 }
 
 const styles = StyleSheet.create({

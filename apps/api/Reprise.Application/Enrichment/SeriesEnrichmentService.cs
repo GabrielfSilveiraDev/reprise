@@ -134,6 +134,7 @@ public sealed class SeriesEnrichmentService
         s.PosterPath = show.PosterPath;
         s.FirstAirDate = show.FirstAirDate;
         s.Status = show.Status;
+        s.OriginCountry = show.OriginCountry;
         s.FallbackRuntimeSeconds = plan.EffectiveAverageRuntimeSeconds;
         s.MetadataEnriched = true;
         s.UpdatedAt = DateTimeOffset.UtcNow;

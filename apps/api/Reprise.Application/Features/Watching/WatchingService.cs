@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Reprise.Application.Abstractions;
 using Reprise.Application.Features.Series;
 using Reprise.Domain.Entities;
+using Reprise.Domain.Scheduling;
 
 namespace Reprise.Application.Features.Watching;
 
@@ -44,11 +45,20 @@ public sealed class WatchingService
     {
         var episode = await _db.Episodes
             .Where(e => e.Id == episodeId)
-            .Select(e => new { e.AirDate })
+            .Select(e => new { e.AirDate, e.TvmazeAirDate, e.TvmazeAirStamp, e.Series.OriginCountry })
             .FirstOrDefaultAsync(ct);
 
         if (episode is null) return MarkOutcome.NotFound;
-        if (!Episode.HasAired(episode.AirDate, Episode.Today())) return MarkOutcome.NotAired;
+
+        // Recusa pelo INSTANTE de lançamento (fuso de origem da série), e não pela data em UTC.
+        // A regra antiga liberava o episódio de amanhã a partir das 21h no Brasil — hora em que o
+        // UTC já virou —, e liberava o de hoje desde a meia-noite, quando ele ainda não saiu.
+        // É a MESMA regra que a tela usa para dizer "Estreia amanhã": o botão não pode aceitar o
+        // que o texto ao lado dele diz que ainda não existe.
+        var lancamento = new EpisodeRelease(
+            episode.AirDate, episode.TvmazeAirDate, episode.TvmazeAirStamp, episode.OriginCountry);
+
+        if (!ReleaseSchedule.HasReleased(lancamento, DateTimeOffset.UtcNow)) return MarkOutcome.NotAired;
 
         // A outra porta para o mesmo evento impossível. O episódio pode já ter estreado e a DATA
         // vir no futuro — nenhum cliente manda isso hoje, mas o corpo aceita, e uma exibição
@@ -103,11 +113,10 @@ public sealed class WatchingService
     {
         if (await AlreadyAppliedAsync(clientKey, ct)) return 0;
 
-        var unseen = await _db.Episodes
-            .Where(e => e.SeriesId == seriesId && e.SeasonNumber == seasonNumber && !e.WatchEvents.Any())
-            .Where(Episode.Aired(Episode.Today()))
-            .Select(e => e.Id)
-            .ToListAsync(ct);
+        var unseen = await JaLancadosAsync(
+            seriesId,
+            _db.Episodes.Where(e => e.SeriesId == seriesId && e.SeasonNumber == seasonNumber && !e.WatchEvents.Any()),
+            ct);
 
         return await MarkManyAsync(unseen, watchedAt, clientKey, ActionKind.WatchSeason, ct);
     }
@@ -117,15 +126,45 @@ public sealed class WatchingService
     {
         if (await AlreadyAppliedAsync(clientKey, ct)) return 0;
 
-        var unseen = await _db.Episodes
-            .Where(e => e.SeriesId == seriesId && e.SeasonNumber > 0 && !e.WatchEvents.Any()
-                        && (e.SeasonNumber < seasonNumber
-                            || (e.SeasonNumber == seasonNumber && e.EpisodeNumber <= episodeNumber)))
-            .Where(Episode.Aired(Episode.Today()))
-            .Select(e => e.Id)
-            .ToListAsync(ct);
+        var unseen = await JaLancadosAsync(
+            seriesId,
+            _db.Episodes.Where(e => e.SeriesId == seriesId && e.SeasonNumber > 0 && !e.WatchEvents.Any()
+                                    && (e.SeasonNumber < seasonNumber
+                                        || (e.SeasonNumber == seasonNumber && e.EpisodeNumber <= episodeNumber))),
+            ct);
 
         return await MarkManyAsync(unseen, watchedAt, clientKey, ActionKind.WatchUpTo, ct);
+    }
+
+    /// <summary>
+    /// Dos episódios candidatos, os que já saíram.
+    ///
+    /// <para>
+    /// O filtro fino acontece na memória porque o instante de lançamento passou a ser <b>por
+    /// episódio</b> — o TVmaze dá horário exato em TV linear e data própria no resto —, e isso não
+    /// cabe numa comparação de datas em SQL. O custo é trazer quatro colunas dos episódios de UMA
+    /// série em vez de só os ids: um conjunto pequeno e limitado, contra o benefício de a regra
+    /// continuar existindo num lugar só.
+    /// </para>
+    /// </summary>
+    private async Task<List<long>> JaLancadosAsync(
+        long seriesId, IQueryable<Episode> candidatos, CancellationToken ct)
+    {
+        var pais = await _db.Series
+            .Where(s => s.Id == seriesId)
+            .Select(s => s.OriginCountry)
+            .FirstOrDefaultAsync(ct);
+
+        var linhas = await candidatos
+            .Select(e => new { e.Id, e.AirDate, e.TvmazeAirDate, e.TvmazeAirStamp })
+            .ToListAsync(ct);
+
+        var agora = DateTimeOffset.UtcNow;
+        return linhas
+            .Where(e => ReleaseSchedule.HasReleased(
+                new EpisodeRelease(e.AirDate, e.TvmazeAirDate, e.TvmazeAirStamp, pais), agora))
+            .Select(e => e.Id)
+            .ToList();
     }
 
     private async Task<int> MarkManyAsync(

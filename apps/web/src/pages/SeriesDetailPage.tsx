@@ -216,9 +216,13 @@ function SeasonSection({
   // O que dá para marcar: não visto E já exibido. Sem o segundo filtro, "Marcar 6" na Silo
   // prometia marcar seis episódios e o servidor marcaria dois — o botão mentiria o número.
   const unseen = season.episodes.filter(
-    (e) => e.watchCount === 0 && Airing.hasAired(e.airDate),
+    (e) => e.watchCount === 0 && Airing.hasReleased(e.releasesAt, e.airDate),
   ).length;
-  const porVir = season.episodes.filter((e) => !Airing.hasAired(e.airDate)).length;
+  // "Por vir" conta o que ainda não SAIU — pelo instante, não pela data. O episódio cuja
+  // air_date é hoje mas que só chega de madrugada continua sendo um episódio por vir.
+  const porVir = season.episodes.filter(
+    (e) => !Airing.hasReleased(e.releasesAt, e.airDate)
+  ).length;
   const title = season.isSpecials ? 'Especiais' : `Temporada ${season.seasonNumber}`;
   const headingId = `season-${season.seasonNumber}`;
 

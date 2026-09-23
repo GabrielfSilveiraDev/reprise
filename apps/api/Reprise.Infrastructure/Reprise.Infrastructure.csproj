@@ -16,6 +16,8 @@
     <!-- Cache das respostas de busca do TMDB. Vinha transitivo pelo EF Core; explícito porque o
          código depende dele diretamente. -->
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.10" />
+    <!-- IHttpClientFactory, para o cliente do TVmaze. O TMDB traz o dele pelo TMDbLib. -->
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.10" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.16.0" />
     <PackageReference Include="TMDbLib" Version="3.0.0" />

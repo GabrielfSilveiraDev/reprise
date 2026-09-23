@@ -23,6 +23,20 @@ public class Episode
     public DateOnly? AirDate { get; set; }
 
     /// <summary>
+    /// A data de estreia segundo o TVmaze. Guardada ao lado da <see cref="AirDate"/>, e não por
+    /// cima dela: são fontes diferentes que discordam em 22% dos episódios, e sobrescrever
+    /// apagaria a evidência de qual delas disse o quê.
+    /// </summary>
+    public DateOnly? TvmazeAirDate { get; set; }
+
+    /// <summary>
+    /// O instante exato da estreia, do TVmaze — <b>só quando ele declara horário</b>, o que na
+    /// prática significa TV linear. Em streaming o TVmaze devolve meio-dia UTC de enchimento, e a
+    /// sincronização deixa este campo nulo em vez de gravar uma hora que não existe.
+    /// </summary>
+    public DateTimeOffset? TvmazeAirStamp { get; set; }
+
+    /// <summary>
     /// Caminho da imagem de cena do episódio no TMDB (o "still"), no formato <c>/abc123.jpg</c>.
     /// Nulo é comum e esperado: episódio antigo, especial ou de série pequena costuma não ter.
     /// </summary>

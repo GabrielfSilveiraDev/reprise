@@ -54,7 +54,12 @@ public sealed record TmdbShow(
     string? PosterPath,
     DateOnly? FirstAirDate,
     string? Status,
-    int? AverageRuntimeSeconds);
+    int? AverageRuntimeSeconds,
+    /// <summary>
+    /// País de origem (ISO 3166-1 alfa-2), o primeiro que o TMDB lista. É o insumo do
+    /// <c>ReleaseSchedule</c>: sem ele, a data de estreia não tem fuso a que se referir.
+    /// </summary>
+    string? OriginCountry);
 
 /// <summary>
 /// Um resultado da busca por texto. É deliberadamente mais magro que <see cref="TmdbShow"/>: a

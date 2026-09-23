@@ -290,9 +290,12 @@ function SeasonBlock({
   // Só o que dá para marcar: não visto E já exibido. "Marcar 6" numa temporada com quatro
   // episódios agendados prometeria seis e o servidor criaria dois.
   const unseen = season.episodes.filter(
-    (e) => countOf(e) === 0 && Airing.hasAired(e.airDate),
+    (e) => countOf(e) === 0 && Airing.hasReleased(e.releasesAt, e.airDate),
   ).length;
-  const porVir = season.episodes.filter((e) => !Airing.hasAired(e.airDate)).length;
+  // "Por vir" conta o que ainda não SAIU — pelo instante, não pela data.
+  const porVir = season.episodes.filter(
+    (e) => !Airing.hasReleased(e.releasesAt, e.airDate)
+  ).length;
   const nome = season.isSpecials ? 'Especiais' : `Temporada ${season.seasonNumber}`;
 
   return (

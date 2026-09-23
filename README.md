@@ -127,6 +127,23 @@ O casamento é por **id do TheTVDB** (`find/{id}?external_source=tvdb_id`), nunc
 Série que o TMDB não resolver aparece no relatório e pode ser resolvida à mão inserindo um
 `SeriesMatchOverride` (`tvdb_id` → `tmdb_id`).
 
+### País de origem: quando o episódio sai
+
+```bash
+dotnet run --project apps/api/Reprise.Importer -- paises           # só quem ainda não tem
+dotnet run --project apps/api/Reprise.Importer -- paises --force   # reconsulta todas
+```
+
+Comando à parte do `enrich` por proporção: o enriquecimento reprocessa o catálogo inteiro para
+atualizar uma coluna que nasceu depois dos dados. Um id morto no TMDB não derruba o lote — a
+série entra no relatório e cai no padrão.
+
+O país é o que diz **em que fuso a data de estreia vale**. A `air_date` do TMDB é data pura, sem
+hora nem fuso, e é do calendário do país de origem — conferido na API: não existe campo de
+horário nem no episódio nem na série. Sem o país não dá para distinguir uma estreia japonesa de
+uma americana no mesmo dia, e é daí que vinha o defeito de um episódio que só sai amanhã
+aparecer como "Estreou hoje". Ver `ReleaseSchedule`.
+
 ### Numeração incompatível: alinhamento por ordem
 
 TVDB (fonte do TV Time) e TMDB frequentemente discordam de como repartir uma série em temporadas.
@@ -155,6 +172,45 @@ número.
 - **O runtime do export prevalece.** É com ele que suas estatísticas sempre foram contadas; o
   TMDB só preenche o que está vazio. Quando o valor vem de uma média (e não do episódio),
   `runtime_estimated` marca isso para as estatísticas saberem o que é medido e o que é chute.
+
+## Agenda de estreias pelo TVmaze
+
+```bash
+dotnet run --project apps/api/Reprise.Importer -- agenda                  # só as séries sem id do TVmaze
+dotnet run --project apps/api/Reprise.Importer -- agenda --force          # reconsulta todas
+dotnet run --project apps/api/Reprise.Importer -- agenda --mudou week     # só o que mudou na semana
+```
+
+**Não precisa de chave** — a API do TVmaze é aberta. O casamento é pelo **id do TheTVDB**, que já
+existe no catálogo desde o export; série sem ele cai na busca por nome, e aí o ano de estreia
+precisa bater (com um ano de folga), senão o casamento é recusado: *Monster* e *Dark Matter* são
+nomes que várias séries diferentes carregam.
+
+### Por que uma segunda fonte
+
+O TMDB não tem hora de estreia em campo nenhum, e a data dele é a do calendário de origem.
+Comparados episódio a episódio contra o acervo real (402 episódios, 32 séries), os dois
+concordam em **77%** e divergem em um dia nos outros 22% — **69 de 69 episódios de Apple TV**,
+parte dos de Prime Video, e **nada** em Netflix, HBO, Disney+, FX, The CW, Adult Swim ou
+Crunchyroll. Era essa divergência que fazia um episódio de sexta aparecer como estreado na
+quinta.
+
+Na sincronização completa do acervo: 117 de 118 séries casadas, 6.583 episódios datados, **4.993
+com horário exato** (TV linear) e 628 com data diferente do TMDB.
+
+### O que a sincronização não faz
+
+**Não toca no catálogo.** Nome, sinopse, pôster, temporadas e a própria `air_date` do TMDB ficam
+como estão — só `tvmaze_air_date` e `tvmaze_air_stamp` são escritos. Guardar ao lado, e não por
+cima, é o que permite comparar as fontes depois e torna o comando seguro de repetir.
+
+**Não grava horário que não existe.** Em streaming o TVmaze preenche `airstamp` com meio-dia UTC
+de enchimento; a sincronização só aceita o instante quando há `airtime` declarado. Tratar o
+placeholder como hora real faria o app anunciar estreia às 9h da manhã — a precisão falsa que
+esta integração existe para evitar.
+
+**Não reposiciona episódio.** Quando TVmaze e TMDB repartem a série em temporadas diferentes, o
+episódio sem par simplesmente não recebe data do TVmaze e continua valendo pelo TMDB.
 
 ## Cliente web
 

@@ -296,8 +296,9 @@ export class ContagemDaTemporada {
       season.episodes.filter((e) => contar(e) > 0).length,
       // "Marcar 6" numa temporada com quatro episódios agendados prometeria seis, e o servidor
       // criaria dois.
-      season.episodes.filter((e) => contar(e) === 0 && Airing.hasAired(e.airDate)).length,
-      season.episodes.filter((e) => !Airing.hasAired(e.airDate)).length,
+      season.episodes.filter((e) => contar(e) === 0 && Airing.hasReleased(e.releasesAt, e.airDate))
+        .length,
+      season.episodes.filter((e) => !Airing.hasReleased(e.releasesAt, e.airDate)).length,
     );
   }
 

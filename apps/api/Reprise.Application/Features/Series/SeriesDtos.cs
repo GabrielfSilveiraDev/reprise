@@ -42,7 +42,16 @@ public sealed record EpisodeDto(
     DateTimeOffset? LastWatchedAt,
     /// <summary>Imagem de cena no TMDB. Nulo é comum em especiais (só 66% deles têm).</summary>
     string? StillPath,
-    DateOnly? AirDate);
+    DateOnly? AirDate,
+    /// <summary>
+    /// Instante em que o episódio passa a contar como lançado — ver <c>ReleaseSchedule</c>.
+    ///
+    /// Vem calculado do servidor porque a conta depende do país de origem da série, e repetir a
+    /// tabela de fusos no web e no app daria três lugares para a mesma regra divergir. O cliente
+    /// só compara com o relógio dele, e é dessa comparação que sai o "estreia amanhã" no fuso de
+    /// quem está olhando. Nulo quando não há <c>AirDate</c>.
+    /// </summary>
+    DateTimeOffset? ReleasesAt);
 
 public sealed record SeasonDto(
     int SeasonNumber,

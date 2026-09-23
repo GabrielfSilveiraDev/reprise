@@ -52,7 +52,11 @@ export function EpisodeRow({
   const level = watched ? Math.max(1, Math.ceil((count / Math.max(1, peak)) * MAX_LEVEL)) : 0;
   const color = watched ? (t.track[level - 1] ?? t.accent) : t.trackEmpty;
   const code = formatEpisodeCode(episode.seasonNumber, episode.episodeNumber);
-  const aired = Airing.hasAired(episode.airDate);
+  // Episódio não lançado não se marca — nem por toque, nem no servidor.
+  const aired = Airing.hasReleased(episode.releasesAt, episode.airDate);
+  // O texto fala pelo instante de estreia (fuso de origem da série); o BOTÃO continua pela
+  // data, permissivo. Ver Airing: são perguntas diferentes de propósito.
+  const quando = Airing.label(episode.airDate, undefined, episode.releasesAt);
 
   return (
     <View style={[styles.wrapper, { borderBottomColor: t.border }]}>
@@ -101,8 +105,8 @@ export function EpisodeRow({
               {formatRuntime(episode.runtimeSeconds)}
               {episode.lastWatchedAt
                 ? ` · ${formatWatchedAt(episode.lastWatchedAt)}`
-                : Airing.label(episode.airDate)
-                  ? ` · ${Airing.label(episode.airDate)}`
+                : quando
+                  ? ` · ${quando}`
                   : ''}
             </Text>
           </View>
@@ -142,7 +146,7 @@ export function EpisodeRow({
           <View
             style={styles.markButton}
             accessible
-            accessibilityLabel={`${code} ainda não foi ao ar. ${Airing.label(episode.airDate) ?? ''}`}
+            accessibilityLabel={`${code} ainda não foi ao ar. ${quando ?? ''}`}
           >
             <Text style={[styles.markText, { color: t.fgSubtle }]}>⏳</Text>
           </View>
@@ -158,10 +162,8 @@ export function EpisodeRow({
             <Action label="Marcar até aqui" onPress={onMarkUpTo} />
           ) : null}
           {/* Um verbo só para as duas direções do tempo dizia "Estreou em amanhã". */}
-          {Airing.label(episode.airDate) ? (
-            <Text style={[styles.airDate, { color: t.fgSubtle }]}>
-              {Airing.label(episode.airDate)}
-            </Text>
+          {quando ? (
+            <Text style={[styles.airDate, { color: t.fgSubtle }]}>{quando}</Text>
           ) : null}
         </View>
       ) : null}

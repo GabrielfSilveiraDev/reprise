@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Reprise.Application.Abstractions;
 using Reprise.Application.Features.Watching;
 using Reprise.Domain.Entities;
+using Reprise.Domain.Scheduling;
 using Reprise.Domain.Enums;
 
 namespace Reprise.Application.Features.Series;
@@ -88,7 +89,7 @@ public sealed class SeriesQueries
             .Select(e => new
             {
                 e.Id, e.SeasonNumber, e.EpisodeNumber, e.Name, e.RuntimeSeconds, e.IsSpecial,
-                e.StillPath, e.AirDate,
+                e.StillPath, e.AirDate, e.TvmazeAirDate, e.TvmazeAirStamp,
                 WatchCount = e.WatchEvents.Count(),
                 Last = e.WatchEvents.Max(w => (DateTimeOffset?)w.WatchedAt)
             })
@@ -105,7 +106,9 @@ public sealed class SeriesQueries
                 g.OrderBy(e => e.EpisodeNumber)
                     .Select(e => new EpisodeDto(
                         e.Id, e.SeasonNumber, e.EpisodeNumber, e.Name, e.RuntimeSeconds, e.IsSpecial,
-                        e.WatchCount, e.Last, e.StillPath, e.AirDate))
+                        e.WatchCount, e.Last, e.StillPath, e.AirDate,
+                        ReleaseSchedule.ReleasesAt(new EpisodeRelease(
+                            e.AirDate, e.TvmazeAirDate, e.TvmazeAirStamp, series.OriginCountry))))
                     .ToList()))
             .ToList();
 

@@ -981,6 +981,8 @@ export interface components {
             stillPath: null | string;
             /** Format: date */
             airDate: null | string;
+            /** Format: date-time */
+            releasesAt: null | string;
         };
         EpisodeRefDto: {
             /** Format: int64 */
@@ -1085,6 +1087,8 @@ export interface components {
             stillPath: null | string;
             /** Format: date */
             airDate: string;
+            /** Format: date-time */
+            releasesAt: null | string;
             isSeasonPremiere: boolean;
         };
         ProfileDto: {

@@ -916,7 +916,8 @@
           "watchCount",
           "lastWatchedAt",
           "stillPath",
-          "airDate"
+          "airDate",
+          "releasesAt"
         ],
         "type": "object",
         "properties": {
@@ -989,6 +990,13 @@
               "string"
             ],
             "format": "date"
+          },
+          "releasesAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -1381,6 +1389,7 @@
           "episodeName",
           "stillPath",
           "airDate",
+          "releasesAt",
           "isSeasonPremiere"
         ],
         "type": "object",
@@ -1441,6 +1450,13 @@
           "airDate": {
             "type": "string",
             "format": "date"
+          },
+          "releasesAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           },
           "isSeasonPremiere": {
             "type": "boolean"
