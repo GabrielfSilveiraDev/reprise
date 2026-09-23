@@ -25,6 +25,8 @@ using Reprise.Infrastructure.Tvmaze;
 //       preenche o país de origem das séries — é o que diz em que fuso a data de estreia vale
 //   reprise-import agenda [--force] [--mudou <day|week|month>]
 //       traz do TVmaze a data e o horário de estreia de cada episódio
+//   reprise-import resumos [--force]
+//       preenche a sinopse dos episódios pelo TMDB, sem reprocessar o catálogo
 
 var positional = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
 
@@ -36,6 +38,7 @@ if (positional.Length == 0)
     Console.Error.WriteLine("     reprise-import passwd --email <e> --password <p> [--name <nome>] [--user <usuario>]");
     Console.Error.WriteLine("     reprise-import paises [--force]");
     Console.Error.WriteLine("     reprise-import agenda [--force] [--mudou <day|week|month>]");
+    Console.Error.WriteLine("     reprise-import resumos [--force]");
     return 1;
 }
 
@@ -49,6 +52,7 @@ return positional[0].ToLowerInvariant() switch
     "passwd" => await RunPasswdAsync(args, conn),
     "paises" => await RunOriginCountryAsync(args, conn),
     "agenda" => await RunTvmazeAsync(args, conn),
+    "resumos" => await RunOverviewsAsync(args, conn),
     _ => await RunImportAsync(args, positional, conn)
 };
 
@@ -452,6 +456,120 @@ static async Task<int> RunTvmazeAsync(string[] args, string conn)
         Console.WriteLine();
         Console.WriteLine($"Sem agenda do TVmaze ({r.Misses.Count}) — continuam pelo TMDB:");
         foreach (var m in r.Misses) Console.WriteLine($"  - {m.SeriesName}: {m.Reason}");
+    }
+
+    return 0;
+}
+
+
+/// <summary>
+/// Preenche a sinopse dos episódios pelo TMDB.
+///
+/// <para>
+/// Mesmo raciocínio de <c>paises</c>: o campo nasceu depois dos dados, e o <c>enrich --force</c>
+/// resolveria — mas reprocessando o catálogo inteiro, inclusive o realinhamento de temporadas,
+/// para preencher uma coluna. Aqui só a sinopse é escrita; posição, nome, runtime e datas ficam
+/// intocados.
+/// </para>
+///
+/// <para>
+/// O <c>enrich</c> continua preenchendo a sinopse dos episódios que ele criar daqui para a frente
+/// — ela passou a andar junto com o nome e a imagem no plano de merge. Este comando existe para o
+/// que já estava no banco antes disso.
+/// </para>
+/// </summary>
+static async Task<int> RunOverviewsAsync(string[] args, string conn)
+{
+    if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("Tmdb__ApiKey")))
+    {
+        Console.Error.WriteLine("Variável de ambiente Tmdb__ApiKey não definida.");
+        return 1;
+    }
+
+    var force = args.Contains("--force");
+
+    var services = new ServiceCollection();
+    services.AddRepriseInfrastructure(conn);
+    services.AddRepriseApplication();
+    services.AddRepriseTmdb();
+    await using var provider = services.BuildServiceProvider();
+    using var scope = provider.CreateScope();
+
+    var db = scope.ServiceProvider.GetRequiredService<RepriseDbContext>();
+    var tmdb = scope.ServiceProvider.GetRequiredService<ITmdbClient>();
+
+    var series = await db.Series
+        .Where(s => s.TmdbId != null)
+        .OrderBy(s => s.Name)
+        .ToListAsync();
+
+    // Sem --force, pula série que já tem sinopse em todo episódio: reexecutar depois de
+    // acrescentar séries custa poucas chamadas em vez de uma por série do acervo.
+    if (!force)
+    {
+        var comPendencia = await db.Episodes
+            .Where(e => e.Overview == null)
+            .Select(e => e.SeriesId)
+            .Distinct()
+            .ToListAsync();
+
+        var pendentes = comPendencia.ToHashSet();
+        series = series.Where(s => pendentes.Contains(s.Id)).ToList();
+    }
+
+    Console.WriteLine($"Séries a consultar: {series.Count}");
+
+    var preenchidos = 0;
+    var feitas = 0;
+    var falharam = new List<string>();
+
+    foreach (var s in series)
+    {
+        Console.WriteLine($"  [{++feitas,3}] {s.Name}");
+
+        IReadOnlyList<TmdbEpisode> remotos;
+        try
+        {
+            remotos = await tmdb.GetEpisodesAsync(s.TmdbId!.Value);
+        }
+        catch (Exception ex)
+        {
+            // Um id morto no TMDB não pode derrubar o lote — já aconteceu com o comando `paises`.
+            falharam.Add($"{s.Name} (tmdb {s.TmdbId}): {ex.GetType().Name}");
+            continue;
+        }
+
+        var porPosicao = remotos
+            .Where(r => !string.IsNullOrWhiteSpace(r.Overview))
+            .GroupBy(r => (r.SeasonNumber, r.EpisodeNumber))
+            .ToDictionary(g => g.Key, g => g.First().Overview);
+
+        var locais = await db.Episodes.Where(e => e.SeriesId == s.Id).ToListAsync();
+        foreach (var local in locais)
+        {
+            if (!force && local.Overview is not null) continue;
+            if (!porPosicao.TryGetValue((local.SeasonNumber, local.EpisodeNumber), out var texto)) continue;
+
+            local.Overview = texto;
+            preenchidos++;
+        }
+
+        // Grava por série: uma falha no meio de cem séries não deve devolver tudo ao começo.
+        await db.SaveChangesAsync();
+    }
+
+    var total = await db.Episodes.CountAsync();
+    var comResumo = await db.Episodes.CountAsync(e => e.Overview != null);
+
+    Console.WriteLine();
+    Console.WriteLine($"Sinopses preenchidas nesta execução: {preenchidos}");
+    Console.WriteLine($"Cobertura: {comResumo} de {total} episódios ({100.0 * comResumo / Math.Max(1, total):F1}%)");
+
+    if (falharam.Count > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine($"Não consultadas ({falharam.Count}):");
+        foreach (var linha in falharam) Console.WriteLine($"  - {linha}");
     }
 
     return 0;

@@ -144,6 +144,21 @@ horário nem no episódio nem na série. Sem o país não dá para distinguir um
 uma americana no mesmo dia, e é daí que vinha o defeito de um episódio que só sai amanhã
 aparecer como "Estreou hoje". Ver `ReleaseSchedule`.
 
+### Sinopse dos episódios
+
+```bash
+dotnet run --project apps/api/Reprise.Importer -- resumos           # só os episódios ainda sem
+dotnet run --project apps/api/Reprise.Importer -- resumos --force   # reconsulta todos
+```
+
+Comando à parte pelo mesmo motivo do `paises`: o campo nasceu depois dos dados, e o `enrich
+--force` resolveria reprocessando o catálogo inteiro — inclusive o realinhamento de temporadas —
+para preencher uma coluna. Daqui para a frente o `enrich` já traz a sinopse junto do nome e da
+imagem, então isto é só para o acervo antigo.
+
+A cobertura para no que o TMDB tem: no acervo real, **7.525 de 9.316 episódios (80,8%)**. Os
+demais não têm texto lá, e o painel de detalhes diz isso em vez de mostrar um bloco vazio.
+
 ### Numeração incompatível: alinhamento por ordem
 
 TVDB (fonte do TV Time) e TMDB frequentemente discordam de como repartir uma série em temporadas.

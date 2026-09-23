@@ -88,4 +88,5 @@ public sealed record TmdbEpisode(
     string? Name,
     DateOnly? AirDate,
     int? RuntimeSeconds,
-    string? StillPath = null);
+    string? StillPath = null,
+    string? Overview = null);

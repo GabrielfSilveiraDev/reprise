@@ -916,6 +916,7 @@
           "watchCount",
           "lastWatchedAt",
           "stillPath",
+          "overview",
           "airDate",
           "releasesAt"
         ],
@@ -979,6 +980,12 @@
             "format": "date-time"
           },
           "stillPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "overview": {
             "type": [
               "null",
               "string"

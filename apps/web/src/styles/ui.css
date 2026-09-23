@@ -204,3 +204,37 @@
   border-top: 1px solid var(--border);
   margin-block: var(--space-6);
 }
+
+/* --- Selo de estado ---
+ *
+ * Estado por TEXTO, cor só como reforço. Mora aqui, e não na folha da lista de séries, desde que
+ * o cabeçalho de temporada passou a usá-lo: um selo de "completa" com um desenho na lista e outro
+ * no detalhe faria a mesma informação parecer duas coisas diferentes.
+ *
+ * As cores vêm de `--state-*`, que não são as óbvias de propósito: verde para "concluída" e âmbar
+ * para "em progresso" dão ΔE 3,9 em protanopia — indistinguíveis para quem não enxerga vermelho.
+ * O eixo azul-amarelo-rosa sobrevive ao daltonismo mais comum. Ver tokens.css.
+ */
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  margin-right: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+/*
+ * Um preenchimento por estado. Antes eram dois tratamentos — sólido para "Finalizada", contornado
+ * para "Em dia" — o que fazia a diferença parecer de importância, e não de significado.
+ */
+.badge--finished {
+  background: var(--state-finished);
+  color: var(--state-fg);
+}
+
+.badge--uptodate {
+  background: var(--state-uptodate);
+  color: var(--state-fg);
+}

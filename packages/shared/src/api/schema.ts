@@ -979,6 +979,7 @@ export interface components {
             /** Format: date-time */
             lastWatchedAt: null | string;
             stillPath: null | string;
+            overview: null | string;
             /** Format: date */
             airDate: null | string;
             /** Format: date-time */

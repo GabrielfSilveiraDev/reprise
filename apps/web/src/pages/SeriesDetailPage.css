@@ -102,6 +102,34 @@ kbd {
   font-size: var(--text-xl);
 }
 
+/*
+ * O <h2> continua sendo o título; o <button> dentro dele é só o alvo de clique. Herdar a
+ * tipografia em vez de redeclará-la mantém o cabeçalho igual ao que era antes de virar botão.
+ */
+.season__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  /* Alvo de toque de 44px sem esticar a linha de base do cabeçalho. */
+  min-height: var(--touch-target);
+}
+
+.season__toggle:hover {
+  color: var(--accent);
+}
+
+.season__chevron {
+  display: inline-block;
+  width: 1ch;
+  color: var(--fg-subtle);
+}
+
 .season__count {
   color: var(--fg-subtle);
   font-size: var(--text-sm);
@@ -165,8 +193,10 @@ kbd {
   outline-offset: 2px;
 }
 
-/* "completa" no lugar do botão: mesma informação que o app dá escondendo o controle. */
-.season__done {
-  font-size: var(--text-xs);
-  color: var(--fg-subtle);
+/*
+ * O selo fecha a linha do cabeçalho, então a margem que o primitivo carrega para separá-lo do
+ * texto seguinte na lista de séries aqui só empurraria ele para dentro da borda.
+ */
+.season__head .badge {
+  margin-right: 0;
 }

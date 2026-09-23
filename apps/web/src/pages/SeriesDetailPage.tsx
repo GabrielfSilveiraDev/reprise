@@ -6,6 +6,7 @@ import {
   formatPercent,
   formatSeriesStatus,
   posterUrl,
+  SeasonDisclosure,
   SeriesCompletion,
   WatchTrack,
 } from '@reprise/shared';
@@ -23,6 +24,7 @@ import { EpisodeList } from '../components/EpisodeList';
 import { EpisodeTrack } from '../components/EpisodeTrack';
 import { QueryState } from '../components/QueryState';
 import { RewatchSessions } from '../components/RewatchSessions';
+import { SeasonPreferences } from '../preferences';
 import './SeriesDetailPage.css';
 
 export function SeriesDetailPage() {
@@ -34,6 +36,22 @@ export function SeriesDetailPage() {
   const unmark = useUnmarkEpisode(seriesId);
   const markSeason = useMarkSeason(seriesId);
   const markUpTo = useMarkUpTo(seriesId);
+
+  /*
+   * O estado das temporadas mora AQUI, e não em cada seção.
+   *
+   * A preferência é guardada por série, numa chave só. Com cada seção lendo e escrevendo por
+   * conta própria, dois cliques seguidos em temporadas diferentes sobrescreveriam um ao outro —
+   * cada uma gravaria o mapa que leu antes do clique da outra. Um dono só do mapa resolve isso
+   * por construção.
+   */
+  const [disclosure, setDisclosure] = useState(() => SeasonPreferences.read(seriesId));
+
+  const toggleSeason = (seasonNumber: number, open: boolean) => {
+    const next = SeasonDisclosure.toggle(disclosure, seasonNumber, open);
+    setDisclosure(next);
+    SeasonPreferences.write(seriesId, next);
+  };
 
   const busyEpisodeId = mark.isPending
     ? mark.variables
@@ -132,8 +150,9 @@ export function SeriesDetailPage() {
             />
 
             <p className="shortcuts">
-              Na lista de episódios: <kbd>↑</kbd> <kbd>↓</kbd> navegam · <kbd>M</kbd> marca (de novo
-              = rewatch) · <kbd>U</kbd> desmarca · <kbd>A</kbd> marca até ali.
+              Na lista de episódios: <kbd>↑</kbd> <kbd>↓</kbd> navegam · <kbd>Enter</kbd> abre os
+              detalhes · <kbd>M</kbd> marca (de novo = rewatch) · <kbd>U</kbd> desmarca ·{' '}
+              <kbd>A</kbd> marca até ali.
             </p>
 
             {series.seasons.map((season) => (
@@ -152,6 +171,8 @@ export function SeriesDetailPage() {
                 }
                 onMarkSeason={() => markSeason.mutate(season.seasonNumber)}
                 markingSeason={markSeason.isPending}
+                open={SeasonDisclosure.isOpen(season.seasonNumber, disclosure, series.seasons)}
+                onToggle={(open) => toggleSeason(season.seasonNumber, open)}
               />
             ))}
           </article>
@@ -170,6 +191,8 @@ interface SeasonProps {
   onMarkUpTo: (e: Episode) => void;
   onMarkSeason: () => void;
   markingSeason: boolean;
+  open: boolean;
+  onToggle: (open: boolean) => void;
 }
 
 /**
@@ -209,6 +232,8 @@ function SeasonSection({
   onMarkUpTo,
   onMarkSeason,
   markingSeason,
+  open,
+  onToggle,
 }: SeasonProps) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -226,12 +251,32 @@ function SeasonSection({
   const title = season.isSpecials ? 'Especiais' : `Temporada ${season.seasonNumber}`;
   const headingId = `season-${season.seasonNumber}`;
 
+  const panelId = `season-${season.seasonNumber}-painel`;
+
   return (
     <section className="season" aria-labelledby={headingId}>
       <header className="season__head">
+        {/*
+          O título é o botão de abrir e fechar — o alvo que a pessoa já ia mirar para achar a
+          temporada. A seta é TEXTO, e não a rotação de um ícone: o estado precisa sobreviver a
+          quem não distingue as duas inclinações.
+        */}
         <h2 id={headingId} className="season__title">
-          {title}
+          <button
+            type="button"
+            className="season__toggle"
+            aria-expanded={open}
+            aria-controls={panelId}
+            onClick={() => onToggle(!open)}
+          >
+            <span className="season__chevron" aria-hidden="true">
+              {open ? '▾' : '▸'}
+            </span>
+            {title}
+            <span className="sr-only">{open ? ' — recolher' : ' — expandir'}</span>
+          </button>
         </h2>
+        {/* O progresso fica no cabeçalho para continuar legível com a temporada fechada. */}
         <span className="season__count tabular">
           {watched}/{season.episodes.length}
         </span>
@@ -246,50 +291,65 @@ function SeasonSection({
             <span className="sr-only"> episódios não vistos de {title}</span>
           </button>
         ) : porVir > 0 ? (
-          <span className="season__done">
-            em dia · {porVir === 1 ? 'mais 1 a caminho' : `mais ${porVir} a caminho`}
+          /*
+            Os dois estados usam o selo de `ui.css`, o mesmo da lista de séries — antes eram texto
+            apagado no canto, do tom de um rótulo secundário, e "completa" era justamente a
+            informação que a pessoa procura ao varrer as temporadas de uma série longa.
+            O texto continua dizendo tudo: a cor é reforço, não o dado.
+          */
+          <span className="badge badge--uptodate">
+            Em dia · {porVir === 1 ? 'mais 1 a caminho' : `mais ${porVir} a caminho`}
           </span>
         ) : (
-          <span className="season__done">completa</span>
+          <span className="badge badge--finished">Completa</span>
         )}
       </header>
 
-      <EpisodeTrack
-        episodes={season.episodes}
-        seriesPeak={seriesPeak}
-        selectedId={selectedId}
-        onSelect={(e) => setSelectedId((current) => (current === e.id ? null : e.id))}
-      />
+      {/*
+        Fechada, a temporada some inteira do DOM — trilha, legenda e lista. `hidden` deixaria
+        centenas de linhas e imagens montadas em série longa, e o custo de remontar ao reabrir é
+        menor do que o de manter tudo vivo o tempo todo.
+      */}
+      {open ? (
+        <div id={panelId}>
+          <EpisodeTrack
+            episodes={season.episodes}
+            seriesPeak={seriesPeak}
+            selectedId={selectedId}
+            onSelect={(e) => setSelectedId((current) => (current === e.id ? null : e.id))}
+          />
 
-      <p className="track-legend">
-        <span>Altura do bloco = quantas vezes você assistiu.</span>
-        <span className="track-legend__swatches" aria-hidden="true">
-          {[0, 1, 2, 3, 4].map((level) => (
-            <span key={level} className="track-legend__swatch" data-level={level} />
-          ))}
-        </span>
-        <span>menos → mais</span>
-      </p>
+          <p className="track-legend">
+            <span>Altura do bloco = quantas vezes você assistiu.</span>
+            <span className="track-legend__swatches" aria-hidden="true">
+              {[0, 1, 2, 3, 4].map((level) => (
+                <span key={level} className="track-legend__swatch" data-level={level} />
+              ))}
+            </span>
+            <span>menos → mais</span>
+          </p>
 
-      {selectedId ? (
-        <p className="season__selected" role="status" aria-live="polite">
-          {(() => {
-            const e = season.episodes.find((x) => x.id === selectedId);
-            if (!e) return null;
-            return `${formatEpisodeCode(e.seasonNumber, e.episodeNumber)}${
-              e.name ? ` — ${e.name}` : ''
-            }: ${e.watchCount === 0 ? 'não assistido' : `${e.watchCount}×`}`;
-          })()}
-        </p>
+          {selectedId ? (
+            <p className="season__selected" role="status" aria-live="polite">
+              {(() => {
+                const e = season.episodes.find((x) => x.id === selectedId);
+                if (!e) return null;
+                return `${formatEpisodeCode(e.seasonNumber, e.episodeNumber)}${
+                  e.name ? ` — ${e.name}` : ''
+                }: ${e.watchCount === 0 ? 'não assistido' : `${e.watchCount}×`}`;
+              })()}
+            </p>
+          ) : null}
+
+          <EpisodeList
+            episodes={season.episodes}
+            onMark={onMark}
+            onUnmark={onUnmark}
+            onMarkUpTo={onMarkUpTo}
+            busyEpisodeId={busyEpisodeId}
+          />
+        </div>
       ) : null}
-
-      <EpisodeList
-        episodes={season.episodes}
-        onMark={onMark}
-        onUnmark={onUnmark}
-        onMarkUpTo={onMarkUpTo}
-        busyEpisodeId={busyEpisodeId}
-      />
     </section>
   );
 }

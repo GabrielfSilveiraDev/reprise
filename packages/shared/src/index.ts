@@ -16,5 +16,6 @@ export * from './domain/seriesCompletion.ts';
 export * from './domain/premiereReminders.ts';
 export * from './domain/sessionSummary.ts';
 export * from './domain/homeShelf.ts';
+export * from './domain/seasonDisclosure.ts';
 
 export * from './brand/logo.ts';

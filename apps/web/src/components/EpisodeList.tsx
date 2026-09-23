@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Airing,
   formatEpisodeCode,
@@ -29,6 +29,19 @@ interface Props {
  */
 export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisodeId }: Props) {
   const listRef = useRef<HTMLUListElement>(null);
+
+  /*
+   * UM painel aberto por vez.
+   *
+   * Guardar um conjunto deixaria a temporada inteira aberta a cliques distraídos, e aí a lista
+   * compacta — que existe para varrer o acervo — vira uma pilha de sinopses. Abrir um episódio
+   * fecha o anterior, como acontece ao trocar de aba.
+   */
+  const [detalheId, setDetalheId] = useState<number | null>(null);
+  const alternarDetalhe = useCallback(
+    (id: number) => setDetalheId((atual) => (atual === id ? null : id)),
+    [],
+  );
 
   const moveFocus = useCallback((from: number, delta: number) => {
     const rows = listRef.current?.querySelectorAll<HTMLLIElement>('[data-row]');
@@ -71,6 +84,20 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
         event.preventDefault();
         onMarkUpTo(episode);
         break;
+      // O detalhe entra no mesmo esquema dos outros atalhos. Enter porque é o que se espera de
+      // uma linha focada; D para quem já decorou as letras.
+      case 'Enter':
+      case 'd':
+      case 'D':
+        event.preventDefault();
+        alternarDetalhe(episode.id);
+        break;
+      case 'Escape':
+        if (detalheId !== null) {
+          event.preventDefault();
+          setDetalheId(null);
+        }
+        break;
       default:
         break;
     }
@@ -86,6 +113,9 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
         // O texto fala pelo instante de estreia (fuso de origem da série); o BOTÃO continua
         // pela data, permissivo. Ver Airing: são perguntas diferentes de propósito.
         const quando = Airing.label(episode.airDate, undefined, episode.releasesAt);
+        const aberto = detalheId === episode.id;
+        const painelId = `episodio-${episode.id}-detalhe`;
+        const capaGrande = stillUrl(episode.stillPath, 'w300');
 
         return (
           <li
@@ -110,6 +140,7 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
                 loading="lazy"
                 width={80}
                 height={45}
+                onClick={() => alternarDetalhe(episode.id)}
               />
             ) : (
               /* Sem imagem, uma cartela tipográfica — não um retângulo vazio que pareça
@@ -124,8 +155,26 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
               {formatEpisodeCode(episode.seasonNumber, episode.episodeNumber)}
             </span>
 
+            {/*
+              O título é o botão que abre os detalhes — é onde a mão já vai, e como <button> ele
+              nasce alcançável por teclado e anuncia o estado sozinho. Um `onClick` na linha
+              inteira pareceria igual e não faria nenhuma das duas coisas.
+            */}
             <span className="episode__title">
-              {episode.name ?? <span className="episode__untitled">Sem título</span>}
+              <button
+                type="button"
+                className="episode__open"
+                aria-expanded={aberto}
+                aria-controls={painelId}
+                onClick={() => alternarDetalhe(episode.id)}
+              >
+                {episode.name ?? <span className="episode__untitled">Sem título</span>}
+                <span className="sr-only">
+                  {' '}
+                  {formatEpisodeCode(episode.seasonNumber, episode.episodeNumber)} —{' '}
+                  {aberto ? 'ocultar detalhes' : 'ver detalhes'}
+                </span>
+              </button>
             </span>
 
             <span className="episode__meta tabular">{formatRuntime(episode.runtimeSeconds)}</span>
@@ -200,6 +249,83 @@ export function EpisodeList({ episodes, onMark, onUnmark, onMarkUpTo, busyEpisod
                 </button>
               ) : null}
             </span>
+
+            {/*
+              O painel é um filho da MESMA grade da linha, ocupando todas as colunas — por isso o
+              `grid-column: 1 / -1` no CSS. Pô-lo fora do <li> quebraria a lista (um <div> solto
+              entre itens não é conteúdo de lista) e obrigaria a duplicar a borda de cada linha.
+            */}
+            {aberto ? (
+              <div className="episode__detail" id={painelId}>
+                {capaGrande ? (
+                  <img
+                    className="episode__detail-still"
+                    src={capaGrande}
+                    alt=""
+                    loading="lazy"
+                    width={300}
+                    height={169}
+                  />
+                ) : null}
+
+                <div className="episode__detail-text">
+                  {/*
+                    Sem sinopse não vai um espaço em branco: 19% dos episódios do acervo não têm
+                    texto no TMDB, e um bloco vazio pareceria falha de carregamento. A frase diz
+                    de quem é a lacuna.
+                  */}
+                  {episode.overview ? (
+                    <p className="episode__overview">{episode.overview}</p>
+                  ) : (
+                    <p className="episode__overview episode__overview--empty">
+                      O TMDB não tem sinopse para este episódio.
+                    </p>
+                  )}
+
+                  <dl className="episode__facts">
+                    <div>
+                      <dt>Estreia</dt>
+                      <dd>{quando ?? 'sem data'}</dd>
+                    </div>
+                    <div>
+                      <dt>Duração</dt>
+                      <dd className="tabular">{formatRuntime(episode.runtimeSeconds)}</dd>
+                    </div>
+                    <div>
+                      <dt>Exibições</dt>
+                      <dd className="tabular">{formatWatchCount(episode.watchCount)}</dd>
+                    </div>
+                    {watched ? (
+                      <div>
+                        <dt>Última vez</dt>
+                        <dd>{formatWatchedAt(episode.lastWatchedAt)}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+
+                  {/*
+                    "Marcar até aqui" só existe aqui dentro: na linha ele disputaria espaço com os
+                    dois botões que se usa o tempo todo, e é uma ação que se toma pensando — não de
+                    passagem. O atalho A continua fazendo o mesmo sem abrir nada.
+                  */}
+                  {!episode.isSpecial && aired ? (
+                    <button
+                      type="button"
+                      className="btn btn--quiet"
+                      onClick={() => onMarkUpTo(episode)}
+                      disabled={busy}
+                    >
+                      Marcar até aqui
+                      <span className="sr-only">
+                        {' '}
+                        — todos os episódios até{' '}
+                        {formatEpisodeCode(episode.seasonNumber, episode.episodeNumber)}
+                      </span>
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </li>
         );
       })}

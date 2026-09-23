@@ -174,3 +174,110 @@
       'actions actions actions';
   }
 }
+
+/* ---------------------------------------------------------------------------------------------
+ * Detalhes do episódio
+ *
+ * O painel é filho da mesma grade da linha e ocupa todas as colunas. Foi por isso que a linha
+ * ganhou `grid-column: 1 / -1` aqui e não um wrapper novo: a alternativa era transformar cada
+ * <li> em bloco com uma grade interna, o que mexeria nas sete colunas que já estão calibradas.
+ * ------------------------------------------------------------------------------------------- */
+
+/* O título virou botão; herda a tipografia para a linha continuar idêntica. */
+.episode__open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.episode__open:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* A miniatura abre o mesmo painel — o alvo óbvio para quem quer ver a cena maior. */
+.episode__still {
+  cursor: pointer;
+}
+
+.episode__detail {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-md);
+}
+
+.episode__detail-still {
+  flex: 0 0 auto;
+  width: 300px;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+
+.episode__detail-text {
+  /* `min-width: 0` para o texto poder encolher em vez de empurrar a imagem para fora. */
+  flex: 1 1 18rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.episode__overview {
+  margin: 0;
+  /* Medida de leitura: linha corrida de 900px cansa antes do fim do parágrafo. */
+  max-width: 68ch;
+  line-height: 1.55;
+}
+
+.episode__overview--empty {
+  color: var(--fg-subtle);
+  font-style: italic;
+}
+
+/* Os fatos em colunas que quebram sozinhas — sem tabela, que aqui seria estrutura demais. */
+.episode__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.episode__facts dt {
+  font-size: var(--text-xs);
+  font-weight: 640;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.episode__facts dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/*
+ * Numa tela estreita a linha já empilha; o painel acompanha, com a imagem em cima e o texto
+ * embaixo, em vez de espremer 300px de imagem contra 4rem de texto.
+ */
+@media (max-width: 40rem) {
+  .episode__detail-still {
+    width: 100%;
+  }
+}

@@ -37,6 +37,18 @@ public class Episode
     public DateTimeOffset? TvmazeAirStamp { get; set; }
 
     /// <summary>
+    /// Sinopse do episódio, do TMDB. É o texto do painel de detalhes.
+    ///
+    /// <para>
+    /// <b>Contém spoiler por natureza</b> — o TMDB descreve o que acontece no episódio. Por isso
+    /// ela nunca aparece na linha da lista: só depois de um clique deliberado em algo que diz
+    /// "detalhes". Mostrá-la de enfiada numa temporada que a pessoa está começando a assistir
+    /// estragaria justamente o que o app existe para acompanhar.
+    /// </para>
+    /// </summary>
+    public string? Overview { get; set; }
+
+    /// <summary>
     /// Caminho da imagem de cena do episódio no TMDB (o "still"), no formato <c>/abc123.jpg</c>.
     /// Nulo é comum e esperado: episódio antigo, especial ou de série pequena costuma não ter.
     /// </summary>

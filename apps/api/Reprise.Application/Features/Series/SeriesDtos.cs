@@ -42,6 +42,12 @@ public sealed record EpisodeDto(
     DateTimeOffset? LastWatchedAt,
     /// <summary>Imagem de cena no TMDB. Nulo é comum em especiais (só 66% deles têm).</summary>
     string? StillPath,
+    /// <summary>
+    /// Sinopse do episódio. Vai em toda listagem porque o painel de detalhes abre sem ida ao
+    /// servidor — uma temporada inteira cabe numa resposta que o cliente já buscava, e um
+    /// endpoint por episódio trocaria isso por um giro de rede a cada clique.
+    /// </summary>
+    string? Overview,
     DateOnly? AirDate,
     /// <summary>
     /// Instante em que o episódio passa a contar como lançado — ver <c>ReleaseSchedule</c>.

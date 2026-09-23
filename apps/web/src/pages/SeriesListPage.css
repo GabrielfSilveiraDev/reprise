@@ -192,30 +192,7 @@
   }
 }
 
-/* Selo de conclusão: estado por TEXTO, cor só como reforço. */
-.badge {
-  display: inline-block;
-  padding: 0.1rem 0.4rem;
-  margin-right: var(--space-2);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
-}
-
-/*
- * Um preenchimento por estado. Antes eram dois tratamentos — sólido para "Finalizada", contornado
- * para "Em dia" — o que fazia a diferença parecer de importância, e não de significado.
- */
-.badge--finished {
-  background: var(--state-finished);
-  color: var(--state-fg);
-}
-
-.badge--uptodate {
-  background: var(--state-uptodate);
-  color: var(--state-fg);
-}
+/* O selo de conclusão virou primitivo em `ui.css`: a tela da série usa o mesmo. */
 
 /* A cor da barra por estado vive em `ui.css`, junto do próprio componente de progresso: o item
    aqui só declara `data-state` e a variável desce sozinha. */

@@ -8,12 +8,12 @@ public readonly record struct ExistingEpisode(
 public sealed record EpisodeToCreate(
     int SeasonNumber, int EpisodeNumber, int? TmdbId, string? Name,
     DateOnly? AirDate, int? RuntimeSeconds, bool RuntimeEstimated, bool IsSpecial,
-    string? StillPath = null);
+    string? StillPath = null, string? Overview = null);
 
 /// <summary>Atualização de um episódio existente. Só campos de metadado — a identidade (Id) é preservada.</summary>
 public sealed record EpisodeUpdate(
     long EpisodeId, int? TmdbId, string? Name, DateOnly? AirDate, int? RuntimeSeconds, bool RuntimeEstimated,
-    string? StillPath = null);
+    string? StillPath = null, string? Overview = null);
 
 /// <summary>
 /// Reposicionamento de um episódio existente para as coordenadas do TMDB. Usado quando os dois
@@ -23,7 +23,7 @@ public sealed record EpisodeUpdate(
 public sealed record EpisodeRenumber(
     long EpisodeId, int NewSeasonNumber, int NewEpisodeNumber,
     int? TmdbId, string? Name, DateOnly? AirDate, int? RuntimeSeconds, bool RuntimeEstimated,
-    string? StillPath = null);
+    string? StillPath = null, string? Overview = null);
 
 /// <summary>
 /// O que o enriquecimento fará com uma série. Repare que <b>não existe lista de remoção</b>: é uma
@@ -43,7 +43,7 @@ public sealed record CatalogMergePlan(
 /// <summary>Episódio vindo do TMDB, já normalizado (runtime em segundos) para o merge puro.</summary>
 public readonly record struct TmdbEpisodeInput(
     int? TmdbId, int SeasonNumber, int EpisodeNumber, string? Name, DateOnly? AirDate, int? RuntimeSeconds,
-    string? StillPath = null);
+    string? StillPath = null, string? Overview = null);
 
 /// <summary>
 /// Núcleo puro e determinístico do enriquecimento: dado o catálogo local e o que o TMDB devolveu,
@@ -117,7 +117,7 @@ public static class CatalogMerger
             {
                 var (runtime, estimated, filled) = KeepOrFillRuntime(existing, r.RuntimeSeconds, average);
                 runtimesFilled += filled;
-                updates.Add(new EpisodeUpdate(existing.Id, r.TmdbId, r.Name, r.AirDate, runtime, estimated, r.StillPath));
+                updates.Add(new EpisodeUpdate(existing.Id, r.TmdbId, r.Name, r.AirDate, runtime, estimated, r.StillPath, r.Overview));
             }
             else
             {
@@ -125,7 +125,7 @@ public static class CatalogMerger
                 var (runtime, isEstimate) = ResolveRuntime(r.RuntimeSeconds, average);
                 toCreate.Add(new EpisodeToCreate(
                     r.SeasonNumber, r.EpisodeNumber, r.TmdbId, r.Name, r.AirDate,
-                    runtime, isEstimate, IsSpecial: r.SeasonNumber == 0, StillPath: r.StillPath));
+                    runtime, isEstimate, IsSpecial: r.SeasonNumber == 0, StillPath: r.StillPath, Overview: r.Overview));
             }
         }
 
@@ -189,7 +189,7 @@ public static class CatalogMerger
             runtimesFilled += filled;
             renumbers.Add(new EpisodeRenumber(
                 e.Id, target.SeasonNumber, target.EpisodeNumber,
-                target.TmdbId, target.Name, target.AirDate, runtime, estimated, target.StillPath));
+                target.TmdbId, target.Name, target.AirDate, runtime, estimated, target.StillPath, target.Overview));
         }
 
         var seasonsToCreate = new List<int>();
@@ -208,7 +208,7 @@ public static class CatalogMerger
             var (runtime, isEstimate) = ResolveRuntime(r.RuntimeSeconds, average);
             toCreate.Add(new EpisodeToCreate(
                 r.SeasonNumber, r.EpisodeNumber, r.TmdbId, r.Name, r.AirDate,
-                runtime, isEstimate, IsSpecial: false, StillPath: r.StillPath));
+                runtime, isEstimate, IsSpecial: false, StillPath: r.StillPath, Overview: r.Overview));
         }
 
         // Especiais continuam casando por número — fora da ordem linear.
@@ -218,14 +218,14 @@ public static class CatalogMerger
             {
                 var (runtime, estimated, filled) = KeepOrFillRuntime(existing, r.RuntimeSeconds, average);
                 runtimesFilled += filled;
-                updates.Add(new EpisodeUpdate(existing.Id, r.TmdbId, r.Name, r.AirDate, runtime, estimated, r.StillPath));
+                updates.Add(new EpisodeUpdate(existing.Id, r.TmdbId, r.Name, r.AirDate, runtime, estimated, r.StillPath, r.Overview));
             }
             else
             {
                 var (runtime, isEstimate) = ResolveRuntime(r.RuntimeSeconds, average);
                 toCreate.Add(new EpisodeToCreate(
                     0, r.EpisodeNumber, r.TmdbId, r.Name, r.AirDate, runtime, isEstimate,
-                    IsSpecial: true, StillPath: r.StillPath));
+                    IsSpecial: true, StillPath: r.StillPath, Overview: r.Overview));
             }
         }
 

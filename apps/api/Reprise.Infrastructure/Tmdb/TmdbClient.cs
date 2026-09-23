@@ -278,7 +278,8 @@ public sealed class TmdbClient : ITmdbClient, IDisposable
                 string.IsNullOrWhiteSpace(e.Name) ? null : e.Name,
                 e.AirDate is { } ad ? DateOnly.FromDateTime(ad) : null,
                 e.Runtime is > 0 ? e.Runtime * 60 : null, // TMDB dá minutos; o Reprise guarda segundos
-                string.IsNullOrWhiteSpace(e.StillPath) ? null : e.StillPath)));
+                string.IsNullOrWhiteSpace(e.StillPath) ? null : e.StillPath,
+                string.IsNullOrWhiteSpace(e.Overview) ? null : e.Overview)));
         }
 
         return episodes;
