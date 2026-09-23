@@ -66,4 +66,30 @@ public sealed class TrackingService
 
     public Task<TrackingUpdateResult> SetAsync(long seriesId, string status, CancellationToken ct = default)
         => ApplyAsync([new TrackingChange(seriesId, status)], ct);
+
+    /// <summary>
+    /// Tira a revisão da série da fila de próximos, até a próxima exibição repetida — ver
+    /// <see cref="Domain.Entities.TrackedSeries.RewatchDismissedAt"/>. Falso se a série não é acompanhada.
+    ///
+    /// <para>
+    /// Não muda o estado nem o log: quem cansou de rever uma série continua com ela concluída e
+    /// com todas as passagens registradas.
+    /// </para>
+    /// </summary>
+    public Task<bool> DismissRewatchAsync(long seriesId, CancellationToken ct = default)
+        => SetRewatchDismissalAsync(seriesId, DateTimeOffset.UtcNow, ct);
+
+    /// <summary>Desfaz <see cref="DismissRewatchAsync"/>: a revisão volta para a fila, se ainda estiver em andamento.</summary>
+    public Task<bool> RestoreRewatchAsync(long seriesId, CancellationToken ct = default)
+        => SetRewatchDismissalAsync(seriesId, null, ct);
+
+    private async Task<bool> SetRewatchDismissalAsync(long seriesId, DateTimeOffset? when, CancellationToken ct)
+    {
+        var row = await _db.TrackedSeries.FirstOrDefaultAsync(t => t.SeriesId == seriesId, ct);
+        if (row is null) return false;
+
+        row.RewatchDismissedAt = when;
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
 }

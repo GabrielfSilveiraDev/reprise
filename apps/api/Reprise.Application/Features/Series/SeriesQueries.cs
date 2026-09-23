@@ -216,35 +216,143 @@ public sealed class SeriesQueries
     }
 
     /// <summary>
-    /// Próximo episódio não visto de cada série ACOMPANHADA, ordenado por atividade recente.
+    /// Por quanto tempo uma revisão continua na fila sem outra exibição repetida. É a mesma
+    /// janela que o web usa para "em andamento": revisão parada há dois meses não é o que você
+    /// está assistindo.
+    /// </summary>
+    public static readonly TimeSpan RewatchWindow = TimeSpan.FromDays(30);
+
+    /// <summary>
+    /// A fila de "o que assistir agora", ordenada por atividade recente. Duas origens:
+    ///
+    /// <list type="bullet">
+    ///   <item>séries ACOMPANHADAS com episódio lançado e nunca visto — o próximo é o primeiro deles;</item>
+    ///   <item>séries em REVISÃO, em qualquer estado — o próximo é o seguinte ao último repetido.</item>
+    /// </list>
+    ///
+    /// Quando as duas valem para a mesma série, ganha a revisão: se a última coisa que você fez
+    /// foi rever o S01E05, o que você vai assistir hoje é o S01E06, não o episódio inédito da
+    /// temporada 3 que você ainda não começou.
     ///
     /// <b>Consulta própria, e não um filtro sobre a lista completa.</b> Antes chamava
     /// <see cref="GetListAsync"/> e descartava o que não servia: das 116 séries montadas, 49
     /// sobreviviam ao filtro — o resto era progresso calculado à toa para arquivadas e concluídas.
-    /// Aqui o recorte por status vai para o WHERE, então o banco nem toca nas outras.
+    /// Aqui o recorte vai para o WHERE: as acompanhadas, mais as poucas em revisão.
     /// </summary>
     public async Task<IReadOnlyList<NextUpItemDto>> GetNextUpAsync(CancellationToken ct = default)
     {
-        var acompanhadas = await _db.TrackedSeries
-            .Where(t => t.Status == SeriesStatus.Following)
-            .Select(t => new { t.SeriesId, t.Series.Name, t.Series.PosterPath })
+        var revisoes = await RevisoesEmAndamentoAsync(ct);
+        var emRevisao = revisoes.Keys.ToList();
+
+        var candidatas = await _db.TrackedSeries
+            .Where(t => t.Status == SeriesStatus.Following || emRevisao.Contains(t.SeriesId))
+            .Select(t => new { t.SeriesId, t.Series.Name, t.Series.PosterPath, t.Status, t.RewatchDismissedAt })
             .ToListAsync(ct);
 
-        if (acompanhadas.Count == 0) return Array.Empty<NextUpItemDto>();
+        if (candidatas.Count == 0) return Array.Empty<NextUpItemDto>();
 
         var proximo = await ProximoPorSerieAsync(ct);
         var ultima = await UltimaExibicaoPorSerieAsync(ct);
 
-        return acompanhadas
-            // Sem "próximo", a série está em dia e não entra na fila.
-            .Where(a => proximo.ContainsKey(a.SeriesId))
-            .Select(a =>
+        var fila = new List<NextUpItemDto>(candidatas.Count);
+        foreach (var c in candidatas)
+        {
+            ultima.TryGetValue(c.SeriesId, out var last);
+
+            // Tirada da fila vale até a próxima exibição repetida: remarcar depois de tirar é o
+            // usuário dizendo que voltou a rever.
+            if (revisoes.TryGetValue(c.SeriesId, out var revisao)
+                && (c.RewatchDismissedAt is null || revisao.RepeatedAt > c.RewatchDismissedAt))
             {
-                ultima.TryGetValue(a.SeriesId, out var last);
-                return new NextUpItemDto(a.SeriesId, a.Name, a.PosterPath, proximo[a.SeriesId], last);
-            })
+                fila.Add(new NextUpItemDto(c.SeriesId, c.Name, c.PosterPath, revisao.Next, last, IsRewatch: true));
+            }
+            // Sem "próximo", a série está em dia e não entra na fila.
+            else if (c.Status == SeriesStatus.Following && proximo.TryGetValue(c.SeriesId, out var next))
+            {
+                fila.Add(new NextUpItemDto(c.SeriesId, c.Name, c.PosterPath, next, last, IsRewatch: false));
+            }
+        }
+
+        return fila
             .OrderByDescending(r => r.LastActivityAt ?? DateTimeOffset.MinValue)
             .ThenBy(r => r.SeriesName)
             .ToList();
+    }
+
+    /// <summary>
+    /// Séries que você está revendo: a exibição mais recente da série (fora marcações em massa)
+    /// aconteceu dentro da <see cref="RewatchWindow"/> e foi de um episódio que já tinha sido
+    /// visto antes. O próximo da revisão é o episódio regular lançado seguinte a esse — se não
+    /// houver, a revisão terminou e a série sai da fila.
+    ///
+    /// <para>
+    /// <b>A última exibição, e não "alguma repetida".</b> Quem reviu o piloto em agosto e depois
+    /// assistiu três episódios inéditos não está revendo nada; o que diz o que você está fazendo é
+    /// o último passo, não o histórico.
+    /// </para>
+    ///
+    /// <para>
+    /// Marcação em massa fica de fora porque não tem data real (herda a da importação) e nunca
+    /// cria repetição. Mas ela CONTA como exibição anterior: o episódio que veio do TV Time e foi
+    /// remarcado hoje está sendo revisto.
+    /// </para>
+    /// </summary>
+    private async Task<Dictionary<long, (DateTimeOffset RepeatedAt, EpisodeRefDto Next)>> RevisoesEmAndamentoAsync(CancellationToken ct)
+    {
+        var desde = DateTimeOffset.UtcNow - RewatchWindow;
+
+        // A exibição mais recente de cada série com atividade na janela — o mesmo DISTINCT ON de
+        // ProximoPorSerieAsync, e pelo mesmo motivo.
+        var ultimas = await _db.WatchEvents
+            .Where(w => !w.IsBackfill && w.WatchedAt >= desde && w.Episode.SeasonNumber > 0)
+            .GroupBy(w => w.Episode.SeriesId)
+            .Select(g => g
+                .OrderByDescending(w => w.WatchedAt)
+                .ThenByDescending(w => w.Id)
+                .Select(w => new { w.Episode.SeriesId, w.EpisodeId, w.WatchedAt, w.Episode.SeasonNumber, w.Episode.EpisodeNumber })
+                .First())
+            .ToListAsync(ct);
+
+        if (ultimas.Count == 0) return new();
+
+        // Quantas vezes cada um desses episódios foi visto. Consulta à parte, e não uma contagem
+        // dentro da projeção acima: são poucas linhas, e assim o SQL de cada uma continua óbvio.
+        var episodiosDaVez = ultimas.Select(u => u.EpisodeId).ToList();
+        var vezes = await _db.WatchEvents
+            .Where(w => episodiosDaVez.Contains(w.EpisodeId))
+            .GroupBy(w => w.EpisodeId)
+            .Select(g => new { EpisodeId = g.Key, Vezes = g.Count() })
+            .ToDictionaryAsync(x => x.EpisodeId, x => x.Vezes, ct);
+
+        var repetidas = ultimas.Where(u => vezes.GetValueOrDefault(u.EpisodeId) > 1).ToList();
+        if (repetidas.Count == 0) return new();
+
+        // Os episódios das séries em revisão — um punhado de séries, e o "seguinte" é uma
+        // comparação de tupla que fica mais legível aqui do que em SQL.
+        var series = repetidas.Select(r => r.SeriesId).ToList();
+        var episodios = (await _db.Episodes
+                .Where(e => series.Contains(e.SeriesId) && e.SeasonNumber > 0)
+                .Where(Episode.Aired(Episode.Today()))
+                .Select(e => new { e.SeriesId, e.Id, e.SeasonNumber, e.EpisodeNumber, e.Name })
+                .ToListAsync(ct))
+            .ToLookup(e => e.SeriesId);
+
+        var revisoes = new Dictionary<long, (DateTimeOffset, EpisodeRefDto)>();
+        foreach (var r in repetidas)
+        {
+            var seguinte = episodios[r.SeriesId]
+                .Where(e => e.SeasonNumber > r.SeasonNumber
+                            || (e.SeasonNumber == r.SeasonNumber && e.EpisodeNumber > r.EpisodeNumber))
+                .OrderBy(e => e.SeasonNumber)
+                .ThenBy(e => e.EpisodeNumber)
+                .FirstOrDefault();
+
+            if (seguinte is null) continue;
+
+            revisoes[r.SeriesId] = (r.WatchedAt,
+                new EpisodeRefDto(seguinte.Id, seguinte.SeasonNumber, seguinte.EpisodeNumber, seguinte.Name));
+        }
+
+        return revisoes;
     }
 }

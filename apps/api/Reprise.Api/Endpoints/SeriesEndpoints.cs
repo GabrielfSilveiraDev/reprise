@@ -82,9 +82,21 @@ public static class SeriesEndpoints
                 TypedResults.Ok(await s.ApplyAsync(changes, ct)))
             .WithSummary("Muda o estado de várias séries de uma vez. Definir um valor é idempotente.");
 
+        // A dispensa da revisão é um recurso: PUT cria (a partir de agora), DELETE desfaz. É o
+        // par que o "Desfazer" do aviso precisa, e repetir qualquer um dos dois não faz estrago.
+        g.MapPut("/{id:long}/rewatch/dismissal", async Task<Results<NoContent, NotFound>> (
+                long id, TrackingService s, CancellationToken ct) =>
+                await s.DismissRewatchAsync(id, ct) ? TypedResults.NoContent() : TypedResults.NotFound())
+            .WithSummary("Tira a revisão da série da fila de próximos, até a próxima exibição repetida.");
+
+        g.MapDelete("/{id:long}/rewatch/dismissal", async Task<Results<NoContent, NotFound>> (
+                long id, TrackingService s, CancellationToken ct) =>
+                await s.RestoreRewatchAsync(id, ct) ? TypedResults.NoContent() : TypedResults.NotFound())
+            .WithSummary("Devolve a revisão da série à fila de próximos.");
+
         app.MapGet("/next-up", async (SeriesQueries q, CancellationToken ct) =>
                 TypedResults.Ok(await q.GetNextUpAsync(ct)))
             .WithTags("Series")
-            .WithSummary("Próximo episódio não visto de cada série acompanhada, por atividade recente.");
+            .WithSummary("O que assistir agora: o próximo inédito das acompanhadas e o próximo das revisões em andamento.");
     }
 }

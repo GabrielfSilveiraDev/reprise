@@ -20,4 +20,16 @@ public class TrackedSeries
     public DateTimeOffset? FollowedAt { get; set; }
     public DateTimeOffset AddedAt { get; set; }
     public string? Notes { get; set; }
+
+    /// <summary>
+    /// Quando o usuário tirou a revisão desta série da fila de próximos. A revisão só volta se
+    /// houver uma exibição repetida DEPOIS deste instante — tirar da fila é "não estou mais
+    /// revendo", e remarcar é o próprio usuário dizendo o contrário.
+    ///
+    /// <para>
+    /// Um instante, e não um booleano: com um sinalizador, a revisão do ano que vem nasceria
+    /// escondida, e alguém teria de lembrar de desligá-lo.
+    /// </para>
+    /// </summary>
+    public DateTimeOffset? RewatchDismissedAt { get; set; }
 }

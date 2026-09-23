@@ -111,7 +111,13 @@ public sealed record NextUpItemDto(
     string SeriesName,
     string? PosterPath,
     EpisodeRefDto Episode,
-    DateTimeOffset? LastActivityAt);
+    DateTimeOffset? LastActivityAt,
+    /// <summary>
+    /// A série está sendo revista: <see cref="Episode"/> é o seguinte ao último episódio
+    /// REPETIDO, e não o primeiro nunca visto. Vale para qualquer estado de acompanhamento —
+    /// quem remarca uma série concluída está assistindo, diga o status o que disser.
+    /// </summary>
+    bool IsRewatch);
 
 /// <summary>Estado de um episódio após uma marcação/desmarcação (o log é a fonte da verdade).</summary>
 public sealed record WatchStateDto(long EpisodeId, int WatchCount, DateTimeOffset? LastWatchedAt);

@@ -193,7 +193,168 @@ public sealed class SeriesQueriesTests : IClassFixture<PostgresFixture>, IAsyncL
         Assert.Equal("T1E1", item.NextUp!.Name);
     }
 
+    // ---- revisão ---------------------------------------------------------------------------
+
+    private static readonly DateTimeOffset Agora = DateTimeOffset.UtcNow;
+
+    [Fact]
+    public async Task Revisao_de_serie_concluida_entra_na_fila_com_o_seguinte_ao_ultimo_repetido()
+    {
+        await SemearAsync("Revista", SeriesStatus.Finished, ("T1E1", 1, 1), ("T1E2", 1, 2), ("T1E3", 1, 3), ("T2E1", 2, 1));
+        await MarcarEmAsync(Agora.AddDays(-200), "T1E1", "T1E2", "T1E3", "T2E1");
+        await MarcarEmAsync(Agora.AddHours(-2), "T1E1");
+        await MarcarEmAsync(Agora.AddHours(-1), "T1E2");
+
+        var item = Assert.Single(await FilaAsync());
+
+        // Concluída e sem nada inédito: antes não entrava na fila de jeito nenhum.
+        Assert.True(item.IsRewatch);
+        Assert.Equal("T1E3", item.Episode.Name);
+    }
+
+    [Fact]
+    public async Task Na_revisao_o_proximo_e_o_seguinte_e_nao_o_primeiro_inedito()
+    {
+        await SemearAsync(("T1E1", 1, 1), ("T1E2", 1, 2), ("T2E1", 2, 1));
+        await MarcarEmAsync(Agora.AddDays(-200), "T1E1", "T1E2");
+        await MarcarEmAsync(Agora.AddHours(-1), "T1E1");
+
+        var item = Assert.Single(await FilaAsync());
+
+        // O T2E1 nunca foi visto e seria o próximo sem a revisão. Mas o último passo foi rever o
+        // T1E1: o que a pessoa vai assistir hoje é o T1E2.
+        Assert.True(item.IsRewatch);
+        Assert.Equal("T1E2", item.Episode.Name);
+    }
+
+    [Fact]
+    public async Task Exibicao_inedita_depois_da_repetida_encerra_a_revisao()
+    {
+        await SemearAsync(("T1E1", 1, 1), ("T1E2", 1, 2), ("T1E3", 1, 3));
+        await MarcarEmAsync(Agora.AddDays(-20), "T1E1");
+        await MarcarEmAsync(Agora.AddDays(-10), "T1E1");
+        await MarcarEmAsync(Agora.AddDays(-1), "T1E2");
+
+        var item = Assert.Single(await FilaAsync());
+
+        Assert.False(item.IsRewatch);
+        Assert.Equal("T1E3", item.Episode.Name);
+    }
+
+    [Fact]
+    public async Task Revisao_parada_ha_mais_de_30_dias_sai_da_fila()
+    {
+        await SemearAsync("Largada", SeriesStatus.Finished, ("T1E1", 1, 1), ("T1E2", 1, 2));
+        await MarcarEmAsync(Agora.AddDays(-200), "T1E1", "T1E2");
+        await MarcarEmAsync(Agora.AddDays(-31), "T1E1");
+
+        Assert.Empty(await FilaAsync());
+    }
+
+    [Fact]
+    public async Task Revisao_que_chegou_ao_ultimo_episodio_sai_da_fila()
+    {
+        await SemearAsync("Revista até o fim", SeriesStatus.Finished, ("T1E1", 1, 1), ("T1E2", 1, 2));
+        await MarcarEmAsync(Agora.AddDays(-200), "T1E1", "T1E2");
+        await MarcarEmAsync(Agora.AddHours(-2), "T1E1");
+        await MarcarEmAsync(Agora.AddHours(-1), "T1E2");
+
+        Assert.Empty(await FilaAsync());
+    }
+
+    [Fact]
+    public async Task Marcacao_em_massa_nao_abre_revisao_mas_conta_como_vez_anterior()
+    {
+        var importada = await SemearAsync("Importada", SeriesStatus.Finished, ("I-T1E1", 1, 1), ("I-T1E2", 1, 2));
+        await MarcarEmAsync(Agora.AddDays(-2), emMassa: true, "I-T1E1", "I-T1E2");
+        await MarcarEmAsync(Agora.AddDays(-1), emMassa: true, "I-T1E1");
+
+        // Duas marcações em massa do mesmo episódio não são alguém revendo: não têm data real.
+        Assert.Empty(await FilaAsync());
+
+        // Mas remarcar à mão o que veio da importação é revisão: a exibição anterior existiu.
+        await MarcarEmAsync(Agora.AddHours(-1), "I-T1E1");
+        var item = Assert.Single(await FilaAsync());
+        Assert.Equal(importada, item.SeriesId);
+        Assert.Equal("I-T1E2", item.Episode.Name);
+    }
+
+    [Fact]
+    public async Task Revisao_tirada_da_fila_so_volta_com_nova_repeticao()
+    {
+        var serie = await SemearAsync("Cansei", SeriesStatus.Finished, ("T1E1", 1, 1), ("T1E2", 1, 2), ("T1E3", 1, 3));
+        await MarcarEmAsync(Agora.AddDays(-200), "T1E1", "T1E2", "T1E3");
+        await MarcarEmAsync(Agora.AddHours(-3), "T1E1");
+
+        Assert.True(await RastreioAsync(s => s.DismissRewatchAsync(serie)));
+        Assert.Empty(await FilaAsync());
+
+        // Desfazer devolve na hora.
+        Assert.True(await RastreioAsync(s => s.RestoreRewatchAsync(serie)));
+        Assert.Equal("T1E2", Assert.Single(await FilaAsync()).Episode.Name);
+
+        // Tirar de novo, e remarcar DEPOIS de tirar: é a pessoa dizendo que voltou a rever.
+        Assert.True(await RastreioAsync(s => s.DismissRewatchAsync(serie)));
+        await MarcarEmAsync(DateTimeOffset.UtcNow.AddSeconds(1), "T1E2");
+        Assert.Equal("T1E3", Assert.Single(await FilaAsync()).Episode.Name);
+    }
+
+    [Fact]
+    public async Task Tirar_da_fila_uma_serie_que_nao_acompanho_nao_encontra()
+    {
+        Assert.False(await RastreioAsync(s => s.DismissRewatchAsync(424242)));
+    }
+
+    [Fact]
+    public async Task Tirar_a_revisao_devolve_a_serie_ao_proximo_inedito()
+    {
+        var serie = await SemearAsync(("T1E1", 1, 1), ("T1E2", 1, 2), ("T2E1", 2, 1));
+        await MarcarEmAsync(Agora.AddDays(-200), "T1E1", "T1E2");
+        await MarcarEmAsync(Agora.AddHours(-1), "T1E1");
+
+        await RastreioAsync(s => s.DismissRewatchAsync(serie));
+        var item = Assert.Single(await FilaAsync());
+
+        // Tirar a REVISÃO não tira a série: ela ainda tem um episódio inédito esperando.
+        Assert.False(item.IsRewatch);
+        Assert.Equal("T2E1", item.Episode.Name);
+    }
+
+    private async Task<IReadOnlyList<NextUpItemDto>> FilaAsync()
+    {
+        await using var db = _pg.CreateContext(_eu);
+        return await new SeriesQueries(db).GetNextUpAsync();
+    }
+
+    private async Task<bool> RastreioAsync(Func<TrackingService, Task<bool>> acao)
+    {
+        await using var db = _pg.CreateContext(_eu);
+        return await acao(new TrackingService(db));
+    }
+
     // ---- semeadura -------------------------------------------------------------------------
+
+    private Task MarcarEmAsync(DateTimeOffset quando, params string[] episodios) =>
+        MarcarEmAsync(quando, emMassa: false, episodios);
+
+    /// <summary>Marca cada episódio uma vez, na data dada — um minuto a mais para cada um, na ordem.</summary>
+    private async Task MarcarEmAsync(DateTimeOffset quando, bool emMassa, params string[] episodios)
+    {
+        await using var db = _pg.CreateContext(_eu);
+        var ids = await db.Episodes
+            .Where(e => episodios.Contains(e.Name))
+            .ToDictionaryAsync(e => e.Name!, e => e.Id);
+
+        for (var i = 0; i < episodios.Length; i++)
+        {
+            var em = quando.AddMinutes(i);
+            db.WatchEvents.Add(emMassa
+                ? WatchEvent.CreateBackfill(_eu, ids[episodios[i]], em)
+                : WatchEvent.CreateManual(_eu, ids[episodios[i]], em));
+        }
+
+        await db.SaveChangesAsync();
+    }
 
     /// <summary>Dá data de estreia a um episódio já semeado (o semeador cria todos sem data).</summary>
     private async Task AgendarAsync(string episodio, DateOnly quando)
