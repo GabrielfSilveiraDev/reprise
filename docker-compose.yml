@@ -1,3 +1,8 @@
+# Nome de projeto fixo. Sem ele o Compose usa o nome da PASTA — e num worktree do git (outra pasta,
+# mesmo repositório) isso vira outro projeto, com outro volume: um banco vazio no lugar do seu
+# histórico. Com o nome fixo, qualquer checkout do Reprise sobe o mesmo `reprise_reprise-pgdata`.
+name: reprise
+
 services:
   db:
     image: postgres:17-alpine
