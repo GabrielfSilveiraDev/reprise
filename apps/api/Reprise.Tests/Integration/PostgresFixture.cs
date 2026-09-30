@@ -33,6 +33,9 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public async Task DisposeAsync() => await _container.DisposeAsync();
 
+    /// <summary>Para quem sobe a API inteira sobre este banco (ver ApiPipelineTests).</summary>
+    public string ConnectionString => _container.GetConnectionString();
+
     /// <summary>Um contexto enxergando o banco como <paramref name="userId"/> — o tenant atual.</summary>
     public RepriseDbContext CreateContext(Guid userId)
     {

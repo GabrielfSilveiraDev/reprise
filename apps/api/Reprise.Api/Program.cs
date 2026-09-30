@@ -3,6 +3,7 @@ using Reprise.Api.Endpoints;
 using Reprise.Api.Security;
 using Reprise.Application;
 using Reprise.Infrastructure;
+using Reprise.Infrastructure.Persistence;
 using Reprise.Infrastructure.Tmdb;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +41,11 @@ if (TmdbClient.IsUsableApiKey(tmdbApiKey))
 // Depois da Infrastructure de propósito: substitui o ICurrentUser semente pelo que lê o JWT.
 builder.Services.AddRepriseAuth(builder.Configuration);
 builder.Services.AddOpenApi();
+builder.Services.AddRepriseAuthRateLimit(builder.Configuration);
+
+// Responde se a API alcança o banco. É o que um orquestrador (Compose, Kubernetes, um balanceador)
+// pergunta antes de mandar tráfego — "o processo está de pé" não basta quando o Postgres caiu.
+builder.Services.AddHealthChecks().AddDbContextCheck<RepriseDbContext>();
 
 var app = builder.Build();
 
@@ -51,11 +57,13 @@ app.UseAccessTokenGate();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 // OpenAPI em /openapi/v1.json — fonte dos tipos do cliente web (apps/web, `pnpm api:sync`).
 app.MapOpenApi();
 
 app.MapGet("/", () => Results.Ok(new { name = "Reprise API", openapi = "/openapi/v1.json" }));
+app.MapHealthChecks("/health");
 
 app.MapAuthEndpoints();
 

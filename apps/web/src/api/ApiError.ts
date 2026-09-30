@@ -57,6 +57,9 @@ export class ApiError extends Error {
     if (status === 401) return 'Sua sessão expirou. Entre de novo.'
     if (status === 403) return 'Você não tem permissão para isso.'
     if (status === 404) return 'Não encontrado.'
+    // A API limita as tentativas de login e de código por minuto. "Tente de novo" logo em seguida
+    // só gastaria outra tentativa.
+    if (status === 429) return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.'
     if (status >= 500) return 'O servidor do Reprise teve um problema. Tente de novo em instantes.'
     return 'Não deu certo. Tente de novo.'
   }

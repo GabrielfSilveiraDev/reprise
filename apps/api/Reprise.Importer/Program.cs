@@ -14,6 +14,7 @@ using Reprise.Infrastructure.Persistence;
 using Reprise.Infrastructure.Tvmaze;
 
 // CLI do Reprise. Idempotente e reexecutável nos dois modos.
+//   reprise-import migrate                             cria o banco ou aplica as migrações pendentes
 //   reprise-import <caminho.zip|.csv> [--dry-run]      importa o export do TV Time
 //   reprise-import enrich [--force] [--tvdb <id>]      casa as séries no TMDB e completa o catálogo
 //   reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]
@@ -33,6 +34,7 @@ var positional = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).
 if (positional.Length == 0)
 {
     Console.Error.WriteLine("Uso: reprise-import <caminho-do-export.zip|.csv> [--dry-run]");
+    Console.Error.WriteLine("     reprise-import migrate");
     Console.Error.WriteLine("     reprise-import enrich [--force] [--tvdb <id>]");
     Console.Error.WriteLine("     reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]");
     Console.Error.WriteLine("     reprise-import passwd --email <e> --password <p> [--name <nome>] [--user <usuario>]");
@@ -47,6 +49,7 @@ var conn = Environment.GetEnvironmentVariable("ConnectionStrings__Default")
 
 return positional[0].ToLowerInvariant() switch
 {
+    "migrate" => await RunMigrateAsync(conn),
     "enrich" => await RunEnrichAsync(args, positional, conn),
     "backfill" => await RunBackfillAsync(args, conn),
     "passwd" => await RunPasswdAsync(args, conn),
@@ -55,6 +58,39 @@ return positional[0].ToLowerInvariant() switch
     "resumos" => await RunOverviewsAsync(args, conn),
     _ => await RunImportAsync(args, positional, conn)
 };
+
+/// <summary>
+/// Cria o banco, ou leva o que já existe até a última migração.
+///
+/// <para>
+/// A API não migra o banco na partida, e é melhor assim: com mais de uma réplica, todas tentariam migrar ao mesmo
+/// tempo, e uma migração que falha no meio da partida deixa a API fora do ar sem dizer por quê.
+/// Migrar é um passo explícito — é este comando que o serviço <c>migrate</c> do docker-compose roda
+/// antes de a API subir. Faz o mesmo que <c>dotnet ef database update</c>, sem exigir a ferramenta
+/// do EF instalada nem o SDK: a imagem da CLI só tem o runtime.
+/// </para>
+/// </summary>
+static async Task<int> RunMigrateAsync(string conn)
+{
+    var services = new ServiceCollection();
+    services.AddRepriseInfrastructure(conn);
+    await using var provider = services.BuildServiceProvider();
+    using var scope = provider.CreateScope();
+
+    var db = scope.ServiceProvider.GetRequiredService<RepriseDbContext>();
+    var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+    if (pending.Count == 0)
+    {
+        Console.WriteLine("Banco em dia: nenhuma migração pendente.");
+        return 0;
+    }
+
+    Console.WriteLine($"Aplicando {pending.Count} migração(ões):");
+    foreach (var name in pending) Console.WriteLine($"  {name}");
+    await db.Database.MigrateAsync();
+    Console.WriteLine("Banco em dia.");
+    return 0;
+}
 
 /// <summary>
 /// Define a senha de uma conta, criando-a se necessário.
