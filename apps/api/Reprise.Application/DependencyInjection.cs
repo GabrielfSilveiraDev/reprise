@@ -27,7 +27,7 @@ public static class DependencyInjection
         services.AddScoped<ProfileQueries>();
         services.AddScoped<TrackingService>();
 
-        // Fase 6
+        // Export e agenda de estreias
         services.AddScoped<ExportQueries>();
         services.AddScoped<PremiereQueries>();
 
