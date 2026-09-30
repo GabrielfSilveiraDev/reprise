@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <!-- Habilita `dotnet user-secrets` em desenvolvimento: é onde ficam Jwt:Secret e Tmdb:ApiKey
+         quando a API roda com `dotnet run`, que não lê o .env. -->
+    <UserSecretsId>reprise-api</UserSecretsId>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Reprise.Application\Reprise.Application.csproj" />
     <ProjectReference Include="..\Reprise.Infrastructure\Reprise.Infrastructure.csproj" />

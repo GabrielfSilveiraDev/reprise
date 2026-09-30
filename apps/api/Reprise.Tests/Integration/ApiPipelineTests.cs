@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Reprise.Application.Abstractions;
 
 namespace Reprise.Tests.Integration;
 
@@ -22,12 +24,13 @@ public sealed class ApiPipelineTests : IClassFixture<PostgresFixture>
 
     public ApiPipelineTests(PostgresFixture pg) => _pg = pg;
 
-    private WebApplicationFactory<Program> CreateApi(int authAttemptsPerMinute = 10) =>
+    private WebApplicationFactory<Program> CreateApi(int authAttemptsPerMinute = 10, string? tmdbApiKey = null) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(web =>
         {
             web.UseSetting("ConnectionStrings:Default", _pg.ConnectionString);
             web.UseSetting("Jwt:Secret", new string('s', 48));
             web.UseSetting("Api:AuthAttemptsPerMinute", authAttemptsPerMinute.ToString(CultureInfo.InvariantCulture));
+            if (tmdbApiKey is not null) web.UseSetting("Tmdb:ApiKey", tmdbApiKey);
         });
 
     [Fact]
@@ -47,6 +50,17 @@ public sealed class ApiPipelineTests : IClassFixture<PostgresFixture>
         var response = await api.CreateClient().GetAsync("/openapi/v1.json");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Chave_do_TMDB_vinda_da_configuracao_chega_ao_cliente()
+    {
+        // É o caminho do `dotnet user-secrets`: a chave está na configuração, não numa variável de
+        // ambiente. Antes, ela ligava o TMDB mas não chegava às opções, e o cliente estourava ao ser
+        // criado — a busca de séries virava 500.
+        await using var api = CreateApi(tmdbApiKey: "0123456789abcdef0123456789abcdef");
+
+        Assert.NotNull(api.Services.GetRequiredService<ITmdbClient>());
     }
 
     [Fact]

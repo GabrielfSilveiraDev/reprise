@@ -24,7 +24,14 @@ builder.Services.AddRepriseApplication();
 var tmdbApiKey = builder.Configuration["Tmdb:ApiKey"] ?? Environment.GetEnvironmentVariable("Tmdb__ApiKey");
 if (TmdbClient.IsUsableApiKey(tmdbApiKey))
 {
-    builder.Services.AddRepriseTmdb();
+    // A chave que decidiu registrar o TMDB é a mesma que ele usa. O AddRepriseTmdb, sozinho, só lê
+    // a variável de ambiente — a CLI não tem outra fonte —, e a chave guardada no user-secrets ligava
+    // a busca aqui sem nunca chegar ao cliente, que quebrava no primeiro uso.
+    builder.Services.AddRepriseTmdb(o =>
+    {
+        o.ApiKey = tmdbApiKey!;
+        if (builder.Configuration["Tmdb:Language"] is { Length: > 0 } language) o.Language = language;
+    });
 
     // Só no host web: a CLI de importação roda e termina, então não tem pool de conexões para
     // manter vivo. Ver TmdbConnectionWarmer para o porquê dos 45 segundos.
