@@ -63,7 +63,9 @@ public sealed class ProfileQueries
 
         return new ProfileDto(
             user.DisplayName,
-            user.Email,
+            // O Identity declara o e-mail como anulável; aqui toda conta tem um (o cadastro exige e
+            // a CLI também). Mesma convenção do AuthService ao montar a sessão.
+            user.Email ?? string.Empty,
             user.CreatedAt,
             trackedIds.Count,
             CountOf(SeriesStatus.Following),
