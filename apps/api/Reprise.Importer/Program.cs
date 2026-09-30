@@ -131,7 +131,8 @@ static async Task<int> RunPasswdAsync(string[] args, string conn)
         user = new User
         {
             Id = Guid.CreateVersion7(),
-            UserName = email,
+            // O nome de usuário é a outra forma de entrar; sem --user, entra-se pelo e-mail.
+            UserName = Flag(args, "--user") is { Length: > 0 } userName ? userName : email,
             Email = email,
             EmailConfirmed = true,
             DisplayName = Flag(args, "--name") ?? email.Split('@')[0],
