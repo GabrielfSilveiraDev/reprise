@@ -1,7 +1,24 @@
+# O Reprise inteiro com um comando:
+#
+#   cp .env.example .env        # e preencha pelo menos Jwt__Secret
+#   docker compose up -d --build
+#
+# Abre em http://localhost:8080 (REPRISE_PORT muda a porta). Para desenvolver, suba só o banco
+# (`docker compose up -d db`) e rode API e web direto — ver docs/desenvolvimento.md.
+#
 # Nome de projeto fixo. Sem ele o Compose usa o nome da PASTA — e num worktree do git (outra pasta,
 # mesmo repositório) isso vira outro projeto, com outro volume: um banco vazio no lugar do seu
 # histórico. Com o nome fixo, qualquer checkout do Reprise sobe o mesmo `reprise_reprise-pgdata`.
 name: reprise
+
+# A API e a CLI falam com o banco pela rede do compose, no host `db`. Sem GSS: o Postgres daqui não
+# usa Kerberos, e o Npgsql, por padrão, tenta — e escreve um erro inofensivo no log a cada conexão.
+x-db-connection: &db-connection "Host=db;Port=5432;Database=${POSTGRES_DB:-reprise};Username=${POSTGRES_USER:-reprise};Password=${POSTGRES_PASSWORD:-reprise};GSS Encryption Mode=Disable"
+
+x-cli-build: &cli-build
+  context: .
+  dockerfile: apps/api/Dockerfile
+  target: cli
 
 services:
   db:
@@ -22,17 +39,79 @@ services:
       timeout: 5s
       retries: 10
 
-  # A API entra aqui na Fase 2 (imagem construída a partir de apps/api).
-  # api:
-  #   build: ./apps/api
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #   environment:
-  #     ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-reprise};Username=${POSTGRES_USER:-reprise};Password=${POSTGRES_PASSWORD:-reprise}"
-  #     Tmdb__ApiKey: ${Tmdb__ApiKey:?defina Tmdb__ApiKey no .env}
-  #   ports:
-  #     - "8080:8080"
+  # Cria o banco ou aplica as migrações pendentes, e sai. A API só sobe depois que isto terminar
+  # bem — ela não migra o banco sozinha.
+  migrate:
+    build: *cli-build
+    image: reprise-cli
+    command: ["migrate"]
+    environment:
+      ConnectionStrings__Default: *db-connection
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: api
+    image: reprise-api
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      ConnectionStrings__Default: *db-connection
+      # Obrigatório, com 32 caracteres ou mais: sem ele a API se recusa a subir e diz por quê.
+      Jwt__Secret: ${Jwt__Secret:-}
+      Jwt__Issuer: ${Jwt__Issuer:-reprise}
+      Jwt__Audience: ${Jwt__Audience:-reprise-clients}
+      Jwt__AllowRegistration: ${Jwt__AllowRegistration:-false}
+      Tmdb__ApiKey: ${Tmdb__ApiKey:-}
+      Tmdb__Language: ${Tmdb__Language:-pt-BR}
+      Api__AccessToken: ${Api__AccessToken:-}
+      Smtp__Host: ${Smtp__Host:-}
+      Smtp__Port: ${Smtp__Port:-587}
+      Smtp__User: ${Smtp__User:-}
+      Smtp__Password: ${Smtp__Password:-}
+      Smtp__FromAddress: ${Smtp__FromAddress:-}
+      Smtp__FromName: ${Smtp__FromName:-Reprise}
+      Smtp__UseSsl: ${Smtp__UseSsl:-true}
+      # A API só é alcançável pelo nginx do `web` (não publica porta), então pode confiar no
+      # X-Forwarded-For que ele manda. É isso que dá a cada pessoa a própria cota no limite de
+      # tentativas do login. Numa API exposta direto, deixe desligado.
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: reprise-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${REPRISE_PORT:-8080}:8080"
+
+  # Os comandos da CLI (importar o export do TV Time, enriquecer pelo TMDB, definir senha).
+  # Não sobe com o `up`; roda sob demanda:
+  #   docker compose run --rm cli passwd --email voce@exemplo.com --password "..."
+  cli:
+    build: *cli-build
+    image: reprise-cli
+    profiles: ["cli"]
+    environment:
+      ConnectionStrings__Default: *db-connection
+      Tmdb__ApiKey: ${Tmdb__ApiKey:-}
+      Tmdb__Language: ${Tmdb__Language:-pt-BR}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # O export do TV Time entra por aqui, só leitura: ponha o .zip em ./gdpr-data.
+      - ./gdpr-data:/data:ro
 
 volumes:
   reprise-pgdata:
