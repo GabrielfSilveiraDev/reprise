@@ -102,14 +102,12 @@ funciona sem ela.
 
 ```mermaid
 flowchart LR
-    browser["Navegador"] --> web["web<br/>nginx + build do React"]
-    web -- "/api/*" --> api["api<br/>ASP.NET Core 10"]
-    api --> db[("PostgreSQL 17")]
-    cli["cli<br/>importa · enriquece · migra"] --> db
-    api -. "atualiza o catálogo" .-> tmdb["TMDB"]
-    api -. "horários de estreia" .-> tvmaze["TVmaze"]
-    cli -.-> tmdb
-    cli -.-> tvmaze
+    browser["Navegador"] --> web["web<br/>nginx + React"]
+    web -- "/api" --> api["api<br/>ASP.NET Core"]
+    api --> db[("PostgreSQL")]
+    cli["cli<br/>importa · enriquece"] --> db
+    api -.-> ext["TMDB<br/>TVmaze"]
+    cli -.-> ext
 ```
 
 | | Stack |

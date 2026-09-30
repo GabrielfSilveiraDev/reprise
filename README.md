@@ -105,14 +105,12 @@ without one.
 
 ```mermaid
 flowchart LR
-    browser["Browser"] --> web["web<br/>nginx + React build"]
-    web -- "/api/*" --> api["api<br/>ASP.NET Core 10"]
-    api --> db[("PostgreSQL 17")]
-    cli["cli<br/>import · enrich · migrate"] --> db
-    api -. "catalog refresh" .-> tmdb["TMDB"]
-    api -. "air times" .-> tvmaze["TVmaze"]
-    cli -.-> tmdb
-    cli -.-> tvmaze
+    browser["Browser"] --> web["web<br/>nginx + React"]
+    web -- "/api" --> api["api<br/>ASP.NET Core"]
+    api --> db[("PostgreSQL")]
+    cli["cli<br/>import · enrich"] --> db
+    api -.-> ext["TMDB<br/>TVmaze"]
+    cli -.-> ext
 ```
 
 | | Stack |
