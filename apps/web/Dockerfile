@@ -18,7 +18,7 @@ RUN pnpm --filter @reprise/web build
 
 # ---- Servidor ----
 # Variante sem root do nginx oficial: escuta na 8080 e não roda como administrador.
-FROM nginxinc/nginx-unprivileged:1.30-alpine AS web
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS web
 # Para onde /api/* vai. No compose, o serviço `api`.
 ENV API_UPSTREAM=http://api:8080
 # A imagem troca ${API_UPSTREAM} pelo valor na partida (templates/*.template → conf.d/).
