@@ -1,0 +1,25 @@
+<Project>
+
+  <!--
+    Vale para todos os projetos de apps/api. O que era repetido em cada .csproj mora aqui, para
+    que um projeto novo nasça com as mesmas regras sem ninguém lembrar de copiá-las.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!--
+      Aviso é erro. Um aviso de nulidade ignorado é um NullReferenceException adiado, e avisos que
+      ninguém lê só se acumulam.
+
+      A exceção são os alertas de vulnerabilidade do NuGet (NU1901 a NU1904): eles aparecem quando
+      sai um aviso novo sobre um pacote, sem que o código tenha mudado. Como erro, quebrariam o build
+      de qualquer PR por um motivo alheio a ele. Continuam visíveis no build, e o Dependabot abre o PR
+      com a correção.
+    -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,46 @@
+<Project>
+
+  <!--
+    Gerenciamento central de pacotes: a versão de cada pacote é declarada uma vez, aqui, e os
+    .csproj só dizem QUAIS usam. Antes, "10.0.10" estava repetido em cinco projetos, e bastava
+    atualizar um e esquecer outro para a API e a CLI rodarem com EF Core de versões diferentes.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Os pacotes do ASP.NET Core, do EF Core e do Microsoft.Extensions saem juntos, na mesma versão. -->
+    <DotNetPackagesVersion>10.0.12</DotNetPackagesVersion>
+  </PropertyGroup>
+
+  <ItemGroup Label="ASP.NET Core, EF Core e Microsoft.Extensions">
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Identity.Stores" Version="$(DotNetPackagesVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Terceiros">
+    <PackageVersion Include="CsvHelper" Version="33.1.0" />
+    <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.16.0" />
+    <PackageVersion Include="TMDbLib" Version="3.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testes">
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <!-- 4.15 traz o SSH.NET 2026.0.0, que corrige GHSA-q939-rpr3-3284 e GHSA-mggc-4xg6-vcxf. -->
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+</Project>

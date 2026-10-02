@@ -34,11 +34,17 @@ export function LibraryPage() {
   const sort: LibrarySort = search.ordem ?? 'atividade'
 
   // O texto é estado local para digitar sem engasgo; a URL acompanha com um pequeno atraso.
+  //
+  // Só quando o texto difere da URL. Sem essa guarda, abrir o Acervo já agendava um `navigate`
+  // para dali a 250 ms — e quem clicasse numa série nesse intervalo tinha a navegação cancelada
+  // por ele, voltando para o Acervo sem aviso.
   const [text, setText] = useState(search.q ?? '')
+  const urlText = search.q ?? ''
   useEffect(() => {
+    if (text === urlText) return
     const id = setTimeout(() => void navigate({ search: (s) => ({ ...s, q: text || undefined }), replace: true }), 250)
     return () => clearTimeout(id)
-  }, [text, navigate])
+  }, [text, urlText, navigate])
 
   const { data, isPending, isError, error, refetch } = useQuery(Queries.seriesList())
   const { counts, visible } = useMemo(() => {

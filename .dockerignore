@@ -1,0 +1,22 @@
+# O contexto das imagens é a raiz do repositório (as duas precisam de arquivos de fora da própria
+# pasta: global.json para a API, pnpm-lock.yaml para o web). Nada daqui entra no build.
+
+.git
+**/node_modules
+**/bin
+**/obj
+**/dist
+**/test-results
+**/playwright-report
+**/coverage
+
+# Segredos e dados pessoais nunca entram numa imagem.
+.env
+.env.*
+!.env.example
+gdpr-data
+*.gdpr.zip
+
+docs
+scripts
+**/*.md

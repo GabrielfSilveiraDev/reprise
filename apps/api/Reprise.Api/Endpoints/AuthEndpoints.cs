@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Reprise.Api.Security;
 using Reprise.Infrastructure.Auth;
 
 namespace Reprise.Api.Endpoints;
@@ -33,7 +34,11 @@ public static class AuthEndpoints
     {
         var g = app.MapGroup("/auth").WithTags("Auth");
 
-        g.MapPost("/register",
+        // As rotas que aceitam palpite (senha, código) ou que mandam e-mail têm limite de
+        // tentativas por endereço. Ver AuthRateLimit para o porquê de refresh e logout ficarem fora.
+        var attempts = g.MapGroup(string.Empty).RequireRateLimiting(AuthRateLimit.PolicyName);
+
+        attempts.MapPost("/register",
                 async Task<Results<Ok<RegistrationDto>, Conflict<string>, ValidationProblem, ForbidHttpResult>> (
                     RegisterBody body, AuthService auth, CancellationToken ct) =>
                 {
@@ -57,7 +62,7 @@ public static class AuthEndpoints
                 })
             .WithSummary("Cria a conta e envia o código de validação. Não devolve sessão.");
 
-        g.MapPost("/confirm",
+        attempts.MapPost("/confirm",
                 async Task<Results<Ok<SessionDto>, UnauthorizedHttpResult>> (
                     ConfirmBody body, AuthService auth, HttpContext http, CancellationToken ct) =>
                 {
@@ -68,7 +73,7 @@ public static class AuthEndpoints
                 })
             .WithSummary("Valida a conta com o código de seis dígitos e já devolve a sessão.");
 
-        g.MapPost("/resend",
+        attempts.MapPost("/resend",
                 async (ResendBody body, AuthService auth, CancellationToken ct) =>
                 {
                     await auth.ResendConfirmationAsync(body.Email, ct);
@@ -78,7 +83,7 @@ public static class AuthEndpoints
                 })
             .WithSummary("Reenvia o código. Responde igual em todos os casos, de propósito.");
 
-        g.MapPost("/login",
+        attempts.MapPost("/login",
                 async Task<Results<Ok<SessionDto>, UnauthorizedHttpResult, ProblemHttpResult>> (
                     LoginBody body, AuthService auth, HttpContext http, CancellationToken ct) =>
                 {

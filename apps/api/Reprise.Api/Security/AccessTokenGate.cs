@@ -5,12 +5,12 @@ namespace Reprise.Api.Security;
 
 /// <summary>
 /// Cadeado de acesso por segredo compartilhado, para quando a API precisa sair da LAN
-/// (túnel de desenvolvimento, por exemplo) antes de existir autenticação de verdade.
+/// (túnel de desenvolvimento, por exemplo).
 ///
 /// <para>
 /// <b>Não é autenticação.</b> Não identifica ninguém, não tem sessão, não tem expiração e não
-/// substitui o Identity + JWT que a Fase 6 traz. É uma porta trancada na frente do prédio: sem
-/// ela, expor a API é entregar leitura <i>e escrita</i> do histórico inteiro para quem tiver a URL.
+/// substitui o Identity + JWT. É uma porta trancada na frente do prédio: com ela, nem a tela de
+/// login fica exposta a quem só tem a URL.
 /// </para>
 ///
 /// <para>
@@ -28,9 +28,9 @@ namespace Reprise.Api.Security;
 public sealed class AccessTokenGate
 {
     /// <summary>
-    /// Cabeçalho próprio, e não <c>Authorization: Bearer</c>, de propósito: quando o JWT chegar,
-    /// ele vai querer o <c>Authorization</c> — e dois significados no mesmo cabeçalho viraria
-    /// ambiguidade na hora de distinguir "token do túnel" de "usuário autenticado".
+    /// Cabeçalho próprio, e não <c>Authorization: Bearer</c>, de propósito: o <c>Authorization</c>
+    /// é do JWT — e dois significados no mesmo cabeçalho viraria ambiguidade na hora de distinguir
+    /// "token do túnel" de "usuário autenticado".
     /// </summary>
     public const string HeaderName = "X-Reprise-Token";
 

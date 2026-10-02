@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Um push novo no mesmo PR cancela a execução anterior, que já não interessa.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Só leitura: nenhum job aqui publica nada.
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('apps/api/Directory.Packages.props', 'apps/api/**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - run: dotnet restore apps/api/Reprise.slnx
+      - run: dotnet build apps/api/Reprise.slnx --configuration Release --no-restore
+      # Inclui os testes de integração: o Testcontainers sobe um Postgres de verdade no Docker do runner.
+      - run: dotnet test apps/api/Reprise.slnx --configuration Release --no-build
+
+  web:
+    name: Web (lint, tipos, testes, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @reprise/web lint
+      - run: pnpm --filter @reprise/web typecheck
+      - run: pnpm --filter @reprise/web test
+      - run: pnpm --filter @reprise/web build
+
+  e2e:
+    name: Web (ponta a ponta)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @reprise/web exec playwright install --with-deps chromium
+      - run: pnpm e2e
+
+      # Com falha, os traces do Playwright dizem o que a tela mostrava a cada passo.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          retention-days: 7
+
+  contract:
+    name: Contrato OpenAPI em dia
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # O web gera os tipos a partir do openapi.json versionado. Se a API mudou e ninguém rodou
+      # `pnpm api:sync`, o cliente compila contra um contrato que não existe mais — é isso que este
+      # job pega. O documento OpenAPI não toca no banco, então a API sobe sem Postgres.
+      - name: Sobe a API
+        run: |
+          dotnet run --project apps/api/Reprise.Api --launch-profile http > api.log 2>&1 &
+          curl --silent --fail --retry 60 --retry-delay 2 --retry-all-errors \
+            http://localhost:5156/openapi/v1.json > /dev/null
+        env:
+          Jwt__Secret: somente-para-o-ci-nao-e-segredo-de-verdade
+
+      - run: pnpm --filter @reprise/web api:sync
+
+      - name: Confere se o contrato versionado bate com a API
+        run: |
+          if ! git diff --exit-code -- apps/web/openapi.json apps/web/src/api/schema.d.ts; then
+            echo "::error::O contrato da API mudou. Rode 'pnpm --filter @reprise/web api:sync' com a API de pé e versione o resultado."
+            exit 1
+          fi
+
+      - name: Log da API
+        if: failure()
+        run: cat api.log
+
+  docker:
+    name: Imagens Docker
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { name: api, file: apps/api/Dockerfile, target: api }
+          - { name: cli, file: apps/api/Dockerfile, target: cli }
+          - { name: web, file: apps/web/Dockerfile, target: web }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

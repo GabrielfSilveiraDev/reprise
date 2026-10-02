@@ -1,0 +1,42 @@
+# Atualizações de dependência semanais, agrupadas para virem em poucos PRs em vez de dezenas.
+# Alertas de segurança chegam fora deste calendário, assim que o aviso é publicado.
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    directory: /apps/api
+    schedule:
+      interval: weekly
+    groups:
+      # ASP.NET Core, EF Core e Microsoft.Extensions saem juntos (DotNetPackagesVersion).
+      dotnet:
+        patterns: ["Microsoft.AspNetCore.*", "Microsoft.EntityFrameworkCore*", "Microsoft.Extensions.*"]
+      testes:
+        patterns: ["xunit*", "coverlet*", "Microsoft.NET.Test.Sdk", "Testcontainers*"]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      producao:
+        dependency-type: production
+        update-types: [minor, patch]
+      desenvolvimento:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directories: [/apps/api, /apps/web]
+    schedule:
+      interval: weekly
+    ignore:
+      # Versão maior de imagem base é migração, não atualização: o .NET 11 exige trocar o
+      # TargetFramework, e um Node novo precisa ser testado antes. Fica para PR à mão.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

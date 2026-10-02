@@ -3,6 +3,7 @@ using Reprise.Api.Endpoints;
 using Reprise.Api.Security;
 using Reprise.Application;
 using Reprise.Infrastructure;
+using Reprise.Infrastructure.Persistence;
 using Reprise.Infrastructure.Tmdb;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,7 +24,14 @@ builder.Services.AddRepriseApplication();
 var tmdbApiKey = builder.Configuration["Tmdb:ApiKey"] ?? Environment.GetEnvironmentVariable("Tmdb__ApiKey");
 if (TmdbClient.IsUsableApiKey(tmdbApiKey))
 {
-    builder.Services.AddRepriseTmdb();
+    // A chave que decidiu registrar o TMDB é a mesma que ele usa. O AddRepriseTmdb, sozinho, só lê
+    // a variável de ambiente — a CLI não tem outra fonte —, e a chave guardada no user-secrets ligava
+    // a busca aqui sem nunca chegar ao cliente, que quebrava no primeiro uso.
+    builder.Services.AddRepriseTmdb(o =>
+    {
+        o.ApiKey = tmdbApiKey!;
+        if (builder.Configuration["Tmdb:Language"] is { Length: > 0 } language) o.Language = language;
+    });
 
     // Só no host web: a CLI de importação roda e termina, então não tem pool de conexões para
     // manter vivo. Ver TmdbConnectionWarmer para o porquê dos 45 segundos.
@@ -40,6 +48,11 @@ if (TmdbClient.IsUsableApiKey(tmdbApiKey))
 // Depois da Infrastructure de propósito: substitui o ICurrentUser semente pelo que lê o JWT.
 builder.Services.AddRepriseAuth(builder.Configuration);
 builder.Services.AddOpenApi();
+builder.Services.AddRepriseAuthRateLimit(builder.Configuration);
+
+// Responde se a API alcança o banco. É o que um orquestrador (Compose, Kubernetes, um balanceador)
+// pergunta antes de mandar tráfego — "o processo está de pé" não basta quando o Postgres caiu.
+builder.Services.AddHealthChecks().AddDbContextCheck<RepriseDbContext>();
 
 var app = builder.Build();
 
@@ -51,11 +64,13 @@ app.UseAccessTokenGate();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 // OpenAPI em /openapi/v1.json — fonte dos tipos do cliente web (apps/web, `pnpm api:sync`).
 app.MapOpenApi();
 
 app.MapGet("/", () => Results.Ok(new { name = "Reprise API", openapi = "/openapi/v1.json" }));
+app.MapHealthChecks("/health");
 
 app.MapAuthEndpoints();
 

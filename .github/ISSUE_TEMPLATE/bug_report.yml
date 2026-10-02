@@ -1,0 +1,49 @@
+name: Bug report
+description: Something in Reprise doesn't work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report. Portuguese or English are both fine.
+        **Security issues** go through a private report instead — see SECURITY.md.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Library
+        2. Click a series
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: part
+    attributes:
+      label: Where
+      options:
+        - Web app
+        - API
+        - CLI (import, enrich, passwd…)
+        - Docker / setup
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Commit hash or date of the checkout, and how you run it (Docker, `pnpm dev`, the Windows launcher).
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: API log, browser console, or CLI output. Remove anything personal first.
+      render: text

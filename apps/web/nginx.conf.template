@@ -1,0 +1,48 @@
+# Servidor do web em produção (imagem de apps/web/Dockerfile).
+# ${API_UPSTREAM} é substituído na partida do container; as variáveis do nginx ($uri, $host…)
+# ficam como estão, porque só as definidas no ambiente são trocadas.
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "DENY" always;
+
+    # A API, na mesma origem: a sessão nunca cruza domínio e a API não precisa de CORS.
+    # A barra no fim do proxy_pass tira o prefixo /api, como o proxy do Vite em desenvolvimento.
+    location /api/ {
+        proxy_pass ${API_UPSTREAM}/;
+        proxy_set_header Host $host;
+        # É por aqui que a API sabe o endereço real de quem chama — o limite de tentativas do
+        # login é por endereço (ver AuthRateLimit).
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Arquivos com hash no nome nunca mudam de conteúdo: cache de um ano.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Content-Type-Options "nosniff" always;
+        try_files $uri =404;
+    }
+
+    # O index.html aponta para os arquivos da versão atual, então nunca pode ficar em cache.
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header X-Frame-Options "DENY" always;
+    }
+
+    # Aplicação de página única: rota que não é arquivo cai no index.html, e o roteador do
+    # navegador resolve.
+    location / {
+        try_files $uri /index.html;
+    }
+}

@@ -7,6 +7,10 @@ import { defineConfig, devices } from '@playwright/test'
  *
  * No Windows usa o Edge instalado (nada a baixar). Em outro sistema, rode antes
  * `pnpm exec playwright install chromium`, ou escolha com PLAYWRIGHT_CHANNEL.
+ *
+ * Roda contra o BUILD de produção (`vite build` + `vite preview`), não contra o servidor de
+ * desenvolvimento: é o build que vai para o ar, com a divisão de código e a minificação de
+ * verdade. De quebra a suíte fica mais rápida, sem o Vite compilando cada página na primeira visita.
  */
 const channel = process.env.PLAYWRIGHT_CHANNEL ?? (process.platform === 'win32' ? 'msedge' : undefined)
 const PORT = 5174
@@ -26,9 +30,9 @@ export default defineConfig({
     { name: 'celular', use: { ...devices['Pixel 7'], channel } },
   ],
   webServer: {
-    command: `node node_modules/vite/bin/vite.js --port ${PORT} --strictPort`,
+    command: `node node_modules/vite/bin/vite.js build && node node_modules/vite/bin/vite.js preview --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    timeout: 120_000,
   },
 })

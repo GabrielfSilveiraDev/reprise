@@ -2,6 +2,12 @@
   "name": "reprise",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
+  "author": "Gabriel Silveira",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GabrielfSilveiraDev/reprise.git"
+  },
   "description": "Reprise — rastreador pessoal de séries (substituto do TV Time). Uma exibição é um evento, não um booleano.",
   "packageManager": "pnpm@11.17.0",
   "engines": {
