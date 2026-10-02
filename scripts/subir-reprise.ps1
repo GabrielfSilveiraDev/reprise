@@ -7,16 +7,29 @@
     ícone na bandeja enquanto o Reprise está de pé, e a janela do próprio Reprise.
 
     Subida:
-      1. carrega o `.env` para o ambiente (a API não lê o arquivo sozinha — ver JwtOptions);
-      2. garante o Docker e o Postgres, esperando o healthcheck do compose;
-      3. sobe API e web escondidos, cada um com a saída num log em %LOCALAPPDATA%\Reprise\logs;
-      4. abre o Reprise numa janela do navegador e fica esperando por ela.
+      1. confere o `.env` (quem o lê é o compose; sem `Jwt__Secret` a API nem sobe);
+      2. garante o Docker Desktop;
+      3. sobe a pilha do `docker-compose.yml` — banco, migrações, API e web —, reconstruindo as
+         imagens se o código mudou, com a saída em %LOCALAPPDATA%\Reprise\logs\compose.log;
+      4. espera o `/api/health` responder pelo web e abre o Reprise numa janela do navegador.
 
-    Descida, quando a janela fecha (ou "Encerrar o Reprise" no ícone da bandeja): derruba API e
-    web, para o Postgres e — só se foi este script que ligou o Docker Desktop — desliga o Docker.
-    Se o Docker já estava ligado, ele fica: pode estar servindo outro projeto.
+    Descida, quando a janela fecha (ou "Encerrar o Reprise" no ícone da bandeja): para os
+    containers e — só se foi este script que ligou o Docker Desktop — desliga o Docker. Se o
+    Docker já estava ligado, ele fica: pode estar servindo outro projeto.
 
     Decisões que não são óbvias:
+
+    * TUDO NO DOCKER, NADA COMPILADO NO WINDOWS. Com o Smart App Control ligado, o Windows recusa
+      carregar DLL sem assinatura e sem reputação (erro 0x800711C7) — e toda DLL da API recém-
+      compilada é assim. O launcher anterior subia a API com `dotnet run` e passou a morrer no
+      primeiro build depois de uma mudança de código. Num container Linux a política não alcança,
+      e de quebra o atalho deixa de depender do SDK do .NET e do Node.
+
+    * `--build` A CADA ABERTURA. É o que faz um `git pull` valer no clique seguinte, sem ninguém
+      lembrar de reconstruir nada. Com o cache do BuildKit e sem código novo, custa uns 5 s
+      (medido); com código novo, refaz só as camadas afetadas. Os atestados de proveniência ficam
+      desligados porque mudam o digest da imagem a cada build — e aí o compose recriaria os
+      containers em toda abertura, mesmo sem nada novo (medido também).
 
     * JANELA COM PERFIL PRÓPRIO. É o único jeito confiável de saber que "o site fechou". Uma aba no
       Chrome de sempre não tem processo próprio: o Chrome entrega o endereço à instância que já está
@@ -25,20 +38,10 @@
       script consegue observar. O custo é o login uma vez nessa janela, que não compartilha cookies
       nem localStorage com o Chrome de sempre.
 
-    * VITE CHAMADO DIRETO, SEM PNPM. `pnpm dev` confere as dependências antes de rodar e, achando
-      diferença, dispara um `install` — que num console de verdade PERGUNTA antes de mexer no
-      node_modules. Na janela minimizada do launcher antigo ninguém via a pergunta: o install ficou
-      uma hora parado esperando resposta e o Vite nunca subiu. Este script sobe servidores; não
-      mexe em dependência. Se faltar pacote, o Vite falha, e o motivo aparece no log.
-
     * SEGUNDO PLANO DE VERDADE. O atalho chama `conhost.exe --headless`: com o Windows Terminal como
       terminal padrão (o caso deste Windows), `-WindowStyle Hidden` ainda abriria uma janela do
-      Terminal. API e web sobem sem janela, com a saída redirecionada para arquivo — escondidos,
-      mas nunca mudos.
-
-    * PORTAS FIXAS. 5173 para o web e 5156 para a API, sem plano B (`strictPort` no Vite). Porta
-      ocupada por processo deste projeto é reaproveitada; por processo alheio, vira erro com o nome
-      de quem está ocupando.
+      Terminal. O compose roda sem janela, com a saída redirecionada para arquivo — escondido, mas
+      nunca mudo.
 
     * SOCKETS DO DOCKER AFASTADOS ANTES DE LIGAR. Nesta máquina todo socket que o Docker Desktop
       cria fica inacessível ao sistema (erro 1920) — inclusive enquanto ele o usa. Na partida
@@ -56,31 +59,37 @@
 #>
 [CmdletBinding()]
 param(
-    # Sobe os serviços e sai, sem abrir janela e sem encerrar nada depois. Para desenvolvimento.
+    # Sobe os containers e sai, sem abrir janela e sem encerrar nada depois.
     [switch]$SemNavegador,
 
-    # Derruba o que estiver de pé: janela, API, web e o container do Postgres.
+    # Derruba o que estiver de pé: a janela e os containers do Reprise.
     [switch]$Parar,
 
-    # Com -Parar, desliga também o Docker Desktop. Sem isto o -Parar só para o container, porque
+    # Com -Parar, desliga também o Docker Desktop. Sem isto o -Parar só para os containers, porque
     # numa execução avulsa não há como saber se foi o Reprise quem ligou o Docker.
     [switch]$DesligarDocker,
 
-    # Segundos de tolerância para o Docker e para cada serviço começar a atender.
-    [int]$Timeout = 300
+    # Segundos de tolerância para o Docker ligar e para a API começar a responder.
+    [int]$Timeout = 300,
+
+    # Segundos para o `docker compose up --build`. Sem cache nenhum, construir as três imagens
+    # levou uns 4 minutos nesta máquina; com cache, segundos.
+    [int]$TimeoutBuild = 1200
 )
 
 $ErrorActionPreference = 'Stop'
+# A barra de progresso do Invoke-WebRequest no Windows PowerShell deixa cada sondagem lenta, e
+# aqui não há ninguém para vê-la.
+$ProgressPreference = 'SilentlyContinue'
+# O docker escreve em UTF-8, mas sob o `conhost --headless` do atalho o console fica na página 850
+# (medido): os acentos de um log da API chegavam trocados na caixa de erro.
+try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch { }
 
 $raiz      = Split-Path -Parent $PSScriptRoot
 $pastaApp  = Join-Path $env:LOCALAPPDATA 'Reprise'
 $pastaLogs = Join-Path $pastaApp 'logs'
 $perfil    = Join-Path $pastaApp 'navegador'
 $arqIcone  = Join-Path $pastaApp 'reprise.ico'
-
-$PORTA_API   = 5156
-$PORTA_WEB   = 5173
-$URL_WEB     = "http://localhost:$PORTA_WEB/"
 
 # =============================================================================================
 # Registro. Tudo o que o launcher faz vai para um arquivo, porque ele roda sem janela: quando o
@@ -104,6 +113,11 @@ class Registro {
         $anterior = [System.IO.Path]::ChangeExtension($arquivo, '.anterior.log')
         try { Move-Item -LiteralPath $arquivo -Destination $anterior -Force } catch { }
     }
+
+    static [string] FimDe([string]$arquivo, [int]$linhas) {
+        if (-not (Test-Path -LiteralPath $arquivo)) { return '(o log não chegou a ser criado)' }
+        return ((Get-Content -LiteralPath $arquivo -Tail $linhas -Encoding UTF8 -ErrorAction SilentlyContinue) -join "`n")
+    }
 }
 
 # =============================================================================================
@@ -111,7 +125,7 @@ class Registro {
 #
 # O Windows PowerShell 5.1 transforma cada linha de stderr de um executável nativo em ErrorRecord
 # quando há redirecionamento — e com ErrorActionPreference = 'Stop' isso vira exceção mesmo com
-# código de saída 0. O `docker compose up` escreve o progresso no stderr, então subir o banco com
+# código de saída 0. O `docker compose` escreve o progresso no stderr, então um comando com
 # sucesso derrubava o script. Quem decide é o código de saída.
 #
 # Os argumentos vão num array explícito: por parâmetro "restante", o PowerShell tentava casar o
@@ -154,19 +168,8 @@ class Nativo {
 # Processos e portas.
 # =============================================================================================
 class Processos {
-    # "Deste projeto" é decidido pela linha de comando, e nada fora disto é tocado pela limpeza: a
-    # 5173 pode estar com o Vite de OUTRO projeto, e matar isso seria um estrago que o launcher do
-    # Reprise não tem direito de fazer.
-    static [bool] DoReprise([object]$processo, [string]$raiz) {
-        if (-not $processo) { return $false }
-        $linha = [string]$processo.CommandLine
-        if (-not $linha) { return $false }
-        if ($linha.IndexOf($raiz, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
-        return $linha -match 'apps[\\/](api[\\/]Reprise\.Api|web|mobile)'
-    }
-
-    # Pela tabela de portas, e não por uma conexão de teste: o Vite escuta só em `::1`, e sondar
-    # `127.0.0.1` dava o web como fora do ar com ele funcionando.
+    # Pela tabela de portas, e não por uma conexão de teste: o que interessa no segundo clique é se
+    # o web já está publicado, e não se a API já responde.
     static [int[]] DonosDaPorta([int]$porta) {
         return @(Get-NetTCPConnection -LocalPort $porta -State Listen -ErrorAction SilentlyContinue |
             ForEach-Object { [int]$_.OwningProcess } | Select-Object -Unique)
@@ -176,12 +179,28 @@ class Processos {
         return @([Processos]::DonosDaPorta($porta)).Count -gt 0
     }
 
-    static [object] Detalhe([int]$idDoProcesso) {
-        return Get-CimInstance Win32_Process -Filter "ProcessId=$idDoProcesso" -ErrorAction SilentlyContinue
+    # Quem publica porta de container nesta máquina (medido): o backend do Docker Desktop e, no
+    # loopback IPv6, o wslrelay do WSL. Só serve para a mensagem: o wslrelay repassa porta de
+    # qualquer distro, então o nome do dono não prova que a porta é do Reprise.
+    static [string[]]$DoDocker = @('com.docker.backend', 'wslrelay', 'vpnkit', 'com.docker.proxy')
+
+    # Porta ocupada por outro programa vira erro com o nome dele. O compose não recusa sozinho:
+    # medido, com outro processo escutando a 8080 em IPv4, o Docker publicou a porta só em IPv6, a
+    # subida deu "saudável" — e a janela podia cair no programa errado. A porta só é "nossa" quando
+    # o próprio compose diz que é o web do Reprise que a publica.
+    static [void] ExigirLivre([int]$porta, [bool]$doReprise) {
+        if ($doReprise) { return }
+        foreach ($dono in [Processos]::DonosDaPorta($porta)) {
+            $nome = (Get-Process -Id $dono -ErrorAction SilentlyContinue).ProcessName
+            if ($nome -and [Processos]::DoDocker -contains $nome) {
+                throw "A porta $porta já está publicada por outro container ou distro do WSL ($nome). Pare-o, ou escolha outra porta em REPRISE_PORT no .env."
+            }
+            throw "A porta $porta está ocupada por outro programa: $nome (pid $dono). Feche-o, ou escolha outra porta em REPRISE_PORT no .env."
+        }
     }
 
-    # A árvore inteira: `cmd` -> `dotnet run` -> `Reprise.Api.exe`. Matar só o topo deixaria o
-    # servidor vivo segurando a porta.
+    # A árvore inteira: `cmd` -> `docker compose` -> o que ele tiver aberto. Matar só o topo
+    # deixaria o resto rodando.
     static [void] MatarArvore([int]$idDoProcesso) {
         $ErrorActionPreference = 'Continue'
         & taskkill.exe /T /F /PID $idDoProcesso 2>&1 | Out-Null
@@ -189,94 +208,62 @@ class Processos {
 }
 
 # =============================================================================================
-# Um servidor em segundo plano: sem janela, com a saída inteira num log.
+# O `.env`. Quem o lê de verdade é o compose; aqui ele só é conferido — sem `Jwt__Secret`, as
+# imagens seriam construídas e a pilha subiria só para a API cair na partida — e consultado para
+# saber em que porta o web atende e qual token de acesso a sonda de saúde precisa mandar.
 # =============================================================================================
-class ServicoOculto {
-    [string]$Nome
-    [int]$Porta
-    [string]$Exe
-    [string]$Argumentos
-    [string]$Diretorio
-    [string]$Log
-    # Reconhece o processo deste serviço mesmo fora da porta — um Vite travado antes de escutar,
-    # por exemplo, que seguraria o arquivo de log e impediria a subida seguinte.
-    [string]$Assinatura
-    [hashtable]$Ambiente = @{}
-    [System.Diagnostics.Process]$Processo
-    [bool]$Reaproveitado = $false
+class ConfiguracaoLocal {
+    [string]$Arquivo
+    [hashtable]$Valores = @{}
+    [int]$Porta = 8080
 
-    ServicoOculto([string]$nome, [int]$porta, [string]$exe, [string]$argumentos,
-                  [string]$diretorio, [string]$log, [string]$assinatura) {
-        $this.Nome = $nome
-        $this.Porta = $porta
-        $this.Exe = $exe
-        $this.Argumentos = $argumentos
-        $this.Diretorio = $diretorio
-        $this.Log = $log
-        $this.Assinatura = $assinatura
-    }
-
-    [bool] NoAr() { return [Processos]::EmEscuta($this.Porta) }
-
-    [void] LimparSobras([string]$raiz) {
-        $eu = [System.Diagnostics.Process]::GetCurrentProcess().Id
-        foreach ($p in @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
-            if ($p.ProcessId -eq $eu) { continue }
-            $linha = [string]$p.CommandLine
-            if ($linha -and $linha -match $this.Assinatura -and [Processos]::DoReprise($p, $raiz)) {
-                [Registro]::Escrever("  $($this.Nome): encerrando processo remanescente (pid $($p.ProcessId))")
-                [Processos]::MatarArvore([int]$p.ProcessId)
+    ConfiguracaoLocal([string]$arquivo) {
+        $this.Arquivo = $arquivo
+        if (Test-Path -LiteralPath $arquivo) {
+            foreach ($linha in Get-Content -LiteralPath $arquivo -Encoding UTF8) {
+                $t = $linha.Trim()
+                if (-not $t -or $t.StartsWith('#')) { continue }
+                if ($t.StartsWith('export ')) { $t = $t.Substring(7).TrimStart() }
+                $i = $t.IndexOf('=')
+                if ($i -lt 1) { continue }
+                $this.Valores[$t.Substring(0, $i).Trim()] = [ConfiguracaoLocal]::Valor($t.Substring($i + 1).Trim())
             }
         }
+        # `REPRISE_PORT` aceita `ip:porta` no compose ("127.0.0.1:9000"); a porta é o último trecho.
+        $numero = 0
+        $texto = ($this.Ler('REPRISE_PORT') -split ':')[-1]
+        if ([int]::TryParse($texto, [ref]$numero) -and $numero -gt 0) { $this.Porta = $numero }
     }
 
-    [void] Subir() {
-        [Registro]::Rotacionar($this.Log)
-
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = $env:ComSpec
-        # `cmd /s /c` tira as aspas externas e executa o resto literalmente. É o que dá o
-        # redirecionamento para arquivo sem precisar de leitores assíncronos vivos neste script.
-        $psi.Arguments = '/d /s /c ""{0}" {1} > "{2}" 2>&1"' -f $this.Exe, $this.Argumentos, $this.Log
-        $psi.WorkingDirectory = $this.Diretorio
-        $psi.UseShellExecute = $false
-        $psi.CreateNoWindow = $true
-        foreach ($chave in $this.Ambiente.Keys) {
-            $psi.EnvironmentVariables[$chave] = [string]$this.Ambiente[$chave]
+    # As regras do compose para o lado direito do `=`, para os dois enxergarem o mesmo valor: entre
+    # aspas (simples ou duplas) vale o que está dentro delas; sem aspas, ` #` começa um comentário.
+    static [string] Valor([string]$bruto) {
+        if ($bruto.Length -ge 2 -and ($bruto[0] -eq '"' -or $bruto[0] -eq "'")) {
+            $fim = $bruto.IndexOf($bruto[0], 1)
+            if ($fim -gt 0) { return $bruto.Substring(1, $fim - 1) }
         }
-
-        $this.Processo = [System.Diagnostics.Process]::Start($psi)
-        [Registro]::Escrever("  $($this.Nome): subindo (pid $($this.Processo.Id)), log em $($this.Log)")
+        $comentario = $bruto.IndexOf(' #')
+        if ($comentario -ge 0) { return $bruto.Substring(0, $comentario).TrimEnd() }
+        return $bruto
     }
 
-    # Espera a porta atender, e volta cedo — com falso — se o processo MORRER antes. O launcher
-    # antigo esperava cinco minutos por um serviço que tinha caído no primeiro segundo.
-    [bool] Aguardar([int]$segundos, [scriptblock]$enquantoEspera) {
-        $limite = (Get-Date).AddSeconds($segundos)
-        while ((Get-Date) -lt $limite) {
-            if ($this.NoAr()) { return $true }
-            if ($this.Processo -and $this.Processo.HasExited) { return $false }
-            if ($enquantoEspera) { & $enquantoEspera }
-            Start-Sleep -Milliseconds 400
+    # A precedência do compose: variável de ambiente vence o `.env`.
+    [string] Ler([string]$chave) {
+        $doAmbiente = [Environment]::GetEnvironmentVariable($chave)
+        if ($doAmbiente) { return $doAmbiente }
+        return [string]$this.Valores[$chave]
+    }
+
+    [string] Url() { return "http://localhost:$($this.Porta)/" }
+
+    [void] Validar() {
+        if (-not (Test-Path -LiteralPath $this.Arquivo)) {
+            throw "Não achei o .env em $($this.Arquivo). Copie o .env.example e preencha."
         }
-        return $false
-    }
-
-    [string] FimDoLog([int]$linhas) {
-        if (-not (Test-Path -LiteralPath $this.Log)) { return '(o log não chegou a ser criado)' }
-        return ((Get-Content -LiteralPath $this.Log -Tail $linhas -ErrorAction SilentlyContinue) -join "`n")
-    }
-
-    [void] Derrubar([string]$raiz) {
-        if ($this.Processo -and -not $this.Processo.HasExited) {
-            [Processos]::MatarArvore($this.Processo.Id)
-        }
-        # Quem estiver na porta também sai: cobre o serviço reaproveitado de uma execução anterior,
-        # que não tem Processo aqui, e qualquer neto que tenha sobrevivido à árvore.
-        foreach ($dono in [Processos]::DonosDaPorta($this.Porta)) {
-            if ([Processos]::DoReprise([Processos]::Detalhe($dono), $raiz)) {
-                [Processos]::MatarArvore($dono)
-            }
+        # O mesmo critério da API (AuthSetup.AddRepriseAuth), para não recusar o que ela aceita.
+        $segredo = $this.Ler('Jwt__Secret')
+        if ([string]::IsNullOrWhiteSpace($segredo) -or $segredo.Length -lt 32) {
+            throw 'Jwt__Secret ausente ou curto no .env — a API se recusa a subir sem ele.'
         }
     }
 }
@@ -296,6 +283,10 @@ class DockerLocal {
         # Caminho completo: com UseShellExecute desligado, o nome solto depende de como o Windows
         # resolve o PATH para aquele processo, e isto roda sem terminal para mostrar o erro.
         $this.Cli = (Get-Command docker -ErrorAction Stop).Source
+    }
+
+    [string[]] ArgumentosCompose([string[]]$resto) {
+        return @('compose', '-f', $this.Compose) + $resto
     }
 
     # Com prazo: com o Docker Desktop preso no meio da partida, até o `docker info` pode esperar
@@ -390,31 +381,98 @@ class DockerLocal {
         return ($linha -replace '^\[[^\]]+\]\[[^\]]+\]\s*', '')
     }
 
-    [void] SubirBanco([int]$segundos, [scriptblock]$enquantoEspera) {
-        if ([Nativo]::Rodar('docker', @('compose', '-f', $this.Compose, 'up', '-d', 'db')) -ne 0) {
-            throw 'O docker compose não conseguiu subir o Postgres.'
-        }
-
-        # O healthcheck é a fonte da verdade: container "Up" não é Postgres aceitando conexão, e a
-        # API morre se tentar conectar antes disso.
-        $saude = ''
-        $limite = (Get-Date).AddSeconds($segundos)
-        while ((Get-Date) -lt $limite) {
-            $saude = [Nativo]::Saida('docker', @('inspect', '--format', '{{.State.Health.Status}}', 'reprise-db'))
-            if ($saude -eq 'healthy') {
-                [Registro]::Escrever('Postgres: saudável.')
-                return
-            }
-            if ($enquantoEspera) { & $enquantoEspera }
-            Start-Sleep -Milliseconds 800
-        }
-        throw "O Postgres não ficou saudável (estado: $saude)."
+    # A porta em que o web do Reprise está publicado agora, ou 0 se ele não está de pé.
+    [int] PortaDoWeb() {
+        $saida = [Nativo]::Saida($this.Cli, $this.ArgumentosCompose(@('port', 'web', '8080')))
+        $numero = 0
+        if ($saida -and [int]::TryParse(($saida -split "`n")[0].Split(':')[-1], [ref]$numero)) { return $numero }
+        return 0
     }
 
-    [void] PararBanco() {
+    # Sem prender o laço da bandeja: o `up --build` pode levar minutos, e nesse tempo o ícone tem
+    # de continuar respondendo — é por ele que "Encerrar" interrompe uma subida.
+    [void] SubirPilha([string]$log, [int]$segundos, [scriptblock]$enquantoEspera) {
+        [Registro]::Rotacionar($log)
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $env:ComSpec
+        # `cmd /s /c` tira as aspas externas e executa o resto literalmente. É o que dá o
+        # redirecionamento para arquivo sem precisar de leitores assíncronos vivos neste script.
+        $psi.Arguments = '/d /s /c ""{0}" compose -f "{1}" up -d --build > "{2}" 2>&1"' -f $this.Cli, $this.Compose, $log
+        $psi.WorkingDirectory = Split-Path -Parent $this.Compose
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        # Ver "--build A CADA ABERTURA" no cabeçalho.
+        $psi.EnvironmentVariables['BUILDX_NO_DEFAULT_ATTESTATIONS'] = '1'
+
+        $processo = [System.Diagnostics.Process]::Start($psi)
+        [Registro]::Escrever("Containers: subindo (docker compose up --build, pid $($processo.Id)), log em $log")
+
+        $limite = (Get-Date).AddSeconds($segundos)
+        try {
+            while (-not $processo.HasExited) {
+                if ((Get-Date) -gt $limite) { throw "O docker compose não terminou em $segundos segundos." }
+                if ($enquantoEspera) { & $enquantoEspera }
+                Start-Sleep -Milliseconds 400
+            }
+        } catch {
+            # Interrompido (prazo ou "Encerrar" na bandeja): o compose não pode seguir construindo
+            # sozinho depois que o launcher desistiu.
+            if (-not $processo.HasExited) { [Processos]::MatarArvore($processo.Id) }
+            throw
+        }
+
+        if ($processo.ExitCode -ne 0) {
+            throw "O docker compose falhou (código $($processo.ExitCode)).`n`nFinal do log ($log):`n$([Registro]::FimDe($log, 12))"
+        }
+        [Registro]::Escrever('Containers: de pé.')
+    }
+
+    # Pelo web, e não direto na API: `/api/health` passando pelo nginx prova a corrente inteira — o
+    # web atendendo, o proxy chegando na API e a API falando com o banco. Container "Up" não prova
+    # nada disso.
+    #
+    # Com `Api__AccessToken` no `.env`, a API recusa tudo sem o token — o /health inclusive — e a
+    # sonda precisa mandá-lo, ou esperaria o prazo inteiro por um 401.
+    [void] AguardarSaude([string]$url, [string]$token, [int]$segundos, [scriptblock]$enquantoEspera) {
+        $sonda = $url.TrimEnd('/') + '/api/health'
+        $cabecalhos = @{}
+        if ($token) { $cabecalhos['X-Reprise-Token'] = $token }
+        $limite = (Get-Date).AddSeconds($segundos)
+        while ((Get-Date) -lt $limite) {
+            try {
+                $resposta = Invoke-WebRequest -Uri $sonda -Headers $cabecalhos -UseBasicParsing -TimeoutSec 3
+                if ($resposta.StatusCode -eq 200) {
+                    [Registro]::Escrever("API: saudável ($sonda).")
+                    return
+                }
+            } catch { }
+
+            # Uma API que cai na partida fica reiniciando pela política do compose. Sem olhar o
+            # estado, este laço esperaria o prazo inteiro por ela.
+            $estado = [Nativo]::Saida($this.Cli, $this.ArgumentosCompose(@('ps', '-a', '--format', '{{.State}}', 'api')))
+            if ($estado -match 'restarting|exited|dead') {
+                $log = [Nativo]::Saida($this.Cli, $this.ArgumentosCompose(@('logs', '--tail', '40', '--no-log-prefix', 'api')))
+                throw "A API não ficou de pé (estado: $estado).`n`nFinal do log da API:`n$([DockerLocal]::SemRepeticao($log, 8))"
+            }
+            if ($enquantoEspera) { & $enquantoEspera }
+            Start-Sleep -Seconds 1
+        }
+        throw "A API não respondeu em $segundos segundos ($sonda)."
+    }
+
+    # Cada reinício da API repete a mesma exceção no log: na caixa de erro, o que importa são as
+    # linhas distintas, na ordem em que apareceram.
+    static [string] SemRepeticao([string]$texto, [int]$maximo) {
+        $vistas = New-Object 'System.Collections.Generic.HashSet[string]'
+        $linhas = @($texto -split "`n" | Where-Object { $_.Trim() -and $vistas.Add($_.TrimEnd()) })
+        return (($linhas | Select-Object -Last $maximo) -join "`n")
+    }
+
+    [void] PararPilha() {
         if (-not $this.Respondendo()) { return }
-        [void][Nativo]::Rodar('docker', @('compose', '-f', $this.Compose, 'stop', 'db'))
-        [Registro]::Escrever('Postgres: parado.')
+        [void][Nativo]::Rodar($this.Cli, $this.ArgumentosCompose(@('stop')))
+        [Registro]::Escrever('Containers: parados.')
     }
 
     [void] Desligar() {
@@ -544,82 +602,10 @@ function Show-Aviso([string]$texto, [string]$tipo = 'Error') {
 }
 
 function Get-CausaRaiz([System.Exception]$erro) {
-    # Exceção lançada dentro de método de classe chega embrulhada ("Exception calling 'Aguardar'
-    # with '2' argument(s)"). O que interessa mostrar é a mensagem de dentro.
+    # Exceção lançada dentro de método de classe chega embrulhada ("Exception calling 'SubirPilha'
+    # with '3' argument(s)"). O que interessa mostrar é a mensagem de dentro.
     while ($erro.InnerException) { $erro = $erro.InnerException }
     return $erro
-}
-
-function Import-DotEnv([string]$caminho) {
-    if (-not (Test-Path -LiteralPath $caminho)) {
-        throw "Não achei o .env em $caminho. Copie o .env.example e preencha."
-    }
-    foreach ($linha in Get-Content -LiteralPath $caminho -Encoding UTF8) {
-        $t = $linha.Trim()
-        if (-not $t -or $t.StartsWith('#')) { continue }
-        $i = $t.IndexOf('=')
-        if ($i -lt 1) { continue }
-        [Environment]::SetEnvironmentVariable($t.Substring(0, $i).Trim(), $t.Substring($i + 1).Trim().Trim('"'), 'Process')
-    }
-    if (-not $env:Jwt__Secret -or $env:Jwt__Secret.Length -lt 32) {
-        throw 'Jwt__Secret ausente ou curto no .env — a API se recusa a subir sem ele.'
-    }
-}
-
-function New-Servicos {
-    $node   = (Get-Command node -ErrorAction Stop).Source
-    $dotnet = (Get-Command dotnet -ErrorAction Stop).Source
-
-    $api = [ServicoOculto]::new('API', $PORTA_API, $dotnet,
-        "run --project `"apps\api\Reprise.Api`" --urls http://0.0.0.0:$PORTA_API",
-        $raiz, (Join-Path $pastaLogs 'api.log'),
-        'run\s+--project\s+"?apps[\\/]api[\\/]Reprise\.Api|Reprise\.Api\.exe')
-    # A API escuta em 0.0.0.0 porque o celular precisa alcançá-la pela rede. E sem servidores de
-    # build que sobrevivem ao `dotnet run`: eram ~250 MB que ficavam na memória depois de fechar o
-    # Reprise, medidos. Variável de ambiente vira propriedade do MSBuild — daí o UseSharedCompilation.
-    $api.Ambiente['MSBUILDDISABLENODEREUSE'] = '1'
-    $api.Ambiente['DOTNET_CLI_USE_MSBUILD_SERVER'] = '0'
-    $api.Ambiente['UseSharedCompilation'] = 'false'
-
-    # O web fica em localhost: é aberto nesta máquina, e o Vite em 0.0.0.0 publicaria o servidor
-    # de desenvolvimento para a rede inteira sem necessidade.
-    $web = [ServicoOculto]::new('web', $PORTA_WEB, $node,
-        "`"$(Join-Path $raiz 'apps\web\node_modules\vite\bin\vite.js')`"",
-        (Join-Path $raiz 'apps\web'), (Join-Path $pastaLogs 'web.log'),
-        'vite[\\/]bin[\\/]vite\.js')
-
-    return @($api, $web)
-}
-
-function Remove-JanelasLegadas {
-    # As janelas minimizadas do launcher antigo (`-NoExit`, com pnpm ou dotnet run dentro). O
-    # launcher novo não as cria, mas uma que tenha sobrado seguraria porta e log.
-    Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object {
-        $_.ProcessId -ne $PID -and $_.CommandLine -match '-NoExit' -and
-        $_.CommandLine -match '-Command\s+(pnpm -C apps|dotnet run --project apps)'
-    } | ForEach-Object {
-        [Registro]::Escrever("Encerrando janela do launcher antigo (pid $($_.ProcessId)).")
-        [Processos]::MatarArvore([int]$_.ProcessId)
-    }
-}
-
-function Start-OuReaproveitar([ServicoOculto]$servico) {
-    if ($servico.NoAr()) {
-        foreach ($dono in [Processos]::DonosDaPorta($servico.Porta)) {
-            $p = [Processos]::Detalhe($dono)
-            if (-not [Processos]::DoReprise($p, $raiz)) {
-                $nome = if ($p) { $p.Name } else { 'desconhecido' }
-                throw "A porta $($servico.Porta) ($($servico.Nome)) está ocupada por outro programa: $nome (pid $dono). Feche-o e abra o Reprise de novo."
-            }
-        }
-        # Deste projeto e atendendo: sobra de uma execução que não encerrou. Reaproveitar é mais
-        # rápido que reiniciar, e o encerramento derruba pela porta do mesmo jeito.
-        $servico.Reaproveitado = $true
-        [Registro]::Escrever("  $($servico.Nome): já estava de pé na porta $($servico.Porta) — reaproveitando.")
-        return
-    }
-    $servico.LimparSobras($raiz)
-    $servico.Subir()
 }
 
 function Stop-Tudo {
@@ -628,8 +614,7 @@ function Stop-Tudo {
         [System.Windows.Forms.Application]::DoEvents()
     }
     if ($script:janela) { $script:janela.Fechar() }
-    foreach ($s in $servicos) { $s.Derrubar($raiz) }
-    $docker.PararBanco()
+    $docker.PararPilha()
     if ($docker.LigadoPorNos) { $docker.Desligar() }
     [Registro]::Escrever('Reprise encerrado.')
 }
@@ -638,22 +623,22 @@ function Stop-Tudo {
 # Execução.
 # =============================================================================================
 New-Item -ItemType Directory -Force -Path $pastaLogs | Out-Null
+$config = [ConfiguracaoLocal]::new((Join-Path $raiz '.env'))
+$URL_WEB = $config.Url()
 $docker = [DockerLocal]::new((Join-Path $raiz 'docker-compose.yml'))
 
 if ($Parar) {
     [Registro]::Arquivo = Join-Path $pastaLogs 'launcher.log'
     [Registro]::Escrever('Parando o Reprise (-Parar).')
     try { [JanelaDoApp]::new($perfil, $URL_WEB).Fechar() } catch { }
-    Remove-JanelasLegadas
-    foreach ($s in @(New-Servicos)) { $s.Derrubar($raiz); $s.LimparSobras($raiz) }
-    $docker.PararBanco()
+    $docker.PararPilha()
     if ($DesligarDocker) { $docker.Desligar() }
     [Registro]::Escrever('Reprise parado.')
     exit 0
 }
 
 # Um launcher por vez. Um segundo clique no atalho com o Reprise aberto só abre outra janela: sem
-# esta trava, ele subiria uma segunda pilha disputando as mesmas portas.
+# esta trava, ele subiria uma segunda vez a mesma pilha.
 $mutex = New-Object System.Threading.Mutex($false, 'Local\Reprise.Launcher')
 $temOTurno = $false
 try { $temOTurno = $mutex.WaitOne(0) }
@@ -662,8 +647,12 @@ catch [System.Threading.AbandonedMutexException] { $temOTurno = $true }   # laun
 if (-not $temOTurno) {
     $mutex.Dispose()
     if ($SemNavegador) { Write-Host 'Outro launcher já está cuidando do Reprise.'; exit 0 }
-    if ([Processos]::EmEscuta($PORTA_WEB)) {
-        [JanelaDoApp]::new($perfil, $URL_WEB).AbrirOutra()
+    # Só com a janela do primeiro já aberta. Antes disso — a porta publicada não basta, o compose a
+    # publica antes de a API responder —, a janela aberta aqui seria fechada logo em seguida pelo
+    # primeiro launcher, que encerra janelas órfãs do perfil antes de abrir a dele.
+    $janelaExistente = [JanelaDoApp]::new($perfil, $URL_WEB)
+    if (@($janelaExistente.ProcessosDoPerfil()).Count -gt 0) {
+        $janelaExistente.AbrirOutra()
     } else {
         Show-Aviso 'O Reprise está iniciando ou encerrando. Tente de novo em alguns segundos.' 'Information'
     }
@@ -677,7 +666,6 @@ if (-not $temOTurno) {
 $script:pedidoDeEncerrar = $false
 $script:janela = $null
 $bandeja = $null
-$servicos = @()
 $sucesso = $false
 
 # Chamado a cada espera da subida. Mantém o ícone da bandeja respondendo — sem isto, o menu não
@@ -688,7 +676,12 @@ $enquantoEspera = {
 }
 
 try {
-    Import-DotEnv (Join-Path $raiz '.env')
+    $config.Validar()
+    # Não impede de abrir, mas some calado: sem a chave, buscar série nova e completar o catálogo
+    # falham lá dentro. E quem guardava a chave no user-secrets do `dotnet run` não a tem mais aqui.
+    if (-not $config.Ler('Tmdb__ApiKey')) {
+        [Registro]::Escrever('Aviso: Tmdb__ApiKey vazio no .env — buscar séries novas e completar o catálogo pelo TMDB não vão funcionar.')
+    }
 
     if (-not $SemNavegador) {
         $bandeja = New-Object System.Windows.Forms.NotifyIcon
@@ -700,28 +693,17 @@ try {
         [void]$menu.Items.Add('Encerrar o Reprise', $null, { $script:pedidoDeEncerrar = $true })
         $bandeja.ContextMenuStrip = $menu
         $bandeja.Visible = $true
-        $bandeja.ShowBalloonTip(5000, 'Reprise', 'Iniciando… Com o Docker desligado, a primeira subida leva um pouco mais.', [System.Windows.Forms.ToolTipIcon]::Info)
+        $bandeja.ShowBalloonTip(5000, 'Reprise', 'Iniciando… Com o Docker desligado ou código novo para construir, leva um pouco mais.', [System.Windows.Forms.ToolTipIcon]::Info)
     }
 
     $docker.Garantir($Timeout, $enquantoEspera)
-    $docker.SubirBanco(90, $enquantoEspera)
-
-    Remove-JanelasLegadas
-    $servicos = @(New-Servicos)
-    foreach ($s in $servicos) { Start-OuReaproveitar $s }
-
-    foreach ($s in $servicos) {
-        if ($s.Reaproveitado) { continue }
-        if (-not $s.Aguardar($Timeout, $enquantoEspera)) {
-            $motivo = if ($s.Processo.HasExited) { 'parou logo depois de subir' } else { "não atendeu em $Timeout segundos" }
-            throw "$($s.Nome) $motivo.`n`nFinal do log ($($s.Log)):`n$($s.FimDoLog(12))"
-        }
-        [Registro]::Escrever("  $($s.Nome): atendendo na porta $($s.Porta).")
-    }
+    [Processos]::ExigirLivre($config.Porta, $docker.PortaDoWeb() -eq $config.Porta)
+    $docker.SubirPilha((Join-Path $pastaLogs 'compose.log'), $TimeoutBuild, $enquantoEspera)
+    $docker.AguardarSaude($URL_WEB, $config.Ler('Api__AccessToken'), $Timeout, $enquantoEspera)
 
     if ($SemNavegador) {
         $sucesso = $true
-        [Registro]::Escrever("Serviços de pé: web $URL_WEB · API http://localhost:$PORTA_API — encerre com -Parar.")
+        [Registro]::Escrever("Reprise de pé em $URL_WEB — encerre com -Parar.")
         return
     }
 
@@ -751,7 +733,7 @@ catch {
     }
 }
 finally {
-    # Com -SemNavegador e tudo de pé, os serviços ficam — é o propósito do modo. Em qualquer
+    # Com -SemNavegador e tudo de pé, os containers ficam — é o propósito do modo. Em qualquer
     # outro caso, inclusive falha no meio da subida, desce o que tiver subido.
     if (-not ($SemNavegador -and $sucesso)) { Stop-Tudo }
 

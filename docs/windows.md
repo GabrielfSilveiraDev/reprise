@@ -10,9 +10,11 @@ resolve — mas é uma decisão de segurança, e por isso não vai feita por pad
 
 ## Abrindo com um clique
 
-`scripts/subir-reprise.ps1` sobe banco, API e web **em segundo plano** e abre o Reprise numa
-**janela própria** do navegador. Fechar essa janela encerra tudo: API, web, o container do
-Postgres e — se foi o launcher que ligou — o Docker Desktop.
+`scripts/subir-reprise.ps1` sobe a pilha do Docker Compose — banco, migrações, API e web — **em
+segundo plano** e abre o Reprise numa **janela própria** do navegador, em `http://localhost:8080`
+(`REPRISE_PORT` no `.env` muda a porta). Fechar essa janela para os containers e — se foi o
+launcher que ligou — o Docker Desktop. Só o Docker Desktop é necessário: nada é compilado no
+Windows, então o atalho não depende do SDK do .NET nem do Node.
 
 ```powershell
 .\scripts\subir-reprise.ps1                  # o que o atalho faz
@@ -27,29 +29,35 @@ destino, trocando o caminho pelo da sua cópia do repositório:
 C:\Windows\System32\conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\caminho\do\reprise\scripts\subir-reprise.ps1"
 ```
 
-O launcher carrega o `.env` para o ambiente antes de subir a API — ao contrário do `dotnet run`
-direto, aqui o `.env` vale.
+O `.env` é lido pelo próprio compose; o launcher só confere, antes de tudo, se o `Jwt__Secret`
+está lá. O `dotnet user-secrets` não vale aqui: o que estiver só nele — a chave do TMDB, por
+exemplo — precisa ir para o `.env`, e o launcher avisa no log quando o `Tmdb__ApiKey` está vazio.
 
-- **Nenhum terminal aparece.** O atalho chama `conhost.exe --headless`; API e web sobem sem
+- **Tudo roda em container.** Com o Smart App Control ligado, o Windows recusa as DLLs da API
+  compiladas na máquina (ver [abaixo](#testes-da-api-com-smart-app-control)) — e toda compilação
+  nova é barrada, então o `dotnet run` deixa de subir na primeira mudança de código. Num
+  container Linux a política não alcança.
+- **As imagens são reconstruídas a cada abertura** (`docker compose up --build`), o que faz um
+  `git pull` valer no clique seguinte. Sem código novo, o cache resolve em segundos; com código
+  novo, refaz só o que mudou. Sem cache nenhum, construir tudo leva alguns minutos.
+- **Nenhum terminal aparece.** O atalho chama `conhost.exe --headless`, e o compose roda sem
   janela. Enquanto o Reprise está aberto há um ícone na bandeja, com "Abrir outra janela" e
-  "Encerrar o Reprise". A saída de cada serviço vai para `%LOCALAPPDATA%\Reprise\logs`, e a
-  execução anterior fica guardada como `*.anterior.log`.
+  "Encerrar o Reprise". O launcher escreve em `%LOCALAPPDATA%\Reprise\logs\launcher.log`, a saída
+  do compose vai para `compose.log` na mesma pasta, e a execução anterior fica guardada como
+  `*.anterior.log`. Os logs da API: `docker compose logs api`.
 - **A janela tem perfil próprio** (`%LOCALAPPDATA%\Reprise\navegador`). É o que permite saber que
   ela fechou — uma aba no navegador de sempre não tem processo próprio para observar. Por isso o
   login é feito uma vez nessa janela, que não compartilha sessão com o navegador de uso.
 - **O Docker só é desligado se o launcher o ligou.** Se ele já estava de pé por causa de outro
-  projeto, só o container do Reprise para.
+  projeto, só os containers do Reprise param.
 - **Os sockets do Docker são afastados antes de ligá-lo.** Em algumas máquinas o Docker Desktop
   deixa para trás sockets que o Windows não deixa apagar (erro 1920), e toda partida depois de um
   desligamento quebra tentando removê-los. O launcher move `Docker\run` e `docker-secrets-engine`
   para `*.antiga-*` antes de ligar o Docker; essas pastas só podem ser apagadas depois de
   reiniciar o Windows, e o launcher tenta a cada partida. Se o Docker quebrar mesmo assim, a
   mensagem de erro traz o que ele registrou.
-- **Portas fixas:** web na 5173 e API na 5156, sem plano B. Porta ocupada por outro programa
-  vira erro com o nome dele, em vez de o Vite subir calado em outra porta.
-- **O Vite é chamado direto, sem `pnpm dev`.** O `pnpm` confere as dependências antes de rodar e
-  pode disparar um `install` que *pergunta* antes de mexer no `node_modules` — sem terminal
-  visível, ninguém responde e o web nunca sobe. Depois de mudar dependências, rode `pnpm install`.
+- **Porta ocupada por outro programa vira erro com o nome dele.** O Docker Desktop chega a
+  publicar a porta mesmo assim (só em IPv6), e a janela poderia abrir no programa errado.
 
 ## Testes da API com Smart App Control
 
@@ -60,8 +68,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\testar-api.ps1 -Filtro "Fully
 
 Com o Smart App Control ligado, o Windows recusa carregar DLLs sem assinatura digital e sem
 reputação no `testhost.exe` — evento 3077 do Code Integrity, erro `0x800711C7`. Isso inclui a
-`Docker.DotNet.Handler.Abstractions.dll` do Testcontainers e, numa pasta recém-clonada, até as
-DLLs do próprio projeto. A falha parece do projeto e é da máquina.
+`Docker.DotNet.Handler.Abstractions.dll` do Testcontainers e as DLLs do próprio projeto assim que
+são recompiladas — o mesmo bloqueio derruba o `dotnet run` da API, e é por isso que o launcher
+roda tudo em container. A falha parece do projeto e é da máquina.
 
 O script copia o código para uma pasta temporária e roda a suíte num container Linux, onde a
 política não alcança; o cache do NuGet fica num volume (`reprise-nuget`) para as próximas vezes.

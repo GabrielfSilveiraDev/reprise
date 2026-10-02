@@ -29,8 +29,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-reprise}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reprise}
       POSTGRES_DB: ${POSTGRES_DB:-reprise}
-    # Só no localhost: a API e a CLI rodando direto na máquina (desenvolvimento, launcher do Windows)
-    # alcançam o banco, e a rede não — a senha padrão é "reprise".
+    # Só no localhost: a API e a CLI rodando direto na máquina (desenvolvimento) alcançam o banco, e
+    # a rede não — a senha padrão é "reprise".
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
