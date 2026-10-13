@@ -21,10 +21,14 @@ import { design } from './lib/DesignController'
 import { theme } from './lib/ThemeController'
 import { TooltipProvider } from './ui/Controls'
 
-// Ao sair (aqui ou em outra aba), o cache de dados da pessoa vai junto: quem entrar depois
-// neste navegador não pode ver, nem por um instante, o acervo de quem saiu.
+// Quando a pessoa muda — saiu (aqui ou em outra aba), ou o passe do launcher entrou com outra
+// conta —, o cache de dados vai junto: quem entra depois não pode ver, nem por um instante, o
+// acervo de quem estava antes. Renovar a sessão da mesma pessoa não conta como troca.
+let currentUser = api.sessions.session?.userId
 api.sessions.subscribe(() => {
-  if (!api.sessions.session) queryClient.clear()
+  const next = api.sessions.session?.userId
+  if (next !== currentUser) queryClient.clear()
+  currentUser = next
 })
 
 // A barra do navegador no celular acompanha o fundo do design e do tema em uso. Lido da variável,
@@ -58,13 +62,17 @@ function ThemedToaster() {
   )
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider delayDuration={300}>
-        <RouterProvider router={router} />
-        <ThemedToaster />
-      </TooltipProvider>
-    </QueryClientProvider>
-  </StrictMode>,
+// O app só monta depois de o passe do launcher (se a página veio dele) virar sessão: é ao montar
+// que o roteador decide entre o login e o app. Sem passe, `ready` já está resolvida.
+void api.launcherLogin.ready.then(() =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider delayDuration={300}>
+          <RouterProvider router={router} />
+          <ThemedToaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  ),
 )

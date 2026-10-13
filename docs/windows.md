@@ -29,9 +29,11 @@ destino, trocando o caminho pelo da sua cópia do repositório:
 C:\Windows\System32\conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\caminho\do\reprise\scripts\subir-reprise.ps1"
 ```
 
-O `.env` é lido pelo próprio compose; o launcher só confere, antes de tudo, se o `Jwt__Secret`
-está lá. O `dotnet user-secrets` não vale aqui: o que estiver só nele — a chave do TMDB, por
-exemplo — precisa ir para o `.env`, e o launcher avisa no log quando o `Tmdb__ApiKey` está vazio.
+O `.env` é lido pelo próprio compose. O launcher confere, antes de tudo, se o `Jwt__Secret` está
+lá, e lê dele só o que precisa saber por conta própria: `REPRISE_PORT`, `Api__AccessToken` (para a
+sonda de saúde), `Tmdb__ApiKey` (para avisar quando falta) e `REPRISE_AUTOLOGIN_EMAIL`. O
+`dotnet user-secrets` não vale aqui: o que estiver só nele — a chave do TMDB, por exemplo —
+precisa ir para o `.env`, e o launcher avisa no log quando o `Tmdb__ApiKey` está vazio.
 
 - **Tudo roda em container.** Com o Smart App Control ligado, o Windows recusa as DLLs da API
   compiladas na máquina (ver [abaixo](#testes-da-api-com-smart-app-control)) — e toda compilação
@@ -46,8 +48,31 @@ exemplo — precisa ir para o `.env`, e o launcher avisa no log quando o `Tmdb__
   do compose vai para `compose.log` na mesma pasta, e a execução anterior fica guardada como
   `*.anterior.log`. Os logs da API: `docker compose logs api`.
 - **A janela tem perfil próprio** (`%LOCALAPPDATA%\Reprise\navegador`). É o que permite saber que
-  ela fechou — uma aba no navegador de sempre não tem processo próprio para observar. Por isso o
-  login é feito uma vez nessa janela, que não compartilha sessão com o navegador de uso.
+  ela fechou — uma aba no navegador de sempre não tem processo próprio para observar. Ela não
+  compartilha sessão com o navegador de uso.
+- **A janela entra na conta sem pedir senha.** Cada janela aberta pelo launcher — a primeira,
+  "Abrir outra janela" na bandeja e o segundo clique no atalho — leva um **passe de entrada**: a
+  CLI do Reprise (`docker compose run --rm cli entrar`) emite um refresh token de uso único que
+  vale 5 minutos, a janela abre em `#entrar=<passe>`, e o web o troca pela sessão numa rota que
+  só aceita passe (`/auth/launcher`). Quem roda a CLI alcança o banco, então o passe não dá poder
+  novo a ninguém: só tira a senha do caminho de quem já é dono da máquina. Com mais de uma conta
+  confirmada no banco, `REPRISE_AUTOLOGIN_EMAIL` no `.env` diz qual entra (é o launcher que o
+  repassa como `entrar --email`); sem ele, a janela abre na tela de login. Duas consequências:
+  - **"Sair" vale até a próxima janela aberta pelo launcher**, que entra de novo — de propósito.
+  - **No navegador de sempre** (`http://localhost:8080` digitado à mão) a senha continua valendo.
+    Se você não sabe a sua, defina uma nova **na conta que já existe** — a do seu histórico; numa
+    instalação que importou o TV Time, é a `me@reprise.local`:
+    `docker compose run --rm cli passwd --email me@reprise.local --password "..."`. Com um e-mail
+    que não existe, o `passwd` cria uma conta nova e vazia — e, com duas contas, a entrada
+    automática para até `REPRISE_AUTOLOGIN_EMAIL` dizer qual delas entra. O formulário de login
+    avisa o gerenciador de senhas do navegador, que oferece guardar a senha.
+  - **Com o cadeado ligado** (`Api__AccessToken`), o passe só chega à API com a chave do servidor,
+    que fica guardada por navegador. Na primeira vez, a janela pede a chave; digitada uma vez, as
+    próximas janelas do launcher entram sozinhas.
+
+  Quando a janela não entra sozinha: se o `launcher.log` não tem `Passe de entrada: emitido`, a
+  linha `Passe de entrada` diz por que a CLI não o emitiu; se tem, a troca falhou no web ou na API —
+  veja `docker compose logs api`.
 - **O Docker só é desligado se o launcher o ligou.** Se ele já estava de pé por causa de outro
   projeto, só os containers do Reprise param.
 - **Os sockets do Docker são afastados antes de ligá-lo.** Em algumas máquinas o Docker Desktop

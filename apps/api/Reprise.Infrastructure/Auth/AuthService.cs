@@ -248,22 +248,36 @@ public sealed class AuthService
     /// duas renovações simultâneas com o mesmo token viam ambas o token ativo, e as duas ganhavam
     /// sessão — o token roubado e o legítimo seguiam vivos juntos. Com o <c>WHERE revoked_at IS
     /// NULL</c>, o Postgres serializa as duas na linha: a segunda espera a primeira terminar e já
-    /// não acha o que consumir. Consumo e emissão vão na mesma transação: se a emissão falhar,
+    /// não acha o que consumir. O passe do launcher (<see cref="LauncherTicketIssuer"/>) depende
+    /// disso para ser de uso único. Consumo e emissão vão na mesma transação: se a emissão falhar,
     /// o token velho volta a valer, em vez de a pessoa perder a sessão.
     /// </para>
     /// </summary>
-    public async Task<AuthResult> RefreshAsync(string? refreshToken, string? device, CancellationToken ct = default)
+    public Task<AuthResult> RefreshAsync(string? refreshToken, string? device, CancellationToken ct = default)
+        => ExchangeAsync(refreshToken, device, launcherTicket: false, ct);
+
+    /// <summary>
+    /// Troca o passe de entrada do launcher do Windows (<see cref="LauncherTicketIssuer"/>) por
+    /// uma sessão. Só aceita passe: um refresh token comum aqui permitiria que qualquer pessoa com
+    /// conta na instância mandasse um link <c>#entrar=&lt;o token dela&gt;</c> e jogasse quem o
+    /// abrisse dentro da conta dela. Pela mesma razão, <see cref="RefreshAsync"/> recusa passe.
+    /// </summary>
+    public Task<AuthResult> LauncherLoginAsync(string? ticket, string? device, CancellationToken ct = default)
+        => ExchangeAsync(ticket, device, launcherTicket: true, ct);
+
+    private async Task<AuthResult> ExchangeAsync(string? token, string? device, bool launcherTicket, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(refreshToken))
+        if (string.IsNullOrWhiteSpace(token))
             return AuthResult.Fail(AuthFailure.InvalidRefreshToken);
 
         var now = _clock.GetUtcNow();
-        var hash = RefreshToken.Hash(refreshToken);
+        var hash = RefreshToken.Hash(token);
 
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
 
         var consumed = await _db.RefreshTokens
             .Where(r => r.TokenHash == hash && r.RevokedAt == null && r.ExpiresAt > now)
+            .Where(launcherTicket ? LauncherTicketIssuer.IsTicket : LauncherTicketIssuer.IsNotTicket)
             .ExecuteUpdateAsync(s => s.SetProperty(r => r.RevokedAt, now), ct);
 
         if (consumed == 0)
@@ -273,7 +287,8 @@ public sealed class AuthService
             .Include(r => r.User)
             .FirstAsync(r => r.TokenHash == hash, ct);
 
-        var tokens = await IssueAsync(stored.User, device ?? stored.Device, ct);
+        // A sessão nascida de um passe leva o rótulo do navegador, nunca o do passe.
+        var tokens = await IssueAsync(stored.User, device ?? (launcherTicket ? null : stored.Device), ct);
         await transaction.CommitAsync(ct);
         return AuthResult.Ok(tokens);
     }

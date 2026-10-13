@@ -6,12 +6,15 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Reprise.Domain.Entities;
+using Reprise.Infrastructure.Auth;
+using Reprise.Infrastructure.Persistence;
 
 namespace Reprise.Tests.Integration;
 
 /// <summary>
-/// Sessão de ponta a ponta, pelo pipeline HTTP: a rotação do refresh e a validação de e-mail.
-/// Cada teste começa sem nenhuma conta.
+/// Sessão de ponta a ponta, pelo pipeline HTTP: o passe do launcher, a rotação do refresh e a
+/// validação de e-mail. Cada teste começa sem nenhuma conta, porque "a única conta confirmada" é
+/// justamente uma das regras em teste.
 /// </summary>
 public sealed class AuthFlowTests : IClassFixture<PostgresFixture>, IAsyncLifetime
 {
@@ -61,6 +64,127 @@ public sealed class AuthFlowTests : IClassFixture<PostgresFixture>, IAsyncLifeti
         var resposta = await client.PostAsJsonAsync("/auth/login", new { identifier = email, password = "senha-de-teste-123" });
         Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
         return (await resposta.Content.ReadFromJsonAsync<SessionBody>())!;
+    }
+
+    private async Task<LauncherTicket> EmitirPasseAsync(string? email = null)
+    {
+        using var scope = _api.Services.CreateScope();
+        var issuer = new LauncherTicketIssuer(
+            scope.ServiceProvider.GetRequiredService<RepriseDbContext>(),
+            scope.ServiceProvider.GetRequiredService<UserManager<User>>(),
+            TimeProvider.System);
+        return await issuer.IssueAsync(email);
+    }
+
+    [Fact]
+    public async Task Passe_do_launcher_vira_sessao_uma_vez_so()
+    {
+        var dono = await CriarContaAsync("dono@exemplo.com");
+        var passe = await EmitirPasseAsync();
+        Assert.True(passe.Issued, passe.Problem);
+
+        var client = _api.CreateClient();
+        var troca = await client.PostAsJsonAsync("/auth/launcher", new { ticket = passe.Token });
+        Assert.Equal(HttpStatusCode.OK, troca.StatusCode);
+        var sessao = await troca.Content.ReadFromJsonAsync<SessionBody>();
+        Assert.Equal(dono.Id.ToString(), sessao!.UserId);
+
+        // A sessão trocada é de verdade: abre uma rota protegida.
+        using var me = new HttpRequestMessage(HttpMethod.Get, "/me");
+        me.Headers.Authorization = new("Bearer", sessao.AccessToken);
+        Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(me)).StatusCode);
+
+        // E o passe já foi: quem o copiar da linha de comando ou do histórico não entra.
+        var repetida = await client.PostAsJsonAsync("/auth/launcher", new { ticket = passe.Token });
+        Assert.Equal(HttpStatusCode.Unauthorized, repetida.StatusCode);
+    }
+
+    [Fact]
+    public async Task Rota_do_passe_recusa_refresh_token_comum()
+    {
+        // Sem esta recusa, quem tem conta na instância mandaria um link #entrar=<o refresh dela>
+        // e jogaria quem o abrisse dentro da conta dela.
+        await CriarContaAsync("outra@exemplo.com");
+        var client = _api.CreateClient();
+        var sessao = await EntrarAsync(client, "outra@exemplo.com");
+
+        var troca = await client.PostAsJsonAsync("/auth/launcher", new { ticket = sessao.RefreshToken });
+        Assert.Equal(HttpStatusCode.Unauthorized, troca.StatusCode);
+
+        // E a recusa não gasta o token: a sessão dela segue valendo.
+        var renovada = await client.PostAsJsonAsync("/auth/refresh", new { refreshToken = sessao.RefreshToken });
+        Assert.Equal(HttpStatusCode.OK, renovada.StatusCode);
+    }
+
+    [Fact]
+    public async Task Refresh_recusa_o_passe()
+    {
+        await CriarContaAsync("dono@exemplo.com");
+        var passe = await EmitirPasseAsync();
+        var client = _api.CreateClient();
+
+        var troca = await client.PostAsJsonAsync("/auth/refresh", new { refreshToken = passe.Token });
+        Assert.Equal(HttpStatusCode.Unauthorized, troca.StatusCode);
+
+        // Recusado por lá, o passe continua inteiro para a rota dele.
+        var certa = await client.PostAsJsonAsync("/auth/launcher", new { ticket = passe.Token });
+        Assert.Equal(HttpStatusCode.OK, certa.StatusCode);
+    }
+
+    [Fact]
+    public async Task Passe_vale_cinco_minutos()
+    {
+        await CriarContaAsync("dono@exemplo.com");
+        var passe = await EmitirPasseAsync();
+
+        await using var db = _pg.CreateContext(Guid.NewGuid());
+        var guardado = await db.RefreshTokens.SingleAsync();
+        Assert.Equal(LauncherTicketIssuer.Lifetime, guardado.ExpiresAt - guardado.CreatedAt);
+        Assert.Equal(LauncherTicketIssuer.DeviceLabel, guardado.Device);
+        // Só o hash fica no banco, como em toda sessão.
+        Assert.Equal(RefreshToken.Hash(passe.Token!), guardado.TokenHash);
+    }
+
+    [Fact]
+    public async Task Passe_sem_email_vai_para_a_unica_conta_confirmada()
+    {
+        var dono = await CriarContaAsync("dono@exemplo.com");
+        await CriarContaAsync("pendente@exemplo.com", confirmada: false);
+
+        var passe = await EmitirPasseAsync();
+        Assert.True(passe.Issued, passe.Problem);
+
+        await using var db = _pg.CreateContext(Guid.NewGuid());
+        Assert.Equal(dono.Id, (await db.RefreshTokens.SingleAsync()).UserId);
+    }
+
+    [Fact]
+    public async Task Passe_recusa_adivinhar_entre_duas_contas()
+    {
+        await CriarContaAsync("ana@exemplo.com");
+        var bia = await CriarContaAsync("bia@exemplo.com");
+
+        var semEmail = await EmitirPasseAsync();
+        Assert.False(semEmail.Issued);
+        Assert.Contains("--email", semEmail.Problem);
+
+        var comEmail = await EmitirPasseAsync("bia@exemplo.com");
+        Assert.True(comEmail.Issued, comEmail.Problem);
+        await using var db = _pg.CreateContext(Guid.NewGuid());
+        Assert.Equal(bia.Id, (await db.RefreshTokens.SingleAsync()).UserId);
+    }
+
+    [Fact]
+    public async Task Passe_recusa_conta_inexistente_nao_validada_ou_banco_vazio()
+    {
+        Assert.False((await EmitirPasseAsync()).Issued);
+
+        await CriarContaAsync("pendente@exemplo.com", confirmada: false);
+        Assert.False((await EmitirPasseAsync("pendente@exemplo.com")).Issued);
+        Assert.False((await EmitirPasseAsync("ninguem@exemplo.com")).Issued);
+
+        await using var db = _pg.CreateContext(Guid.NewGuid());
+        Assert.Equal(0, await db.RefreshTokens.CountAsync());
     }
 
     [Fact]

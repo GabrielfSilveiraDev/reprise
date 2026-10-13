@@ -1,6 +1,7 @@
 import createClient from 'openapi-fetch'
 import { SafeStorage } from '@/lib/SafeStorage'
 import { AuthenticatedFetch } from './AuthenticatedFetch'
+import { LauncherLogin } from './LauncherLogin'
 import { AuthResource } from './resources/AuthResource'
 import {
   AccountResource,
@@ -23,6 +24,7 @@ export class RepriseApi {
   readonly sessions: SessionStore
   readonly serverKey: ServerKeyStore
   readonly auth: AuthResource
+  readonly launcherLogin: LauncherLogin
   readonly series: SeriesResource
   readonly watching: WatchingResource
   readonly schedule: ScheduleResource
@@ -41,6 +43,7 @@ export class RepriseApi {
       },
     })
     this.auth = new AuthResource(publicHttp, this.sessions)
+    this.launcherLogin = new LauncherLogin(this.auth, this.sessions)
 
     const authenticated = new AuthenticatedFetch(this.sessions, this.serverKey, (token) => this.auth.exchange(token))
     const http = createClient<paths>({ baseUrl, fetch: authenticated.fetch })
@@ -54,3 +57,8 @@ export class RepriseApi {
 }
 
 export const api = new RepriseApi()
+
+// O passe do launcher sai da URL AQUI, na carga deste módulo — antes do `createRouter` (router.tsx
+// importa este módulo, então ele é avaliado primeiro). O main.tsx espera `launcherLogin.ready`
+// para montar o app.
+if (typeof window !== 'undefined') void api.launcherLogin.start(window)

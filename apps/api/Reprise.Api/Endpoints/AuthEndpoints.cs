@@ -10,6 +10,7 @@ public static class AuthEndpoints
     /// <summary>`Identifier` é e-mail <b>ou</b> nome de usuário — o formulário aceita os dois.</summary>
     public sealed record LoginBody(string Identifier, string Password);
     public sealed record RefreshBody(string RefreshToken);
+    public sealed record LauncherBody(string Ticket);
     public sealed record ConfirmBody(string Email, string Code);
     public sealed record ResendBody(string Email);
 
@@ -112,6 +113,19 @@ public static class AuthEndpoints
                         : TypedResults.Unauthorized();
                 })
             .WithSummary("Troca o refresh token por um par novo. O antigo é consumido.");
+
+        // Fora do limite de tentativas, como o refresh: o passe é aleatório e longo demais para
+        // adivinhar, e o limite só tiraria a entrada automática de quem acabou de errar a senha.
+        g.MapPost("/launcher",
+                async Task<Results<Ok<SessionDto>, UnauthorizedHttpResult>> (
+                    LauncherBody body, AuthService auth, HttpContext http, CancellationToken ct) =>
+                {
+                    var result = await auth.LauncherLoginAsync(body.Ticket, Device(http), ct);
+                    return result.Succeeded
+                        ? TypedResults.Ok(ToDto(result.Tokens!))
+                        : TypedResults.Unauthorized();
+                })
+            .WithSummary("Troca o passe de entrada do launcher do Windows por uma sessão. Só aceita passe, e uma vez.");
 
         g.MapPost("/logout",
                 async (RefreshBody body, AuthService auth, CancellationToken ct) =>

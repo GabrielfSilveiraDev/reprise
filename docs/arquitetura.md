@@ -28,7 +28,7 @@ Reprise.Api            → endpoints Minimal, DI, auth (Identity + JWT), OpenAPI
 Reprise.Application    → slices por feature (Import, Watching, Series, Stats)
 Reprise.Domain         → entidades, aggregates, enums, invariantes
 Reprise.Infrastructure → EF Core, DbContext, migrations, clientes do TMDB e do TVmaze
-Reprise.Importer       → CLI: importação do TV Time, enriquecimento, migrações, senha
+Reprise.Importer       → CLI: importação do TV Time, enriquecimento, migrações, senha, passe de entrada
 Reprise.Tests          → fixtures reais + testes de importação/estatística
 ```
 
@@ -47,7 +47,24 @@ dotnet run --project apps/api/Reprise.Importer -- passwd --email voce@exemplo.co
 
 Token de acesso de 30 min + refresh de 60 dias, **rotativo**: renovar consome o antigo. Sem o par,
 a escolha seria entre pedir senha no meio da série e um token longo impossível de revogar. O
-refresh é guardado só como **hash** — vazamento do banco não entrega sessão de ninguém.
+refresh é guardado só como **hash** — vazamento do banco não entrega sessão de ninguém. O consumo
+é um `UPDATE` condicional (`WHERE revoked_at IS NULL`), e não ler-conferir-gravar: com a leitura
+antes, duas renovações simultâneas com o mesmo token ganhavam sessão as duas.
+
+O **passe de entrada** do launcher do Windows é um refresh token de uso único que vale 5 minutos,
+emitido pela CLI (`entrar`) para o dono da instalação: a janela do launcher abre em
+`#entrar=<passe>` e o web o troca pelo `/auth/refresh` de sempre, sem senha e sem rota nova. Quem
+roda a CLI já alcança o banco, então ele não dá poder novo a ninguém. Um JWT assinado pelo launcher
+com o `Jwt__Secret` foi descartado: faria um segredo vazado virar sessão que sobrevive à troca do
+segredo, e a validade seria julgada com o relógio do Windows (onde o launcher assinaria) contra o
+da VM do Docker (onde a API confere), que atrasa depois de o PC dormir. O passe é trocado numa rota
+só dele (`/auth/launcher`), que recusa refresh token comum — e o `/auth/refresh` recusa passe:
+com uma rota só, qualquer pessoa com conta na instância mandaria um link `#entrar=<o token dela>`
+e jogaria quem o abrisse dentro da conta dela. Ver `LauncherTicketIssuer` e [Windows](windows.md).
+
+A validação de e-mail (`/auth/confirm`) só serve para conta ainda não confirmada, e o código morre
+no primeiro uso (o carimbo de segurança, de que o código é derivado, é trocado). Se conta já
+confirmada entrasse por ali, seis dígitos adivinháveis valeriam como senha.
 
 O cadastro é **fechado por padrão** (`Jwt__AllowRegistration`). Numa API exposta, aberto é porta
 aberta.

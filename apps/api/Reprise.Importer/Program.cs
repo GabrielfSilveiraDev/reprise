@@ -10,6 +10,7 @@ using Reprise.Importer;
 using Reprise.Domain.Entities;
 using Reprise.Application.Abstractions;
 using Reprise.Infrastructure;
+using Reprise.Infrastructure.Auth;
 using Reprise.Infrastructure.Persistence;
 using Reprise.Infrastructure.Tvmaze;
 
@@ -22,6 +23,9 @@ using Reprise.Infrastructure.Tvmaze;
 //   reprise-import passwd --email <e> --password <p> [--name <nome>] [--user <usuario>]
 //       define a senha de uma conta (cria se não existir). É como o dono entra na própria conta
 //       depois que a autenticação passou a existir.
+//   reprise-import entrar [--email <e>]
+//       emite o passe de entrada do launcher do Windows: um refresh token de uso único, que vale
+//       5 minutos, para a única conta confirmada (ou a do --email). Imprime só o passe.
 //   reprise-import paises [--force]
 //       preenche o país de origem das séries — é o que diz em que fuso a data de estreia vale
 //   reprise-import agenda [--force] [--mudou <day|week|month>]
@@ -38,6 +42,7 @@ if (positional.Length == 0)
     Console.Error.WriteLine("     reprise-import enrich [--force] [--tvdb <id>]");
     Console.Error.WriteLine("     reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]");
     Console.Error.WriteLine("     reprise-import passwd --email <e> --password <p> [--name <nome>] [--user <usuario>]");
+    Console.Error.WriteLine("     reprise-import entrar [--email <e>]");
     Console.Error.WriteLine("     reprise-import paises [--force]");
     Console.Error.WriteLine("     reprise-import agenda [--force] [--mudou <day|week|month>]");
     Console.Error.WriteLine("     reprise-import resumos [--force]");
@@ -53,6 +58,7 @@ return positional[0].ToLowerInvariant() switch
     "enrich" => await RunEnrichAsync(args, positional, conn),
     "backfill" => await RunBackfillAsync(args, conn),
     "passwd" => await RunPasswdAsync(args, conn),
+    "entrar" => await RunEntrarAsync(args, conn),
     "paises" => await RunOriginCountryAsync(args, conn),
     "agenda" => await RunTvmazeAsync(args, conn),
     "resumos" => await RunOverviewsAsync(args, conn),
@@ -175,6 +181,51 @@ static async Task<int> RunPasswdAsync(string[] args, string conn)
     if (mudou) await users.UpdateAsync(user);
 
     Console.WriteLine($"Senha definida para {email} ({user.Id}).");
+    return 0;
+}
+
+/// <summary>
+/// Emite o passe de entrada do launcher do Windows (ver <see cref="LauncherTicketIssuer"/>).
+///
+/// <para>
+/// A saída padrão leva <b>só o passe</b>, sem mais nada: é o launcher que a lê. Todo o resto —
+/// inclusive o motivo de uma recusa — vai para a saída de erro, que o launcher grava no log.
+/// </para>
+/// </summary>
+static async Task<int> RunEntrarAsync(string[] args, string conn)
+{
+    var i = Array.IndexOf(args, "--email");
+    var email = i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+
+    var services = new ServiceCollection();
+    services.AddLogging();
+    services.AddRepriseInfrastructure(conn);
+    services.AddRepriseIdentityCore();
+    services.AddSingleton(TimeProvider.System);
+    services.AddScoped<LauncherTicketIssuer>();
+    await using var provider = services.BuildServiceProvider();
+    using var scope = provider.CreateScope();
+
+    LauncherTicket ticket;
+    try
+    {
+        ticket = await scope.ServiceProvider.GetRequiredService<LauncherTicketIssuer>().IssueAsync(email);
+    }
+    catch (Exception e)
+    {
+        // Uma linha só, e a causa de verdade (o banco fora do ar, por exemplo): é ela que vai para o
+        // log do launcher, e um rastro de pilha inteiro esconderia o motivo atrás das primeiras linhas.
+        Console.Error.WriteLine($"Erro ao emitir o passe: {e.GetBaseException().Message}");
+        return 1;
+    }
+
+    if (!ticket.Issued)
+    {
+        Console.Error.WriteLine(ticket.Problem);
+        return 1;
+    }
+
+    Console.Out.WriteLine(ticket.Token);
     return 0;
 }
 
