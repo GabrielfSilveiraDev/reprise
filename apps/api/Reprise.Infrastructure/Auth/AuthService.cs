@@ -164,19 +164,23 @@ public sealed class AuthService
             return AuthResult.Fail(AuthFailure.InvalidCode);
 
         var user = await _users.FindByEmailAsync(email.Trim());
-        if (user is null) return AuthResult.Fail(AuthFailure.InvalidCode);
 
-        // Já confirmada: reapresentar o código não é erro, é repetição. Devolver a sessão evita
-        // que um toque duplicado no botão vire tela de erro.
-        if (user.EmailConfirmed) return AuthResult.Ok(await IssueAsync(user, device, ct));
+        // Conta já confirmada não entra por aqui, com código nenhum. Antes, ela recebia sessão sem
+        // o código nem ser conferido — e esta rota é pública: bastava saber o e-mail de alguém
+        // (o da conta-semente está no README) para entrar como essa pessoa, sem senha. Aceitar só
+        // o código certo também não serviria: seriam seis dígitos adivinháveis valendo como senha
+        // para sempre. O toque duplicado no botão o cliente já segura (o botão trava no envio).
+        if (user is null || user.EmailConfirmed) return AuthResult.Fail(AuthFailure.InvalidCode);
 
         var valid = await _users.VerifyUserTokenAsync(
             user, TokenOptions.DefaultEmailProvider, ConfirmEmailPurpose, code.Trim());
 
         if (!valid) return AuthResult.Fail(AuthFailure.InvalidCode);
 
+        // Trocar o carimbo de segurança mata o código usado: o TOTP é derivado dele. É o que faz
+        // o código "só servir uma vez", como diz o e-mail. UpdateSecurityStampAsync também grava.
         user.EmailConfirmed = true;
-        await _users.UpdateAsync(user);
+        await _users.UpdateSecurityStampAsync(user);
 
         return AuthResult.Ok(await IssueAsync(user, device, ct));
     }
@@ -234,8 +238,19 @@ public sealed class AuthService
     /// <summary>
     /// Troca um refresh token por um par novo, consumindo o antigo.
     ///
+    /// <para>
     /// A rotação é o que limita o estrago de um token roubado: ele só vale até o dono legítimo
     /// renovar, e a partir daí a apresentação do token velho falha.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>O consumo é um UPDATE condicional</b>, e não "ler, conferir, gravar": com a leitura antes,
+    /// duas renovações simultâneas com o mesmo token viam ambas o token ativo, e as duas ganhavam
+    /// sessão — o token roubado e o legítimo seguiam vivos juntos. Com o <c>WHERE revoked_at IS
+    /// NULL</c>, o Postgres serializa as duas na linha: a segunda espera a primeira terminar e já
+    /// não acha o que consumir. Consumo e emissão vão na mesma transação: se a emissão falhar,
+    /// o token velho volta a valer, em vez de a pessoa perder a sessão.
+    /// </para>
     /// </summary>
     public async Task<AuthResult> RefreshAsync(string? refreshToken, string? device, CancellationToken ct = default)
     {
@@ -245,15 +260,21 @@ public sealed class AuthService
         var now = _clock.GetUtcNow();
         var hash = RefreshToken.Hash(refreshToken);
 
-        var stored = await _db.RefreshTokens
-            .Include(r => r.User)
-            .FirstOrDefaultAsync(r => r.TokenHash == hash, ct);
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
 
-        if (stored is null || !stored.IsActive(now))
+        var consumed = await _db.RefreshTokens
+            .Where(r => r.TokenHash == hash && r.RevokedAt == null && r.ExpiresAt > now)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.RevokedAt, now), ct);
+
+        if (consumed == 0)
             return AuthResult.Fail(AuthFailure.InvalidRefreshToken);
 
-        stored.RevokedAt = now;
+        var stored = await _db.RefreshTokens
+            .Include(r => r.User)
+            .FirstAsync(r => r.TokenHash == hash, ct);
+
         var tokens = await IssueAsync(stored.User, device ?? stored.Device, ct);
+        await transaction.CommitAsync(ct);
         return AuthResult.Ok(tokens);
     }
 
