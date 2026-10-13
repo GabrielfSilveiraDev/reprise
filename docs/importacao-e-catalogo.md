@@ -160,7 +160,8 @@ Matter, e a faixa de estreias da tela inicial só enxergava o que o catálogo sa
   rode o `enrich --force`.
 - **O marco é `series.updated_at`**, que só o enriquecimento escreve. Se a API fechar no meio de
   uma rodada, a próxima retoma de onde parou.
-- **Falha numa série não para as outras.** Ela vira aviso no `api.log` e é tentada de novo na
+- **Falha numa série não para as outras.** Ela vira aviso no log da API (`docker compose logs api`,
+  ou o console do `dotnet run`) e é tentada de novo na
   rodada seguinte (hoje é o caso de *Monster*, cujo id no TMDB deixou de existir).
 
 É isso que alimenta a **Agenda** e a faixa **Saindo em breve** da tela inicial. Quem recorta é o

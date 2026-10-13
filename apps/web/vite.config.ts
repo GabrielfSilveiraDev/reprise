@@ -24,7 +24,7 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
-    // Porta fixa, sem plano B: o launcher do Windows e o README apontam para a 5173.
+    // Porta fixa, sem plano B: os docs de desenvolvimento e do web apontam para a 5173.
     port: 5173,
     strictPort: true,
     proxy: apiProxy,
