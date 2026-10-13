@@ -57,6 +57,30 @@ test('sem sessão, vai para o login e volta para onde queria depois de entrar', 
   await expect(page.getByRole('heading', { name: 'Acervo', level: 1 })).toBeVisible()
 })
 
+test('passe do launcher: entra direto, sem senha, e o passe some da URL', async ({ page }) => {
+  const api = await open(page, '/#entrar=passe-valido', { loggedIn: false })
+  await expect(page.getByRole('heading', { name: 'Boa noite, Gabriel.' })).toBeVisible()
+
+  expect(new URL(page.url()).hash).toBe('')
+  expect(api.calls.filter((c) => c.path === '/auth/launcher')).toHaveLength(1)
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('reprise.session') ?? 'null')?.refreshToken)
+  expect(saved).toBe('refresh-launcher')
+})
+
+test('passe do launcher recusado: login com aviso, e o passe não vai parar no redirect', async ({ page }) => {
+  await open(page, '/acervo#entrar=vencido', { loggedIn: false })
+  await expect(page).toHaveURL(/\/entrar\?redirect=%2Facervo$/)
+  await expect(page.getByRole('status').filter({ hasText: 'entrada automática' })).toBeVisible()
+})
+
+test('passe do launcher com sessão guardada: troca por ela e aposenta a anterior', async ({ page }) => {
+  const api = await open(page, '/#entrar=passe-valido')
+  await expect(page.getByRole('heading', { name: 'Boa noite, Gabriel.' })).toBeVisible()
+  await expect
+    .poll(() => api.calls.some((c) => c.path === '/auth/logout' && (c.body as { refreshToken?: string }).refreshToken === 'refresh-teste'))
+    .toBe(true)
+})
+
 test('Agora: a fila, marcar com um toque e desfazer', async ({ page }) => {
   const api = await open(page, '/')
   await expect(page.getByRole('heading', { name: 'Boa noite, Gabriel.' })).toBeVisible()

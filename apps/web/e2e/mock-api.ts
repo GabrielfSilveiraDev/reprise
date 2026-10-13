@@ -295,6 +295,12 @@ export class MockApi {
       return body.password === 'senha-certa' ? this.json(route, MockApi.session()) : route.fulfill({ status: 401 })
     }
     if (method === 'POST' && path === '/auth/logout') return route.fulfill({ status: 204 })
+    // O passe do launcher tem rota própria; aqui o único que vale é 'passe-valido'.
+    if (method === 'POST' && path === '/auth/launcher') {
+      return body.ticket === 'passe-valido'
+        ? this.json(route, { ...MockApi.session(), refreshToken: 'refresh-launcher' })
+        : route.fulfill({ status: 401 })
+    }
     if (method === 'GET' && path === '/series') return this.json(route, this.list())
     if (method === 'GET' && path === '/next-up') return this.json(route, this.nextUp())
     if (method === 'GET' && path === '/premieres') return this.json(route, this.premieres())

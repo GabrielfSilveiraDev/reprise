@@ -88,6 +88,37 @@ describe('AuthenticatedFetch', () => {
     expect(sessions.session).toBeNull()
   })
 
+  it('refresh recusado não apaga a sessão que outra aba gravou nesse meio-tempo', async () => {
+    sessions.set(session(1))
+    const refresher = vi.fn(async () => {
+      // Enquanto o token 1 era recusado, outra aba entrou e gravou a sessão 2.
+      localStorage.setItem(SessionStore.KEY, JSON.stringify(session(2)))
+      return null
+    })
+    const authed = new AuthenticatedFetch(sessions, serverKey, refresher, server(() => 'access-2'))
+
+    const response = await authed.fetch(new Request('http://api/me'))
+
+    expect(response.status).toBe(200)
+    expect(sessions.session?.refreshToken).toBe('refresh-2')
+  })
+
+  it('outra conta entrou enquanto o pedido esperava: ele não segue com o token dela', async () => {
+    sessions.set(session(1))
+    const refresher = vi.fn(async () => {
+      localStorage.setItem(SessionStore.KEY, JSON.stringify({ ...session(2), userId: 'outra' }))
+      return null
+    })
+    const transport = server(() => 'access-2')
+    const authed = new AuthenticatedFetch(sessions, serverKey, refresher, transport)
+
+    const response = await authed.fetch(new Request('http://api/me'))
+
+    expect(response.status).toBe(401)
+    expect(transport).toHaveBeenCalledTimes(1) // sem repetir com o token da outra conta
+    expect(sessions.session?.userId).toBe('outra') // e sem apagar a sessão dela
+  })
+
   it('manda a chave do servidor quando há uma', async () => {
     serverKey.set('  segredo  ')
     const transport = vi.fn(async (_r: Request) => new Response('{}'))

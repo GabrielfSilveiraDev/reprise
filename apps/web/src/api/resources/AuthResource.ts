@@ -52,6 +52,20 @@ export class AuthResource extends Resource {
   }
 
   /**
+   * Troca o passe de entrada do launcher do Windows. Rota própria, que só aceita passe: um refresh
+   * token comum num link `#entrar=` não pode jogar ninguém dentro da conta de outra pessoa.
+   * `null` quando o servidor recusa; falha de rede (e o `signal` abortado) propaga.
+   */
+  async launcher(ticket: string, signal?: AbortSignal): Promise<Session | null> {
+    try {
+      return await this.call(this.http.POST('/auth/launcher', { body: { ticket }, signal }))
+    } catch (error) {
+      if (error instanceof ApiError && error.isUnauthorized) return null
+      throw error
+    }
+  }
+
+  /**
    * Sai: esquece a sessão AQUI primeiro e só depois avisa o servidor. Se a rede falhar no aviso,
    * a pessoa ainda assim saiu desta tela — o refresh token órfão expira sozinho.
    */
@@ -59,7 +73,15 @@ export class AuthResource extends Resource {
     const session = this.sessions.session
     this.sessions.clear('logout')
     if (!session) return
-    await this.call(this.http.POST('/auth/logout', { body: { refreshToken: session.refreshToken } })).catch(() => undefined)
+    await this.revoke(session.refreshToken)
+  }
+
+  /**
+   * Encerra uma sessão no servidor SEM mexer na desta aba — para aposentar a anterior depois de
+   * adotar outra. Nunca lança: falhou, o token órfão expira sozinho.
+   */
+  async revoke(refreshToken: string): Promise<void> {
+    await this.call(this.http.POST('/auth/logout', { body: { refreshToken } })).catch(() => undefined)
   }
 
   /**

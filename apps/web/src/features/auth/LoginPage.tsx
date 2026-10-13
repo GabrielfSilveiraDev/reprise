@@ -19,6 +19,9 @@ export function LoginPage() {
   // A raiz da API responde sem login; 401 nela é o cadeado do servidor pedindo a chave.
   const probe = useQuery({ queryKey: ['server-probe'], queryFn: () => api.auth.probe(), staleTime: 0, retry: false })
   const locked = probe.data === 'locked'
+  // A janela veio do launcher com um passe, e ele não virou sessão (vencido, já usado, servidor
+  // fora do ar). Sem este aviso, o dono — que não sabe a senha — só veria o formulário.
+  const launcherFailed = api.launcherLogin.outcome === 'rejected' || api.launcherLogin.outcome === 'offline'
 
   const login = useMutation({
     mutationFn: async () => {
@@ -48,11 +51,31 @@ export function LoginPage() {
       <h1 className="headline text-5xl">Entrar</h1>
       <p className="mt-2 text-ink-2">Seu histórico de séries, do jeito que você viu.</p>
 
+      {launcherFailed && (
+        <div role="status" className="mt-6 flex items-start gap-3 rounded-2xl bg-surface-2 p-3.5 text-sm">
+          <KeyRound className="mt-0.5 size-4 shrink-0 text-ink-3" />
+          {locked ? (
+            // Com o cadeado ligado, o passe nem chega à API sem a chave — e a chave fica guardada
+            // por navegador. Digitada uma vez aqui, as próximas janelas do launcher entram sozinhas.
+            <p>
+              A entrada automática precisa da chave do servidor. Digite-a abaixo uma vez e use{' '}
+              <span className="font-medium">Abrir outra janela</span> no ícone do Reprise na bandeja do Windows.
+            </p>
+          ) : (
+            <p>
+              A entrada automática do launcher não funcionou desta vez. Use <span className="font-medium">Abrir outra janela</span> no ícone do
+              Reprise na bandeja do Windows — cada janela aberta por ele traz um passe novo.
+            </p>
+          )}
+        </div>
+      )}
+
       {probe.data === 'offline' && (
         <div role="status" className="mt-6 flex items-start gap-3 rounded-2xl bg-surface-2 p-3.5 text-sm">
           <WifiOff className="mt-0.5 size-4 shrink-0 text-danger" />
           <p>
-            O servidor do Reprise não respondeu. Confira se a API está de pé em <span className="code">localhost:5156</span>.
+            O servidor do Reprise não respondeu. No Docker, veja <span className="code">docker compose logs api</span>; rodando a API à
+            mão, confira se ela está de pé em <span className="code">localhost:5156</span>.
           </p>
         </div>
       )}
@@ -69,6 +92,9 @@ export function LoginPage() {
               autoComplete="off"
               value={serverKey}
               onChange={(e) => setServerKey(e.target.value)}
+              // Guardada ao sair do campo, sem esperar o login: é o que deixa a próxima janela do
+              // launcher entrar sozinha, sem a senha (ver o aviso de entrada automática acima).
+              onBlur={() => serverKey.trim() && api.serverKey.set(serverKey)}
               hint="A chave de acesso da API (Api__AccessToken). Fica guardada neste navegador."
               required
             />

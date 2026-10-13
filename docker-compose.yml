@@ -97,8 +97,8 @@ services:
     ports:
       - "${REPRISE_PORT:-8080}:8080"
 
-  # Os comandos da CLI (importar o export do TV Time, enriquecer pelo TMDB, definir senha).
-  # Não sobe com o `up`; roda sob demanda:
+  # Os comandos da CLI (importar o export do TV Time, enriquecer pelo TMDB, definir senha, emitir o
+  # passe de entrada do launcher do Windows). Não sobe com o `up`; roda sob demanda:
   #   docker compose run --rm cli passwd --email voce@exemplo.com --password "..."
   cli:
     build: *cli-build

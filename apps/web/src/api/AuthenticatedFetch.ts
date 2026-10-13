@@ -6,6 +6,12 @@ import type { Session } from './types'
 export type Refresher = (refreshToken: string) => Promise<Session | null>
 
 /**
+ * O Web Lock de quem mexe na sessão: a renovação daqui e a adoção do passe do launcher
+ * (LauncherLogin). Os dois trocam o refresh token, e trocar sem fila é o que desloga.
+ */
+export const SESSION_LOCK = 'reprise:refresh'
+
+/**
  * O `fetch` que o cliente autenticado usa: põe o Bearer, renova a sessão quando precisa e repete
  * o pedido uma vez depois de renovar.
  *
@@ -55,19 +61,32 @@ export class AuthenticatedFetch {
   private async renewAcrossTabs(stale: Session): Promise<Session | null> {
     const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
     if (!locks) return this.renewNow(stale)
-    return await locks.request('reprise:refresh', () => this.renewNow(stale))
+    return await locks.request(SESSION_LOCK, () => this.renewNow(stale))
   }
 
   private async renewNow(stale: Session): Promise<Session | null> {
     const latest = this.sessions.reload()
     if (!latest) return null
 
+    // Outra conta entrou enquanto esperávamos (um login, o passe do launcher). Este pedido nasceu
+    // da sessão anterior e não pode seguir com o token de outra pessoa — nem apagar a sessão dela.
+    if (latest.userId !== stale.userId) return null
+
     // Outra aba renovou enquanto esperávamos o lock: é só adotar.
     if (latest.refreshToken !== stale.refreshToken && !this.sessions.expiresSoon(latest)) return latest
 
     const renewed = await this.refresher(latest.refreshToken)
-    if (renewed) this.sessions.set(renewed)
-    else this.sessions.clear()
-    return renewed
+    if (renewed) {
+      this.sessions.set(renewed)
+      return renewed
+    }
+
+    // Recusado. Mas se outra aba gravou uma sessão nova nesse meio-tempo (um login), ela vale:
+    // limpar aqui a apagaria do armazenamento — e de todas as abas junto. Só é adotada se for da
+    // mesma conta; de outra, este pedido morre aqui.
+    const current = this.sessions.reload()
+    if (current && current.refreshToken !== latest.refreshToken) return current.userId === stale.userId ? current : null
+    this.sessions.clear()
+    return null
   }
 }

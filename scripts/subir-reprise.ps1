@@ -11,7 +11,9 @@
       2. garante o Docker Desktop;
       3. sobe a pilha do `docker-compose.yml` — banco, migrações, API e web —, reconstruindo as
          imagens se o código mudou, com a saída em %LOCALAPPDATA%\Reprise\logs\compose.log;
-      4. espera o `/api/health` responder pelo web e abre o Reprise numa janela do navegador.
+      4. pede à CLI um passe de entrada para a sua conta, enquanto espera o `/api/health`
+         responder pelo web;
+      5. abre o Reprise numa janela do navegador, já dentro da conta.
 
     Descida, quando a janela fecha (ou "Encerrar o Reprise" no ícone da bandeja): para os
     containers e — só se foi este script que ligou o Docker Desktop — desliga o Docker. Se o
@@ -35,8 +37,19 @@
       Chrome de sempre não tem processo próprio: o Chrome entrega o endereço à instância que já está
       aberta e devolve o controle na hora, sem nada para esperar. Com um diretório de perfil
       dedicado, a janela do Reprise é um navegador à parte, e fechá-la termina um processo que este
-      script consegue observar. O custo é o login uma vez nessa janela, que não compartilha cookies
-      nem localStorage com o Chrome de sempre.
+      script consegue observar. A janela não compartilha cookies nem localStorage com o Chrome de
+      sempre — e é o passe de entrada (abaixo) que a põe dentro da conta.
+
+    * ENTRADA SEM SENHA. A sessão da janela vive 60 dias desde o último uso, mas se perde num
+      "Sair" ou numa troca de origem (a mudança de :5173 para :8080 fez isso) — e quem nunca
+      precisou digitar a senha não sabe qual é. Por isso cada janela aberta pelo launcher (a
+      primeira, "Abrir outra janela" na bandeja e o segundo clique no atalho) leva um passe novo:
+      a CLI do Reprise emite um refresh token de uso único que vale 5 minutos, a janela abre em
+      `#entrar=<passe>`, e o web o troca pela sessão. Quem roda a CLI alcança o banco, então o passe
+      não dá poder novo a ninguém; ele só tira a senha do caminho do dono da máquina. Com mais de
+      uma conta no banco, REPRISE_AUTOLOGIN_EMAIL no `.env` diz qual entra. Consequência aceita:
+      "Sair" vale até a próxima janela aberta pelo launcher. O porquê de não ser um token assinado
+      aqui com o Jwt__Secret está em LauncherTicketIssuer, na API.
 
     * SEGUNDO PLANO DE VERDADE. O atalho chama `conhost.exe --headless`: com o Windows Terminal como
       terminal padrão (o caso deste Windows), `-WindowStyle Hidden` ainda abriria uma janela do
@@ -101,7 +114,14 @@ class Registro {
     static [void] Escrever([string]$mensagem) {
         $linha = '{0:yyyy-MM-dd HH:mm:ss}  {1}' -f (Get-Date), $mensagem
         if ([Registro]::Arquivo) {
-            Add-Content -LiteralPath ([Registro]::Arquivo) -Value $linha -Encoding UTF8
+            # Nunca lança: o segundo clique no atalho escreve no mesmo arquivo que o launcher de pé,
+            # e um arquivo ocupado não pode decidir o fluxo — no pior caso, perde-se uma linha.
+            for ($tentativa = 0; $tentativa -lt 5; $tentativa++) {
+                try {
+                    [System.IO.File]::AppendAllText([Registro]::Arquivo, $linha + "`r`n", [System.Text.UTF8Encoding]::new($false))
+                    break
+                } catch { Start-Sleep -Milliseconds 40 }
+            }
         }
         Write-Host $linha
     }
@@ -210,7 +230,8 @@ class Processos {
 # =============================================================================================
 # O `.env`. Quem o lê de verdade é o compose; aqui ele só é conferido — sem `Jwt__Secret`, as
 # imagens seriam construídas e a pilha subiria só para a API cair na partida — e consultado para
-# saber em que porta o web atende e qual token de acesso a sonda de saúde precisa mandar.
+# saber em que porta o web atende, qual token de acesso a sonda de saúde precisa mandar e qual
+# conta entra direto pelo passe de entrada.
 # =============================================================================================
 class ConfiguracaoLocal {
     [string]$Arquivo
@@ -490,6 +511,113 @@ class DockerLocal {
 }
 
 # =============================================================================================
+# O passe de entrada: a janela do launcher entra na conta sem pedir senha. Ver "ENTRADA SEM
+# SENHA" no cabeçalho.
+#
+# Nem o passe nem a URL que o leva vão para o log. A saída da CLI é lida direto do processo, e
+# não redirecionada para arquivo como a do `up`: um arquivo com o passe ficaria no disco.
+# =============================================================================================
+class PasseDeEntrada {
+    [DockerLocal]$Docker
+    [string]$Email
+    [System.Diagnostics.Process]$Processo
+    [System.Threading.Tasks.Task[string]]$Saida
+    [System.Threading.Tasks.Task[string]]$Erros
+    [datetime]$PedidoEm
+
+    # O passe vale 5 minutos. Pedido junto com a espera pela API, ele pode envelhecer se a API
+    # demorar; com mais de 3 minutos, pede-se outro em vez de abrir a janela com um quase vencido.
+    static [int]$MinutosDeFolga = 3
+
+    # $email: a conta que entra direto (REPRISE_AUTOLOGIN_EMAIL). Vazio, a CLI escolhe a única
+    # conta confirmada — e recusa se houver mais de uma.
+    PasseDeEntrada([DockerLocal]$docker, [string]$email) {
+        $this.Docker = $docker
+        $this.Email = $email
+    }
+
+    # Começa a emissão sem esperar por ela: a CLI leva alguns segundos para subir (medido: ~5 s),
+    # e no caminho principal esse tempo corre junto com o da API.
+    [void] Pedir() {
+        $argumentos = @('compose', '-f', $this.Docker.Compose, '--profile', 'cli', 'run', '--rm', '--no-deps', '-T', 'cli', 'entrar')
+        if ($this.Email) { $argumentos += @('--email', $this.Email) }
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $this.Docker.Cli
+        $psi.Arguments = ($argumentos | ForEach-Object { [PasseDeEntrada]::Citar($_) }) -join ' '
+        $psi.WorkingDirectory = Split-Path -Parent $this.Docker.Compose
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        # Sem isto, o .NET decodifica pela página do console — e o motivo de uma recusa, que a CLI
+        # escreve em UTF-8, chegaria ao log com os acentos trocados.
+        $psi.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        $psi.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
+
+        $this.Processo = [System.Diagnostics.Process]::Start($psi)
+        # As duas saídas lidas ao mesmo tempo: lendo uma só, a outra pode encher o buffer do pipe
+        # e travar o processo. ReadToEndAsync roda fora do PowerShell, sem scriptblock de evento.
+        $this.Saida = $this.Processo.StandardOutput.ReadToEndAsync()
+        $this.Erros = $this.Processo.StandardError.ReadToEndAsync()
+        $this.PedidoEm = Get-Date
+    }
+
+    [bool] Velho() { return ((Get-Date) - $this.PedidoEm).TotalMinutes -ge [PasseDeEntrada]::MinutosDeFolga }
+
+    # O passe, ou vazio — com o motivo no log.
+    [string] Receber([int]$segundos, [scriptblock]$enquantoEspera) {
+        $limite = (Get-Date).AddSeconds($segundos)
+        try {
+            while (-not $this.Processo.HasExited) {
+                if ((Get-Date) -gt $limite) { throw "a CLI não respondeu em $segundos s" }
+                if ($enquantoEspera) { & $enquantoEspera }
+                Start-Sleep -Milliseconds 200
+            }
+        } catch {
+            if (-not $this.Processo.HasExited) { [Processos]::MatarArvore($this.Processo.Id) }
+            throw
+        }
+
+        $passe = $this.Saida.Result.Trim()
+        if ($this.Processo.ExitCode -eq 0 -and $passe -match '^[A-Za-z0-9_-]{20,}$') {
+            [Registro]::Escrever("Passe de entrada: emitido em $([int]((Get-Date) - $this.PedidoEm).TotalSeconds) s.")
+            return $passe
+        }
+        # O motivo de uma recusa (mais de uma conta, conta não validada) é o que a CLI escreve na
+        # saída de erro. O compose escreve lá também — "Container … Created" —, e isso sai do log,
+        # como as linhas "at …" de um rastro de pilha: o motivo é a primeira linha, não a última.
+        $motivo = @($this.Erros.Result -split "`n" | ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -and $_ -notmatch '^(Container|at)\s' } | Select-Object -Unique -First 3) -join ' | '
+        [Registro]::Escrever("Passe de entrada: não emitido (código $($this.Processo.ExitCode)) — $motivo")
+        return ''
+    }
+
+    # A URL da janela: com o passe quando ele veio, a de sempre quando não. O pior caso é a tela
+    # de login — nunca o Reprise deixar de abrir por causa do passe. Só "Encerrar" na bandeja
+    # (OperationCanceledException, vinda de $enquantoEspera) atravessa.
+    [string] UrlPara([string]$base, [scriptblock]$enquantoEspera) {
+        try {
+            if (-not $this.Processo -or $this.Velho()) { $this.Pedir() }
+            $passe = $this.Receber(60, $enquantoEspera)
+            if ($passe) { return "$base#entrar=$passe" }
+        } catch {
+            $causa = $_.Exception
+            while ($causa.InnerException) { $causa = $causa.InnerException }
+            if ($causa -is [System.OperationCanceledException]) { throw }
+            [Registro]::Escrever("Passe de entrada: falhou — $($causa.Message)")
+        }
+        return $base
+    }
+
+    # Argumento de linha de comando do Windows: entre aspas quando tem espaço ou aspas.
+    static [string] Citar([string]$argumento) {
+        if ($argumento -notmatch '[\s"]') { return $argumento }
+        return '"' + ($argumento -replace '"', '\"') + '"'
+    }
+}
+
+# =============================================================================================
 # A janela do Reprise: um navegador com perfil próprio, cujo fim este script consegue observar.
 # =============================================================================================
 class JanelaDoApp {
@@ -534,10 +662,12 @@ class JanelaDoApp {
         foreach ($p in $this.ProcessosDoPerfil()) { [Processos]::MatarArvore([int]$p.ProcessId) }
     }
 
-    [string[]] Argumentos() {
+    # $url chega por parâmetro, e não de $this.Url: com o passe de entrada ela vale uma vez só, e
+    # guardada aqui seria reenviada por "Abrir outra janela" já consumida.
+    [string[]] Argumentos([string]$url) {
         return @(
             "--user-data-dir=`"$($this.Perfil)`"",
-            "--app=$($this.Url)",
+            "--app=$url",
             '--no-first-run',
             '--no-default-browser-check',
             '--disable-background-mode',
@@ -546,15 +676,15 @@ class JanelaDoApp {
         )
     }
 
-    [void] Abrir() {
-        $this.Processo = Start-Process -FilePath $this.Navegador -ArgumentList $this.Argumentos() -PassThru
+    [void] Abrir([string]$url) {
+        $this.Processo = Start-Process -FilePath $this.Navegador -ArgumentList $this.Argumentos($url) -PassThru
         [Registro]::Escrever("Janela: aberta no $([System.IO.Path]::GetFileNameWithoutExtension($this.Navegador)) (pid $($this.Processo.Id)).")
     }
 
     # Outra janela no mesmo perfil. O navegador entrega ao processo que já está aberto — e é por
     # isso que o processo acompanhado continua sendo o primeiro.
-    [void] AbrirOutra() {
-        Start-Process -FilePath $this.Navegador -ArgumentList $this.Argumentos() | Out-Null
+    [void] AbrirOutra([string]$url) {
+        Start-Process -FilePath $this.Navegador -ArgumentList $this.Argumentos($url) | Out-Null
     }
 
     [bool] Aberta() {
@@ -608,6 +738,31 @@ function Get-CausaRaiz([System.Exception]$erro) {
     return $erro
 }
 
+# A conta que entra direto, quando há mais de uma no banco. Vazio = a única conta confirmada.
+function Get-PasseDeEntrada {
+    return [PasseDeEntrada]::new($docker, $config.Ler('REPRISE_AUTOLOGIN_EMAIL'))
+}
+
+# "Abrir outra janela" na bandeja. Cada janela leva um passe novo: é o caminho de volta depois de
+# um "Sair", que sem isto só existiria fechando tudo. Nada pode escapar daqui — o clique roda dentro
+# do DoEvents do laço principal, e uma exceção derrubaria um Reprise que estava bem.
+function Open-OutraJanela {
+    if (-not $script:janela -or $script:abrindoJanela) { return }
+    $script:abrindoJanela = $true
+    try {
+        # "Encerrar" clicado enquanto o passe sai interrompe a espera — e a janela não abre.
+        $url = (Get-PasseDeEntrada).UrlPara($URL_WEB, {
+            [System.Windows.Forms.Application]::DoEvents()
+            if ($script:pedidoDeEncerrar) { throw [System.OperationCanceledException]::new('Encerrar pedido enquanto o passe saía.') }
+        })
+        if (-not $script:pedidoDeEncerrar) { $script:janela.AbrirOutra($url) }
+    } catch {
+        [Registro]::Escrever("Janela: não consegui abrir outra — $($_.Exception.Message)")
+    } finally {
+        $script:abrindoJanela = $false
+    }
+}
+
 function Stop-Tudo {
     if ($bandeja) {
         $bandeja.Text = 'Reprise — encerrando…'
@@ -652,7 +807,10 @@ if (-not $temOTurno) {
     # primeiro launcher, que encerra janelas órfãs do perfil antes de abrir a dele.
     $janelaExistente = [JanelaDoApp]::new($perfil, $URL_WEB)
     if (@($janelaExistente.ProcessosDoPerfil()).Count -gt 0) {
-        $janelaExistente.AbrirOutra()
+        # Com passe novo, como o "Abrir outra janela" da bandeja (ver Open-OutraJanela). O log é o
+        # do launcher que está de pé, sem rotacionar: a execução é dele.
+        [Registro]::Arquivo = Join-Path $pastaLogs 'launcher.log'
+        $janelaExistente.AbrirOutra((Get-PasseDeEntrada).UrlPara($URL_WEB, $null))
     } else {
         Show-Aviso 'O Reprise está iniciando ou encerrando. Tente de novo em alguns segundos.' 'Information'
     }
@@ -665,6 +823,7 @@ if (-not $temOTurno) {
 
 $script:pedidoDeEncerrar = $false
 $script:janela = $null
+$script:abrindoJanela = $false
 $bandeja = $null
 $sucesso = $false
 
@@ -689,7 +848,7 @@ try {
         $bandeja.Text = 'Reprise — iniciando…'
 
         $menu = New-Object System.Windows.Forms.ContextMenuStrip
-        [void]$menu.Items.Add('Abrir outra janela', $null, { if ($script:janela) { $script:janela.AbrirOutra() } })
+        [void]$menu.Items.Add('Abrir outra janela', $null, { Open-OutraJanela })
         [void]$menu.Items.Add('Encerrar o Reprise', $null, { $script:pedidoDeEncerrar = $true })
         $bandeja.ContextMenuStrip = $menu
         $bandeja.Visible = $true
@@ -699,6 +858,14 @@ try {
     $docker.Garantir($Timeout, $enquantoEspera)
     [Processos]::ExigirLivre($config.Porta, $docker.PortaDoWeb() -eq $config.Porta)
     $docker.SubirPilha((Join-Path $pastaLogs 'compose.log'), $TimeoutBuild, $enquantoEspera)
+
+    # O passe é pedido já aqui: a CLI sobe enquanto a API sobe, e ele fica pronto junto com ela.
+    $passe = $null
+    if (-not $SemNavegador) {
+        $passe = Get-PasseDeEntrada
+        try { $passe.Pedir() } catch { [Registro]::Escrever("Passe de entrada: não pedido — $($_.Exception.Message)") }
+    }
+
     $docker.AguardarSaude($URL_WEB, $config.Ler('Api__AccessToken'), $Timeout, $enquantoEspera)
 
     if ($SemNavegador) {
@@ -709,7 +876,7 @@ try {
 
     $script:janela = [JanelaDoApp]::new($perfil, $URL_WEB)
     $script:janela.EncerrarOrfas()
-    $script:janela.Abrir()
+    $script:janela.Abrir($passe.UrlPara($URL_WEB, $enquantoEspera))
     $sucesso = $true
     $bandeja.Text = 'Reprise — feche a janela para encerrar'
 

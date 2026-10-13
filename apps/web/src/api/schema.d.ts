@@ -250,6 +250,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/launcher": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Troca o passe de entrada do launcher do Windows por uma sessão. Só aceita passe, e uma vez. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LauncherBody"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SessionDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -1117,6 +1157,9 @@ export interface components {
             errors?: {
                 [key: string]: string[];
             };
+        };
+        LauncherBody: {
+            ticket: string;
         };
         LoginBody: {
             identifier: string;

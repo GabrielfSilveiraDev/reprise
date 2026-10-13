@@ -185,6 +185,36 @@
         }
       }
     },
+    "/auth/launcher": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Troca o passe de entrada do launcher do Windows por uma sessão. Só aceita passe, e uma vez.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LauncherBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/logout": {
       "post": {
         "tags": [
@@ -1242,6 +1272,17 @@
                 "type": "string"
               }
             }
+          }
+        }
+      },
+      "LauncherBody": {
+        "required": [
+          "ticket"
+        ],
+        "type": "object",
+        "properties": {
+          "ticket": {
+            "type": "string"
           }
         }
       },
