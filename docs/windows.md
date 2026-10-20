@@ -10,7 +10,7 @@ resolve — mas é uma decisão de segurança, e por isso não vai feita por pad
 
 ## Abrindo com um clique
 
-`scripts/subir-reprise.ps1` sobe a pilha do Docker Compose — banco, migrações, API e web — **em
+`scripts/subir-reprise.ps1` sobe a pilha do Docker Compose — banco, migrações e o app (API + web) — **em
 segundo plano** e abre o Reprise numa **janela própria** do navegador, em `http://localhost:8080`
 (`REPRISE_PORT` no `.env` muda a porta). Fechar essa janela para os containers e — se foi o
 launcher que ligou — o Docker Desktop. Só o Docker Desktop é necessário: nada é compilado no
@@ -29,8 +29,9 @@ destino, trocando o caminho pelo da sua cópia do repositório:
 C:\Windows\System32\conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\caminho\do\reprise\scripts\subir-reprise.ps1"
 ```
 
-O `.env` é lido pelo próprio compose. O launcher confere, antes de tudo, se o `Jwt__Secret` está
-lá, e lê dele só o que precisa saber por conta própria: `REPRISE_PORT`, `Api__AccessToken` (para a
+O `.env` é lido pelo próprio compose, e é opcional: sem ele, a API gera o segredo dos tokens na
+primeira partida. O launcher confere, antes de tudo, que um `Jwt__Secret` posto lá tem pelo menos
+32 caracteres, e lê dele só o que precisa saber por conta própria: `REPRISE_PORT`, `Api__AccessToken` (para a
 sonda de saúde), `Tmdb__ApiKey` (para avisar quando falta) e `REPRISE_AUTOLOGIN_EMAIL`. O
 `dotnet user-secrets` não vale aqui: o que estiver só nele — a chave do TMDB, por exemplo —
 precisa ir para o `.env`, e o launcher avisa no log quando o `Tmdb__ApiKey` está vazio.
@@ -46,7 +47,7 @@ precisa ir para o `.env`, e o launcher avisa no log quando o `Tmdb__ApiKey` est�
   janela. Enquanto o Reprise está aberto há um ícone na bandeja, com "Abrir outra janela" e
   "Encerrar o Reprise". O launcher escreve em `%LOCALAPPDATA%\Reprise\logs\launcher.log`, a saída
   do compose vai para `compose.log` na mesma pasta, e a execução anterior fica guardada como
-  `*.anterior.log`. Os logs da API: `docker compose logs api`.
+  `*.anterior.log`. Os logs da API: `docker compose logs app`.
 - **A janela tem perfil próprio** (`%LOCALAPPDATA%\Reprise\navegador`). É o que permite saber que
   ela fechou — uma aba no navegador de sempre não tem processo próprio para observar. Ela não
   compartilha sessão com o navegador de uso.
@@ -72,7 +73,7 @@ precisa ir para o `.env`, e o launcher avisa no log quando o `Tmdb__ApiKey` est�
 
   Quando a janela não entra sozinha: se o `launcher.log` não tem `Passe de entrada: emitido`, a
   linha `Passe de entrada` diz por que a CLI não o emitiu; se tem, a troca falhou no web ou na API —
-  veja `docker compose logs api`.
+  veja `docker compose logs app`.
 - **O Docker só é desligado se o launcher o ligou.** Se ele já estava de pé por causa de outro
   projeto, só os containers do Reprise param.
 - **Os sockets do Docker são afastados antes de ligá-lo.** Em algumas máquinas o Docker Desktop

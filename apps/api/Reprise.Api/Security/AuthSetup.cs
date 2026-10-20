@@ -22,13 +22,8 @@ public static class AuthSetup
     /// </summary>
     public static IServiceCollection AddRepriseAuth(this IServiceCollection services, IConfiguration configuration)
     {
-        var secret = configuration["Jwt:Secret"];
-        if (string.IsNullOrWhiteSpace(secret) || secret.Length < 32)
-        {
-            // Falhar na partida é melhor do que assinar token com segredo fraco ou de exemplo.
-            throw new InvalidOperationException(
-                "Jwt:Secret ausente ou com menos de 32 caracteres. Gere um com: openssl rand -base64 48");
-        }
+        // Falhar na partida é melhor do que assinar token com segredo fraco ou de exemplo.
+        var secret = JwtSecret.Resolve(configuration);
 
         var issuer = configuration["Jwt:Issuer"] ?? "reprise";
         var audience = configuration["Jwt:Audience"] ?? "reprise-clients";

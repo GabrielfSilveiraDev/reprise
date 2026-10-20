@@ -49,8 +49,7 @@ if (positional.Length == 0)
     return 1;
 }
 
-var conn = Environment.GetEnvironmentVariable("ConnectionStrings__Default")
-           ?? "Host=localhost;Port=5432;Database=reprise;Username=reprise;Password=reprise";
+var conn = PostgresConnectionString.FromEnvironment();
 
 return positional[0].ToLowerInvariant() switch
 {
@@ -69,11 +68,13 @@ return positional[0].ToLowerInvariant() switch
 /// Cria o banco, ou leva o que já existe até a última migração.
 ///
 /// <para>
-/// A API não migra o banco na partida, e é melhor assim: com mais de uma réplica, todas tentariam migrar ao mesmo
-/// tempo, e uma migração que falha no meio da partida deixa a API fora do ar sem dizer por quê.
-/// Migrar é um passo explícito — é este comando que o serviço <c>migrate</c> do docker-compose roda
-/// antes de a API subir. Faz o mesmo que <c>dotnet ef database update</c>, sem exigir a ferramenta
-/// do EF instalada nem o SDK: a imagem da CLI só tem o runtime.
+/// Por padrão a API não migra o banco na partida, e é melhor assim: com mais de uma réplica, todas
+/// tentariam migrar ao mesmo tempo, e uma migração que falha no meio da partida deixa a API fora do
+/// ar sem dizer por quê. Migrar é um passo explícito — é este comando que o serviço <c>migrate</c>
+/// do docker-compose roda antes de a API subir. (Hospedado numa instância só, como no Render
+/// gratuito, que não tem passo de pré-deploy, a API pode migrar sozinha: <c>Database__MigrateOnStartup</c>.)
+/// Faz o mesmo que <c>dotnet ef database update</c>, sem exigir a ferramenta do EF instalada nem o
+/// SDK: a imagem da CLI só tem o runtime.
 /// </para>
 /// </summary>
 static async Task<int> RunMigrateAsync(string conn)
@@ -83,17 +84,15 @@ static async Task<int> RunMigrateAsync(string conn)
     await using var provider = services.BuildServiceProvider();
     using var scope = provider.CreateScope();
 
-    var db = scope.ServiceProvider.GetRequiredService<RepriseDbContext>();
-    var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
-    if (pending.Count == 0)
+    var applied = await scope.ServiceProvider.GetRequiredService<DatabaseMigrator>().MigrateAsync();
+    if (applied.Count == 0)
     {
         Console.WriteLine("Banco em dia: nenhuma migração pendente.");
         return 0;
     }
 
-    Console.WriteLine($"Aplicando {pending.Count} migração(ões):");
-    foreach (var name in pending) Console.WriteLine($"  {name}");
-    await db.Database.MigrateAsync();
+    Console.WriteLine($"Aplicadas {applied.Count} migração(ões):");
+    foreach (var name in applied) Console.WriteLine($"  {name}");
     Console.WriteLine("Banco em dia.");
     return 0;
 }

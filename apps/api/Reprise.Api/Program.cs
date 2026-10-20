@@ -1,5 +1,6 @@
 using Reprise.Api;
 using Reprise.Api.Endpoints;
+using Reprise.Api.Hosting;
 using Reprise.Api.Security;
 using Reprise.Application;
 using Reprise.Infrastructure;
@@ -8,11 +9,9 @@ using Reprise.Infrastructure.Tmdb;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var conn = builder.Configuration.GetConnectionString("Default")
-           ?? Environment.GetEnvironmentVariable("ConnectionStrings__Default")
-           ?? "Host=localhost;Port=5432;Database=reprise;Username=reprise;Password=reprise";
-
-builder.Services.AddRepriseInfrastructure(conn);
+// Sem conexão configurada, vale o Postgres do docker-compose visto da máquina. Aceita também a URL
+// dos Postgres hospedados (postgresql://…) — ver PostgresConnectionString.
+builder.Services.AddRepriseInfrastructure(builder.Configuration.GetConnectionString("Default"));
 builder.Services.AddRepriseApplication();
 
 // O TMDB entra só quando há chave.
@@ -53,10 +52,28 @@ builder.Services.AddRepriseAuthRateLimit(builder.Configuration);
 // Responde se a API alcança o banco. É o que um orquestrador (Compose, Kubernetes, um balanceador)
 // pergunta antes de mandar tráfego — "o processo está de pé" não basta quando o Postgres caiu.
 builder.Services.AddHealthChecks().AddDbContextCheck<RepriseDbContext>();
+builder.Services.AddRepriseWebClient();
 
 var app = builder.Build();
 
-// Primeiro de tudo: quando `Api:AccessToken` está configurado, nada responde sem o token.
+// Desligado por padrão: no compose, quem migra é o serviço `migrate`, antes de a API subir. Ligado
+// onde não há esse passo — uma instância só, hospedada (o Render gratuito não tem pré-deploy).
+if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
+{
+    using var scope = app.Services.CreateScope();
+    var applied = await scope.ServiceProvider.GetRequiredService<DatabaseMigrator>().MigrateAsync();
+    app.Logger.LogInformation("Migrações aplicadas na partida: {Migracoes}",
+        applied.Count == 0 ? "nenhuma (banco em dia)" : string.Join(", ", applied));
+}
+
+// Com o build do cliente em wwwroot (a imagem do Reprise), ele é servido daqui e a API passa a
+// responder sob /api. O roteamento vem depois, explícito, porque precisa enxergar o caminho já sem
+// o prefixo.
+app.UseRepriseWebClient();
+app.UseRouting();
+
+// Primeiro de tudo na API: quando `Api:AccessToken` está configurado, nada sob ela responde sem o
+// token (os arquivos do cliente, servidos acima, são públicos de qualquer jeito).
 // Desligado por padrão. Continua existindo depois da autenticação porque resolve outra coisa:
 // ele fecha a porta do prédio (nem a tela de login fica exposta num túnel público), enquanto o
 // JWT diz quem é a pessoa lá dentro.

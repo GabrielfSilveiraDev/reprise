@@ -11,8 +11,7 @@ public sealed class RepriseDbContextFactory : IDesignTimeDbContextFactory<Repris
 {
     public RepriseDbContext CreateDbContext(string[] args)
     {
-        var conn = Environment.GetEnvironmentVariable("ConnectionStrings__Default")
-                   ?? "Host=localhost;Port=5432;Database=reprise;Username=reprise;Password=reprise";
+        var conn = PostgresConnectionString.FromEnvironment();
 
         var options = new DbContextOptionsBuilder<RepriseDbContext>()
             .UseNpgsql(conn)

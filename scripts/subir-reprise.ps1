@@ -7,9 +7,10 @@
     ícone na bandeja enquanto o Reprise está de pé, e a janela do próprio Reprise.
 
     Subida:
-      1. confere o `.env` (quem o lê é o compose; sem `Jwt__Secret` a API nem sobe);
+      1. confere o `.env`, se houver (quem o lê é o compose; sem ele, valem os padrões e a API gera o
+         próprio segredo dos tokens);
       2. garante o Docker Desktop;
-      3. sobe a pilha do `docker-compose.yml` — banco, migrações, API e web —, reconstruindo as
+      3. sobe a pilha do `docker-compose.yml` — banco, migrações e o app (API + web) —, reconstruindo as
          imagens se o código mudou, com a saída em %LOCALAPPDATA%\Reprise\logs\compose.log;
       4. pede à CLI um passe de entrada para a sua conta, enquanto espera o `/api/health`
          responder pelo web;
@@ -228,10 +229,11 @@ class Processos {
 }
 
 # =============================================================================================
-# O `.env`. Quem o lê de verdade é o compose; aqui ele só é conferido — sem `Jwt__Secret`, as
-# imagens seriam construídas e a pilha subiria só para a API cair na partida — e consultado para
-# saber em que porta o web atende, qual token de acesso a sonda de saúde precisa mandar e qual
-# conta entra direto pelo passe de entrada.
+# O `.env`. Quem o lê de verdade é o compose; aqui ele só é conferido — um `Jwt__Secret` curto
+# faria as imagens serem construídas e a pilha subir só para a API cair na partida — e consultado
+# para saber em que porta o web atende, qual token de acesso a sonda de saúde precisa mandar e qual
+# conta entra direto pelo passe de entrada. Ele é opcional: sem `.env`, valem os padrões do compose
+# e a API gera o próprio segredo dos tokens (Jwt__SecretFile, num volume).
 # =============================================================================================
 class ConfiguracaoLocal {
     [string]$Arquivo
@@ -278,13 +280,11 @@ class ConfiguracaoLocal {
     [string] Url() { return "http://localhost:$($this.Porta)/" }
 
     [void] Validar() {
-        if (-not (Test-Path -LiteralPath $this.Arquivo)) {
-            throw "Não achei o .env em $($this.Arquivo). Copie o .env.example e preencha."
-        }
-        # O mesmo critério da API (AuthSetup.AddRepriseAuth), para não recusar o que ela aceita.
+        # O mesmo critério da API (JwtSecret.Resolve), para não recusar o que ela aceita: ausente é
+        # normal (ela gera um), presente e curto é erro de quem configurou.
         $segredo = $this.Ler('Jwt__Secret')
-        if ([string]::IsNullOrWhiteSpace($segredo) -or $segredo.Length -lt 32) {
-            throw 'Jwt__Secret ausente ou curto no .env — a API se recusa a subir sem ele.'
+        if (-not [string]::IsNullOrWhiteSpace($segredo) -and $segredo.Length -lt 32) {
+            throw 'Jwt__Secret curto no .env (menos de 32 caracteres) — a API se recusa a subir com ele. Apague a linha para a API gerar um.'
         }
     }
 }
@@ -404,7 +404,7 @@ class DockerLocal {
 
     # A porta em que o web do Reprise está publicado agora, ou 0 se ele não está de pé.
     [int] PortaDoWeb() {
-        $saida = [Nativo]::Saida($this.Cli, $this.ArgumentosCompose(@('port', 'web', '8080')))
+        $saida = [Nativo]::Saida($this.Cli, $this.ArgumentosCompose(@('port', 'app', '8080')))
         $numero = 0
         if ($saida -and [int]::TryParse(($saida -split "`n")[0].Split(':')[-1], [ref]$numero)) { return $numero }
         return 0
@@ -419,7 +419,9 @@ class DockerLocal {
         $psi.FileName = $env:ComSpec
         # `cmd /s /c` tira as aspas externas e executa o resto literalmente. É o que dá o
         # redirecionamento para arquivo sem precisar de leitores assíncronos vivos neste script.
-        $psi.Arguments = '/d /s /c ""{0}" compose -f "{1}" up -d --build > "{2}" 2>&1"' -f $this.Cli, $this.Compose, $log
+        # `--remove-orphans` tira os containers de serviços que saíram do compose — os `api` e `web`
+        # de antes da imagem única. Um `web` antigo de pé seguraria a 8080, e o `app` não subiria.
+        $psi.Arguments = '/d /s /c ""{0}" compose -f "{1}" up -d --build --remove-orphans > "{2}" 2>&1"' -f $this.Cli, $this.Compose, $log
         $psi.WorkingDirectory = Split-Path -Parent $this.Compose
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
@@ -449,9 +451,9 @@ class DockerLocal {
         [Registro]::Escrever('Containers: de pé.')
     }
 
-    # Pelo web, e não direto na API: `/api/health` passando pelo nginx prova a corrente inteira — o
-    # web atendendo, o proxy chegando na API e a API falando com o banco. Container "Up" não prova
-    # nada disso.
+    # Pela porta publicada e pelo caminho do web: `/api/health` respondendo prova a corrente
+    # inteira — o app atendendo na porta, a API sob /api e a API falando com o banco. Container
+    # "Up" não prova nada disso.
     #
     # Com `Api__AccessToken` no `.env`, a API recusa tudo sem o token — o /health inclusive — e a
     # sonda precisa mandá-lo, ou esperaria o prazo inteiro por um 401.
@@ -471,9 +473,9 @@ class DockerLocal {
 
             # Uma API que cai na partida fica reiniciando pela política do compose. Sem olhar o
             # estado, este laço esperaria o prazo inteiro por ela.
-            $estado = [Nativo]::Saida($this.Cli, $this.ArgumentosCompose(@('ps', '-a', '--format', '{{.State}}', 'api')))
+            $estado = [Nativo]::Saida($this.Cli, $this.ArgumentosCompose(@('ps', '-a', '--format', '{{.State}}', 'app')))
             if ($estado -match 'restarting|exited|dead') {
-                $log = [Nativo]::Saida($this.Cli, $this.ArgumentosCompose(@('logs', '--tail', '40', '--no-log-prefix', 'api')))
+                $log = [Nativo]::Saida($this.Cli, $this.ArgumentosCompose(@('logs', '--tail', '40', '--no-log-prefix', 'app')))
                 throw "A API não ficou de pé (estado: $estado).`n`nFinal do log da API:`n$([DockerLocal]::SemRepeticao($log, 8))"
             }
             if ($enquantoEspera) { & $enquantoEspera }

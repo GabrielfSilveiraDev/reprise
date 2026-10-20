@@ -1,0 +1,51 @@
+# Blueprint do Render: o Reprise hospedado de graça, num serviço só (API + cliente web).
+# O banco fica fora, no Neon (também grátis) — o Postgres gratuito do Render é apagado em 30 dias.
+# Passo a passo em docs/hospedagem.md.
+#
+# Plano gratuito, o que esperar: 512 MB e 0,1 CPU; o serviço dorme depois de 15 minutos sem acesso, e
+# a primeira abertura depois disso leva cerca de um minuto. Cada push na main que passar no CI é
+# publicado sozinho — e com ele o app do celular, que abre este mesmo site.
+services:
+  - type: web
+    name: reprise
+    runtime: docker
+    plan: free
+    # A região não muda depois de criada. Escolha a mesma do banco no Neon (AWS US East 1 é a
+    # Virgínia): cada tela faz várias consultas, e é a distância API–banco que se soma em cada uma.
+    region: virginia
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # A raiz é o cliente web, servido pela própria API: responde sem tocar no banco (não acorda o
+    # Neon a cada verificação) e sem passar pelo cadeado da API, que responderia 401.
+    healthCheckPath: /
+    autoDeployTrigger: checksPass
+    envVars:
+      # A URL de conexão do Neon, do jeito que o painel dele entrega (postgresql://…?sslmode=require).
+      # O Render pede o valor na criação do blueprint.
+      - key: ConnectionStrings__Default
+        sync: false
+      # Aleatório, gerado pelo Render uma vez (256 bits) e mantido nos deploys seguintes.
+      - key: Jwt__Secret
+        generateValue: true
+      # O Render gratuito não tem passo de pré-deploy: a API aplica as migrações ao subir.
+      - key: Database__MigrateOnStartup
+        value: "true"
+      # O Render está na frente da API e manda o endereço real de quem chama — é por ele que o
+      # limite de tentativas do login conta cada pessoa separadamente.
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      # A porta em que a imagem escuta; o Render encaminha para ela.
+      - key: PORT
+        value: "8080"
+      # GC de estação de trabalho: menos memória reservada, que é o que falta em 512 MB. O GC de
+      # servidor só compensa com vários núcleos, e aqui é 0,1 CPU.
+      - key: DOTNET_gcServer
+        value: "0"
+      - key: Tmdb__Language
+        value: pt-BR
+      - key: Jwt__AllowRegistration
+        value: "false"
+      # Opcionais, preenchidos depois em Environment, no painel do serviço (ver docs/hospedagem.md):
+      #   Tmdb__ApiKey               busca de séries novas e catálogo atualizado
+      #   Api__AccessToken           cadeado: nem a tela de login responde sem a chave
+      #   Android__CertFingerprints  tira a barra de endereço do app Android (docs/android.md)

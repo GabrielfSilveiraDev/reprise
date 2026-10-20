@@ -15,12 +15,15 @@ namespace Reprise.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddRepriseInfrastructure(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddRepriseInfrastructure(this IServiceCollection services, string? connectionString)
     {
+        // Aceita também a URL dos Postgres hospedados (postgresql://…), que o Npgsql não entende.
+        connectionString = PostgresConnectionString.Resolve(connectionString);
         services.AddDbContext<RepriseDbContext>(options =>
             options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention());
 
         services.AddScoped<IRepriseDbContext>(sp => sp.GetRequiredService<RepriseDbContext>());
+        services.AddScoped<DatabaseMigrator>();
 
         // Padrão para quem não tem HTTP: a CLI de importação e o design-time do EF.
         // A API sobrescreve isto por AddRepriseAuth, que lê o sub do JWT.

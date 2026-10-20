@@ -125,16 +125,15 @@ jobs:
     strategy:
       matrix:
         include:
-          - { name: api, file: apps/api/Dockerfile, target: api }
-          - { name: cli, file: apps/api/Dockerfile, target: cli }
-          - { name: web, file: apps/web/Dockerfile, target: web }
+          # O app (API + cliente web) e a CLI saem do mesmo Dockerfile, da raiz.
+          - { name: app, target: app }
+          - { name: cli, target: cli }
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
       - uses: docker/build-push-action@v7
         with:
           context: .
-          file: ${{ matrix.file }}
           target: ${{ matrix.target }}
           push: false
           cache-from: type=gha,scope=${{ matrix.name }}

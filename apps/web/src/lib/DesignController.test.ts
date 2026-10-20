@@ -41,6 +41,23 @@ describe('DesignController', () => {
     expect(new DesignController().current).toBe('brasa')
   })
 
+  it('travado (app instalado), é sempre o design da trava e a escolha do navegador fica intocada', () => {
+    localStorage.setItem(DesignController.KEY, 'grade')
+    const controller = new DesignController(new SafeStorage(), 'brasa')
+    const listener = vi.fn()
+    controller.subscribe(listener)
+
+    expect(controller.locked).toBe(true)
+    expect(controller.current).toBe('brasa')
+    controller.set('sessao')
+
+    expect(controller.current).toBe('brasa')
+    expect(listener).not.toHaveBeenCalled()
+    // Aberto no navegador, o Reprise volta à escolha de antes.
+    expect(localStorage.getItem(DesignController.KEY)).toBe('grade')
+    expect(new DesignController().current).toBe('grade')
+  })
+
   it('sem armazenamento (janela privada), a troca vale na aba — só não sobrevive à recarga', () => {
     const controller = new DesignController(new SafeStorage(null))
     controller.set('sessao')
