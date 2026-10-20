@@ -79,8 +79,11 @@ entre no endereço do Render com o mesmo usuário e senha de sempre.
 
 ```bash
 docker compose run --rm cli migrate
-docker compose run --rm cli passwd --email me@reprise.local --password "uma-senha-de-10+" --user seunome
+docker compose run --rm cli passwd --email me@reprise.local --user seunome
 ```
+
+O `passwd` pergunta a senha, sem mostrá-la. Com o `DATABASE_URL` no `.env`, ela vale para o banco da
+nuvem — é o mesmo comando para trocar a senha do site depois.
 
 Com o `DATABASE_URL` no `.env`, **todo** o Reprise local passa a usar o banco da nuvem — o app em
 `localhost:8080` e a CLI (importar o TV Time, `enrich`…). É o que se quer depois da cópia: um

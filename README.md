@@ -97,10 +97,11 @@ Pick how you want to use it. You can start with one and move to another later, h
 4. **Create your account.** Sign-up is closed by default, so the account comes from the CLI:
 
    ```bash
-   docker compose run --rm cli passwd --email me@reprise.local --password "at-least-10-chars" --user yourname
+   docker compose run --rm cli passwd --email me@reprise.local --user yourname
    ```
 
-   Log in with the username and password. `me@reprise.local` is the built-in owner account — the
+   It asks for the password twice (10+ characters) without echoing it; the same command changes it
+   later. Log in with the username and password. `me@reprise.local` is the built-in owner account — the
    one the TV Time import writes to.
 5. **Bring your TV Time history (optional).** Put the export `.zip` in `./gdpr-data`, then:
 
