@@ -11,7 +11,7 @@ import { Button } from '@/ui/Button'
 import { ErrorState, Skeleton } from '@/ui/Feedback'
 import { Poster } from '@/ui/Poster'
 import { NothingRunning } from './HomeBrasa'
-import { DismissRewatchButton, RewatchBadge } from './RewatchBits'
+import { DismissRewatchButton, ReturnBadge, RewatchBadge } from './RewatchBits'
 import { ShelfText, useShelfItem } from './useShelfItem'
 import type { HomeModel } from './useHomeModel'
 
@@ -103,7 +103,7 @@ function Feature({ entry }: { entry: ShelfItem }) {
 
         <div className="min-w-0">
           <p className="eyebrow flex flex-wrap items-center gap-2">
-            {s.rewatch ? <RewatchBadge /> : <span>Continuar</span>}
+            {s.rewatch ? <RewatchBadge /> : s.returned ? <ReturnBadge /> : <span>Continuar</span>}
             <span aria-hidden>·</span>
             <span>{ShelfText.idle(entry.daysIdle)}</span>
           </p>
@@ -164,6 +164,7 @@ function QueueTile({ entry, small = false }: { entry: ShelfItem; small?: boolean
           />
         </Link>
         {s.rewatch && <RewatchBadge className="absolute top-2 left-2 shadow-sm" />}
+        {s.returned && <ReturnBadge className="absolute top-2 left-2 shadow-sm" />}
         {s.rewatch && (
           <DismissRewatchButton label={s.dismissLabel} onClick={s.dismiss} className="absolute top-1.5 right-1.5 bg-bg/75 text-ink backdrop-blur hover:bg-bg" />
         )}

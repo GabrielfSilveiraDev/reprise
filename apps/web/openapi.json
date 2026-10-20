@@ -1866,7 +1866,8 @@
           "episodesWatched",
           "completionRatio",
           "lastWatchedAt",
-          "nextUp"
+          "nextUp",
+          "returnedAt"
         ],
         "type": "object",
         "properties": {
@@ -1931,6 +1932,13 @@
                 "$ref": "#/components/schemas/EpisodeRefDto"
               }
             ]
+          },
+          "returnedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

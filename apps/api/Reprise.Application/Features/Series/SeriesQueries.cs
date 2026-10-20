@@ -43,6 +43,7 @@ public sealed class SeriesQueries
                 t.Series.PosterPath,
                 Relacao = t.Status,
                 Producao = t.Series.Status,
+                t.ReturnedAt,
             })
             .ToListAsync(ct);
 
@@ -63,7 +64,7 @@ public sealed class SeriesQueries
                     c.SeriesId, c.TvdbId, c.Name, c.PosterPath, c.Relacao.ToString(), c.Producao,
                     p.Total, p.Exibidos, p.Vistos,
                     p.Total == 0 ? 0d : (double)p.Vistos / p.Total,
-                    last, next);
+                    last, next, c.ReturnedAt);
             })
             // A ordenação final é sobre ~100 itens já em memória, então não vale um ORDER BY que
             // obrigaria as quatro consultas a virar uma só.

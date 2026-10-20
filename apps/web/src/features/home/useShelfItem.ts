@@ -21,7 +21,12 @@ export class ShelfText {
     return entry.backlog && entry.backlog > 1 ? `${Fmt.plural(entry.backlog, 'lançado', 'lançados')} por ver` : 'último lançado'
   }
 
+  /**
+   * Na série que voltou, o "parada há 4 anos" dá lugar ao que aconteceu: sem isso, o cartão no topo
+   * da fila contradiria o tempo parado logo ao lado.
+   */
   static line(entry: ShelfItem): string {
+    if (entry.returned) return `voltou para Assistindo · ${ShelfText.standing(entry)}`
     return `${ShelfText.standing(entry)} · ${ShelfText.idle(entry.daysIdle)}`
   }
 }
@@ -44,6 +49,7 @@ export function useShelfItem(entry: ShelfItem) {
     item,
     code,
     rewatch: entry.rewatch,
+    returned: entry.returned,
     done: markedId === item.episode.id,
     pending: mark.isPending && mark.variables?.episode.id === item.episode.id,
     markLabel: `Marcar ${code.toSpoken()} de ${item.seriesName} como visto`,

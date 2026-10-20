@@ -48,14 +48,16 @@ public sealed class TrackingService
             .Where(t => ids.Contains(t.SeriesId))
             .ToDictionaryAsync(t => t.SeriesId, ct);
 
+        var agora = DateTimeOffset.UtcNow;
         var updated = 0;
         foreach (var (seriesId, status) in parsed)
         {
             if (!tracked.TryGetValue(seriesId, out var row)) continue;
-            if (row.Status == status) continue;   // já estava assim: não conta como mudança
 
-            row.Status = status;
-            updated += 1;
+            // Falso quando já estava assim: não conta como mudança. Pela entidade, e não pelo
+            // setter, porque mudar o estado à mão também diz QUANDO você decidiu — é o que impede
+            // a temporada que você recusou de trazer a série de volta (ver SeriesReturns).
+            if (row.ChangeStatus(status, agora)) updated += 1;
         }
 
         if (updated > 0) await _db.SaveChangesAsync(ct);

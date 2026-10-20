@@ -42,6 +42,33 @@ describe('NextUpShelf', () => {
     expect(shelf.rewatching).toBe(1)
   })
 
+  it('a série que voltou com temporada nova entra em andamento, na frente, pela hora da volta', () => {
+    const edgerunners = Make.seriesItem({ name: 'Cyberpunk: Edgerunners', episodesTotal: 20, episodesAired: 20, episodesWatched: 10, returnedAt: daysAgo(0), lastWatchedAt: daysAgo(1490) })
+    const shelf = new NextUpShelf(
+      // A API manda pela última exibição: a que voltou, parada há quatro anos, vem por último.
+      [
+        Make.nextUp({ seriesName: 'Ontem', lastActivityAt: daysAgo(1) }),
+        Make.nextUp({ seriesId: edgerunners.id, seriesName: edgerunners.name, lastActivityAt: daysAgo(1490) }),
+      ],
+      [edgerunners],
+      NOW,
+    )
+
+    expect(shelf.active.map((s) => s.item.seriesName)).toEqual(['Cyberpunk: Edgerunners', 'Ontem'])
+    expect(shelf.active[0]).toMatchObject({ returned: true, backlog: 10 })
+    // O tempo parado continua sendo o da última exibição: é verdade, e o cartão diz "parada há 4 anos".
+    expect(shelf.active[0]!.daysIdle).toBe(1490)
+    expect(shelf.paused).toHaveLength(0)
+  })
+
+  it('a volta que deixou de ser notícia não segura a série em andamento', () => {
+    const esquecida = Make.seriesItem({ returnedAt: daysAgo(40), lastWatchedAt: daysAgo(1490) })
+    const shelf = new NextUpShelf([Make.nextUp({ seriesId: esquecida.id, lastActivityAt: daysAgo(1490) })], [esquecida], NOW)
+
+    expect(shelf.active).toHaveLength(0)
+    expect(shelf.paused[0]).toMatchObject({ returned: false })
+  })
+
   it('está vazia só quando não sobra nada em nenhuma das três', () => {
     expect(new NextUpShelf([], undefined, NOW).isEmpty).toBe(true)
     expect(new NextUpShelf([Make.nextUp({ lastActivityAt: daysAgo(400) })], undefined, NOW).isEmpty).toBe(false)

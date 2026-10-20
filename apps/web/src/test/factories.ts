@@ -70,6 +70,7 @@ export class Make {
       completionRatio: 0.5,
       lastWatchedAt: null,
       nextUp: null,
+      returnedAt: null,
       ...overrides,
     }
   }

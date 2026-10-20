@@ -1374,6 +1374,8 @@ export interface components {
             /** Format: date-time */
             lastWatchedAt: null | string;
             nextUp: null | components["schemas"]["EpisodeRefDto"];
+            /** Format: date-time */
+            returnedAt: null | string;
         };
         SeriesPreviewDto: {
             /** Format: int32 */

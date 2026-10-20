@@ -45,6 +45,13 @@ interface Spec {
   sessions?: number
   /** Revisão em andamento: os N primeiros regulares foram remarcados nos últimos dias. */
   rewatchingUpTo?: number
+  /** Há quantos dias saiu o último episódio regular (sem isto, 20): para série antiga, vista há anos. */
+  lastAirDaysAgo?: number
+  /**
+   * Voltou sozinha para Assistindo: uma temporada nova, inteira, saiu há `premieredDaysAgo` dias, e
+   * a API a devolveu há `hoursAgo` horas (ver SeriesReturns, na API).
+   */
+  returned?: { episodes: number; premieredDaysAgo: number; hoursAgo: number }
 }
 
 const SPECS: Spec[] = [
@@ -62,6 +69,7 @@ const SPECS: Spec[] = [
   { id: 12, name: 'Meia-Noite em Lisboa', hue: 330, production: 'Ended', status: 'Archived', seasons: [8, 8], watched: 5, lastDaysAgo: 1200, firstAirYear: 2017, sessions: 1, overview: 'Um detetive insone resolve crimes só entre meia-noite e o amanhecer.' },
   { id: 13, name: 'Expresso Oriente', hue: 70, production: 'Returning Series', status: 'Following', seasons: [10], watched: 9, lastDaysAgo: 2, upcoming: { count: 3, firstInDays: 20, hourUtc: 2, newSeason: true }, firstAirYear: 2025, sessions: 1, overview: 'Passageiros de um trem transcontinental com uma parada que não está no mapa.' },
   { id: 15, name: 'Casa de Vidro', hue: 300, production: 'Ended', status: 'Finished', seasons: [8, 8], watched: 16, lastDaysAgo: 500, firstAirYear: 2012, sessions: 2, rewatchingUpTo: 6, overview: 'Uma arquiteta volta à casa que projetou para a família e encontra cada cômodo como deixou.' },
+  { id: 16, name: 'Asfalto Neon', hue: 315, production: 'Returning Series', status: 'Following', seasons: [10], watched: 10, lastDaysAgo: 1460, lastAirDaysAgo: 1500, firstAirYear: 2022, sessions: 1, returned: { episodes: 10, premieredDaysAgo: 1, hoursAgo: 10 }, overview: 'Uma equipe de mercenários sobrevive nas margens de uma cidade que nunca dorme.' },
   { id: 14, name: 'Terra Firme', hue: 120, production: 'Returning Series', status: 'Following', seasons: [8, 8], watched: 11, lastDaysAgo: 12, firstAirYear: 2023, sessions: 1, overview: 'Engenheiros tentam reerguer uma cidade depois de um terremoto.' },
 ]
 
@@ -70,6 +78,8 @@ interface State {
   hue: Map<number, number>
   /** Quando cada revisão foi tirada da fila (ms). */
   dismissals: Map<number, number>
+  /** Quando cada série voltou sozinha para Assistindo (ISO) — some quando o estado muda à mão. */
+  returns: Map<number, string>
 }
 
 function buildDetail(spec: Spec): Detail {
@@ -78,7 +88,7 @@ function buildDetail(spec: Spec): Detail {
   let regularIndex = 0
   const totalRegular = spec.seasons.reduce((a, b) => a + b, 0)
   const start = Date.UTC(spec.firstAirYear, 0, 10)
-  const lastPast = NOW.getTime() - 20 * DAY
+  const lastPast = NOW.getTime() - (spec.lastAirDaysAgo ?? 20) * DAY
   const spacing = Math.max(DAY, (lastPast - start) / Math.max(1, totalRegular))
   const lastWatch = spec.lastDaysAgo === null ? null : NOW.getTime() - spec.lastDaysAgo * DAY - 2 * 3600_000
 
@@ -138,6 +148,14 @@ function buildDetail(spec: Spec): Detail {
     }
   }
 
+  if (spec.returned) {
+    const r = spec.returned
+    const season = spec.seasons.length + 1
+    const airMs = NOW.getTime() - r.premieredDaysAgo * DAY
+    const episodes = Array.from({ length: r.episodes }, (_, i) => episode(season, i + 1, airMs, iso(airMs + 7 * 3600_000), 0, null))
+    seasons.push({ seasonNumber: season, name: null, isSpecials: false, episodes })
+  }
+
   if (spec.specials) {
     const episodes = Array.from({ length: spec.specials }, (_, i) =>
       episode(0, i + 1, start + i * 200 * DAY, iso(start + i * 200 * DAY + DAY), i === 1 ? 2 : 0, i === 1 ? iso(NOW.getTime() - 300 * DAY) : null),
@@ -194,7 +212,7 @@ function refresh(detail: Detail): Detail {
   }
 }
 
-function listItem(d: Detail): S['SeriesListItemDto'] {
+function listItem(d: Detail, returnedAt: string | null = null): S['SeriesListItemDto'] {
   const regular = d.seasons.filter((s) => !s.isSpecials).flatMap((s) => s.episodes)
   const next = regular.find((e) => e.watchCount === 0 && (!e.releasesAt || Date.parse(e.releasesAt) <= NOW.getTime()))
   const last = d.seasons.flatMap((s) => s.episodes).map((e) => e.lastWatchedAt).filter(Boolean).sort().pop() ?? null
@@ -211,6 +229,7 @@ function listItem(d: Detail): S['SeriesListItemDto'] {
     completionRatio: d.completionRatio,
     lastWatchedAt: last,
     nextUp: next ? { id: next.id, seasonNumber: next.seasonNumber, episodeNumber: next.episodeNumber, name: next.name } : null,
+    returnedAt,
   }
 }
 
@@ -230,13 +249,14 @@ function posterSvg(label: string, hue: number, wide = false): string {
  * só a primeira tela.
  */
 export class MockApi {
-  private readonly state: State = { details: new Map(), hue: new Map(), dismissals: new Map() }
+  private readonly state: State = { details: new Map(), hue: new Map(), dismissals: new Map(), returns: new Map() }
   readonly calls: { method: string; path: string; body: unknown }[] = []
 
   constructor() {
     for (const spec of SPECS) {
       this.state.details.set(spec.id, refresh(buildDetail(spec)))
       this.state.hue.set(spec.id, spec.hue)
+      if (spec.returned) this.state.returns.set(spec.id, iso(NOW.getTime() - spec.returned.hoursAgo * 3600_000))
     }
   }
 
@@ -368,7 +388,7 @@ export class MockApi {
   }
 
   list() {
-    return [...this.state.details.values()].map(listItem).sort((a, b) => (b.lastWatchedAt ?? '').localeCompare(a.lastWatchedAt ?? '') || a.name.localeCompare(b.name))
+    return [...this.state.details.values()].map((d) => listItem(d, this.state.returns.get(d.id) ?? null)).sort((a, b) => (b.lastWatchedAt ?? '').localeCompare(a.lastWatchedAt ?? '') || a.name.localeCompare(b.name))
   }
 
   /** A regra do servidor: revisão recente ganha do primeiro inédito; sem revisão, só as acompanhadas. */
@@ -456,9 +476,13 @@ export class MockApi {
     return { seriesId: id, name: spec.name, alreadyTracked: false, episodesCreated: 12 }
   }
 
+  /** Como no servidor: mudar o estado à mão apaga a marca de "voltou sozinha". */
   private setStatus(id: number, status: string) {
     const d = this.state.details.get(id)
-    if (d) this.state.details.set(id, { ...d, status })
+    if (d && d.status !== status) {
+      this.state.details.set(id, { ...d, status })
+      this.state.returns.delete(id)
+    }
   }
 
   private bulk(seriesId: number, pick: (e: Episode) => boolean): number {

@@ -17,7 +17,7 @@ namespace Reprise.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.10")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -584,6 +584,10 @@ namespace Reprise.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("notes");
 
+                    b.Property<DateTimeOffset?>("ReturnedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("returned_at");
+
                     b.Property<DateTimeOffset?>("RewatchDismissedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("rewatch_dismissed_at");
@@ -597,6 +601,10 @@ namespace Reprise.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("StatusChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("status_changed_at");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")

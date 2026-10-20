@@ -1,9 +1,11 @@
+using Reprise.Application.Features.Series;
 using Reprise.Infrastructure.Catalog;
 
 namespace Reprise.Api;
 
 /// <summary>
-/// Roda a <see cref="CatalogRefresh"/> enquanto a API estiver de pé.
+/// Roda a <see cref="CatalogRefresh"/> enquanto a API estiver de pé e, depois de cada rodada, a
+/// <see cref="SeriesReturns"/>.
 ///
 /// <para>
 /// <b>Na subida, e depois de hora em hora.</b> Este app não fica ligado o tempo todo: o atalho do
@@ -17,6 +19,13 @@ namespace Reprise.Api;
 /// <para>
 /// <b>A espera antes da primeira rodada</b> deixa a tela que acabou de abrir fazer as consultas
 /// dela sem disputar o banco e a rede com meia centena de séries sendo reprocessadas.
+/// </para>
+///
+/// <para>
+/// <b>A volta das séries vem logo depois do catálogo</b>, no mesmo ritmo e no mesmo escopo: é a
+/// rodada que traz a temporada nova, e a passada seguinte a ela é o que faz a série concluída
+/// reaparecer na mesma hora, e não na rodada seguinte. Ela não depende da atualização ter achado
+/// algo vencido — a estreia anunciada há meses chega ao dia sem que o catálogo mude.
 /// </para>
 ///
 /// <para>
@@ -69,14 +78,24 @@ public sealed class CatalogRefreshWorker : BackgroundService
             var atualizacao = escopo.ServiceProvider.GetRequiredService<CatalogRefresh>();
 
             var r = await atualizacao.RefreshStaleAsync(_relogio.GetUtcNow(), ct);
-            if (r.Vencidas == 0) return;
+            if (r.Vencidas > 0)
+            {
+                _log.LogInformation(
+                    "Catálogo: {Atualizadas} de {Vencidas} série(s) atualizada(s) pelo TMDB e pelo TVmaze.",
+                    r.Atualizadas, r.Vencidas);
 
-            _log.LogInformation(
-                "Catálogo: {Atualizadas} de {Vencidas} série(s) atualizada(s) pelo TMDB e pelo TVmaze.",
-                r.Atualizadas, r.Vencidas);
+                foreach (var falha in r.Falhas)
+                    _log.LogWarning("Catálogo: não atualizada, fica para a próxima rodada — {Falha}", falha);
+            }
 
-            foreach (var falha in r.Falhas)
-                _log.LogWarning("Catálogo: não atualizada, fica para a próxima rodada — {Falha}", falha);
+            var voltas = await escopo.ServiceProvider.GetRequiredService<SeriesReturns>()
+                .ApplyAsync(_relogio.GetUtcNow(), ct);
+            if (voltas.Returned.Count > 0)
+            {
+                _log.LogInformation(
+                    "Temporada nova: {Quantas} série(s) de volta para Assistindo — {Series}.",
+                    voltas.Returned.Count, string.Join(", ", voltas.Returned));
+            }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

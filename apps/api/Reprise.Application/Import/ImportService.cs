@@ -127,7 +127,7 @@ public sealed class ImportService
             if (!seriesByTvdb.TryGetValue(pt.TvdbId, out var s)) continue;
             if (trackedBySeries.TryGetValue(s.Id, out var t))
             {
-                t.Status = pt.Status;
+                t.ChangeStatus(pt.Status, now);
                 t.FollowedAt = pt.FollowedAt;
             }
             else
@@ -135,7 +135,7 @@ public sealed class ImportService
                 _db.TrackedSeries.Add(new TrackedSeries
                 {
                     UserId = userId, SeriesId = s.Id, Status = pt.Status,
-                    FollowedAt = pt.FollowedAt, AddedAt = now
+                    FollowedAt = pt.FollowedAt, AddedAt = now, StatusChangedAt = now
                 });
             }
             trackedUpserted++;

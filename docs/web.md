@@ -33,11 +33,16 @@ O app instalável (PWA) e o APK do Android, sempre no design Brasa, estão em
   toque e "Desfazer" no aviso. **Revisões entram também**, em qualquer estado (inclusive
   Concluída): se a última coisa que você fez numa série foi remarcar um episódio já visto, o
   próximo é o seguinte a ele, com o selo "Revendo" — e um X tira a revisão da fila até você
-  remarcar outro episódio dela. Abaixo, as estreias dos próximos 8 dias e, recolhidas, as séries
-  paradas e as nunca começadas.
+  remarcar outro episódio dela. A série **Concluída ou Arquivada que ganhou temporada nova** volta
+  sozinha para Assistindo (é a API que decide; ver [Importação e catálogo](importacao-e-catalogo.md))
+  e entra no topo, com o selo "Temporada nova", mesmo parada há anos — por duas semanas ou até você
+  assistir a um episódio dela (`ReturnNews`). Abaixo, as estreias dos próximos 8 dias e,
+  recolhidas, as séries paradas e as nunca começadas.
 - **Acervo** — pôsteres com progresso em três partes (visto · lançado e não visto · por lançar),
   filtro por estado, busca sem acento e ordenação. Quando uma série encerrada foi vista por inteiro,
-  sugere mover para Concluídas — sugestão, nunca ação automática.
+  sugere mover para Concluídas — sugestão, nunca ação automática. O caminho de volta é o contrário:
+  automático, e por isso avisado — o Acervo diz quais séries voltaram com temporada nova e como
+  desfazer.
 - **Série** — o **mapa de episódios**: uma linha por temporada, um quadrado por episódio, a cor
   pela quantidade de vezes que foi visto. Abaixo, a lista por temporada (marcar, rever, marcar em
   outra data, marcar até aqui, marcar a temporada) e "quando você viu": cada vez que a série foi

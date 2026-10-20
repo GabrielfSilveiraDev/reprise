@@ -1,4 +1,4 @@
-import { Repeat, X } from 'lucide-react'
+import { Repeat, Sparkles, X } from 'lucide-react'
 import { Button } from '@/ui/Button'
 import { Badge, Tooltip } from '@/ui/Controls'
 import { cn } from '@/ui/cn'
@@ -8,6 +8,19 @@ export function RewatchBadge({ className }: { className?: string }) {
   return (
     <Badge tone="accent" className={className}>
       <Repeat aria-hidden /> Revendo
+    </Badge>
+  )
+}
+
+/**
+ * O selo de "voltou com temporada nova": a série estava Concluída ou Arquivada e a API a devolveu
+ * para Assistindo sozinha (ver `ReturnNews`). Cheio, e não suave como o de revisão, porque é
+ * notícia — e é o que explica por que uma série parada há anos está no topo da fila.
+ */
+export function ReturnBadge({ className }: { className?: string }) {
+  return (
+    <Badge tone="solid" className={className}>
+      <Sparkles aria-hidden /> Temporada nova
     </Badge>
   )
 }

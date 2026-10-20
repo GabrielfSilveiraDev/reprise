@@ -11,7 +11,7 @@ import { Badge } from '@/ui/Controls'
 import { ErrorState, Skeleton } from '@/ui/Feedback'
 import { Poster } from '@/ui/Poster'
 import { NothingRunning } from './HomeBrasa'
-import { DismissRewatchButton, RewatchBadge } from './RewatchBits'
+import { DismissRewatchButton, ReturnBadge, RewatchBadge } from './RewatchBits'
 import { ShelfText, useShelfItem } from './useShelfItem'
 import { SOON_DAYS, type HomeModel } from './useHomeModel'
 
@@ -145,6 +145,7 @@ function ListingRow({ entry, index }: { entry: ShelfItem; index: number }) {
         </Link>
         <p className="mt-0.5 flex items-center gap-2 text-xs text-ink-3">
           {s.rewatch && <RewatchBadge />}
+          {s.returned && <ReturnBadge />}
           <span className="truncate">{s.rewatch ? ShelfText.idle(entry.daysIdle) : s.line}</span>
         </p>
         <p className="mt-1 truncate text-sm sm:hidden">

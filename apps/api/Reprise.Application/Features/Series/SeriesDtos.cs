@@ -29,7 +29,13 @@ public sealed record SeriesListItemDto(
     int EpisodesWatched,
     double CompletionRatio,
     DateTimeOffset? LastWatchedAt,
-    EpisodeRefDto? NextUp);
+    EpisodeRefDto? NextUp,
+    /// <summary>
+    /// Quando a série voltou sozinha para Assistindo porque estreou temporada nova — ver
+    /// <see cref="SeriesReturns"/>. Nulo quando o estado atual foi escolha da pessoa. Sem ele, a
+    /// série concluída simplesmente reapareceria na fila, e ninguém saberia por quê.
+    /// </summary>
+    DateTimeOffset? ReturnedAt);
 
 public sealed record EpisodeDto(
     long Id,
