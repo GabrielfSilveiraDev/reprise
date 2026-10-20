@@ -230,7 +230,8 @@ public sealed class SeriesCatalogService
                 SeriesId = serie.Id,
                 Status = SeriesStatus.Following,
                 FollowedAt = agora,
-                AddedAt = agora
+                AddedAt = agora,
+                StatusChangedAt = agora
             });
             await _db.SaveChangesAsync(ct);
         }

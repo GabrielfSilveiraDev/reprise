@@ -29,8 +29,13 @@ export function HomeBrasa({ model }: { model: HomeModel }) {
 
       <section aria-labelledby="continuar">
         <SectionTitle id="continuar" title="Continuar" hint="O próximo episódio de cada série que você viu no último mês — inclusive as que está revendo" />
+        {/*
+          `grid-cols-1` explícito: sem ele, no celular a coluna é implícita (`auto`) e cresce até a
+          largura do texto mais longo do cartão — um `truncate` não encolhe o que mede o conteúdo, e a
+          página inteira ficava mais larga que a tela. `grid-cols-1` é `minmax(0, 1fr)`.
+        */}
         {nextUp.isPending ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {[0, 1, 2].map((i) => (
               <Skeleton key={i} className="h-[164px] rounded-card" />
             ))}
@@ -38,7 +43,7 @@ export function HomeBrasa({ model }: { model: HomeModel }) {
         ) : nextUp.isError ? (
           <ErrorState error={nextUp.error} onRetry={() => void nextUp.refetch()} />
         ) : shelf && shelf.active.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {shelf.active.map((entry, i) => (
               <NextUpCard key={entry.item.seriesId} entry={entry} index={i} />
             ))}

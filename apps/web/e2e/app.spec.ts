@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test'
+import { expect, type Locator, type Page, test } from '@playwright/test'
 import { MockApi, NOW } from './mock-api'
 
 /**
@@ -167,6 +167,45 @@ for (const design of DESIGNS) {
     await expect(page.getByRole('button', { name: /Assisti S03E07/ })).toBeVisible()
   })
 }
+
+/** O topo do Continuar em cada design: cartão (Brasa), palco (Sessão), primeira linha da programação (Grade). */
+const TOP_OF_QUEUE: Record<Design, (page: Page) => Locator> = {
+  brasa: (page) => page.getByRole('region', { name: 'Continuar' }).locator('article').first(),
+  sessao: (page) => page.getByRole('region', { name: 'Asfalto Neon' }),
+  grade: (page) => page.getByRole('region', { name: 'Continuar' }).getByRole('listitem').first(),
+}
+
+for (const design of DESIGNS) {
+  test(`${design}: a série que voltou com temporada nova vai para o topo do Continuar, e o Acervo conta`, async ({ page }) => {
+    await open(page, '/', { design })
+
+    // Vista inteira há quatro anos, voltou sozinha esta manhã: sem o selo, estaria em "Parou no meio".
+    const top = TOP_OF_QUEUE[design](page)
+    await expect(top).toContainText('Asfalto Neon')
+    await expect(top).toContainText('Temporada nova')
+    await expect(top).toContainText('S02E01')
+
+    await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Acervo' }).click()
+    await expect(page.getByText('Asfalto Neon voltou para Assistindo.')).toBeVisible()
+    await expect(page.getByText(/Não quer ver agora\? Mude o estado de novo/)).toBeVisible()
+  })
+}
+
+test('Temporada nova: assistir à série que voltou encerra a notícia', async ({ page }) => {
+  await open(page, '/')
+  const card = page.getByRole('region', { name: 'Continuar' }).locator('article').filter({ hasText: 'Asfalto Neon' })
+  await expect(card).toContainText('voltou para Assistindo')
+
+  await card.getByRole('button', { name: /Marcar .* de Asfalto Neon como visto/ }).click()
+  await expect(page.getByText('Asfalto Neon · S02E01 · visto')).toBeVisible()
+  // Agora é só mais uma série em andamento: fica na fila, sem o selo.
+  await expect(card).toContainText('S02E02')
+  await expect(card.getByText('Temporada nova')).toHaveCount(0)
+
+  await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Acervo' }).click()
+  await expect(page.getByRole('heading', { name: 'Acervo', level: 1 })).toBeVisible()
+  await expect(page.getByText('voltou para Assistindo.')).toHaveCount(0)
+})
 
 test('Acervo: filtro por estado, busca sem acento e sugestão de concluir', async ({ page }) => {
   await open(page, '/acervo')

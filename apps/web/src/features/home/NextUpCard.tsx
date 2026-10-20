@@ -3,7 +3,7 @@ import { Check } from 'lucide-react'
 import type { ShelfItem } from '@/domain/NextUpShelf'
 import { Button } from '@/ui/Button'
 import { Poster } from '@/ui/Poster'
-import { DismissRewatchButton, RewatchBadge } from './RewatchBits'
+import { DismissRewatchButton, ReturnBadge, RewatchBadge } from './RewatchBits'
 import { ShelfText, useShelfItem } from './useShelfItem'
 
 /**
@@ -36,6 +36,7 @@ export function NextUpCard({ entry, index }: { entry: ShelfItem; index: number }
         </p>
         <p className="mt-1 flex items-center gap-2 text-xs text-ink-3">
           {s.rewatch && <RewatchBadge />}
+          {s.returned && <ReturnBadge />}
           <span className="truncate">{s.rewatch ? ShelfText.idle(entry.daysIdle) : s.line}</span>
         </p>
 

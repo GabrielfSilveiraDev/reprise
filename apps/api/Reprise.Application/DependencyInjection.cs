@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<BackfillService>();
         services.AddScoped<ProfileQueries>();
         services.AddScoped<TrackingService>();
+        services.AddScoped<SeriesReturns>();
 
         // Export e agenda de estreias
         services.AddScoped<ExportQueries>();

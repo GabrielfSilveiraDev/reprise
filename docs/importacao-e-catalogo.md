@@ -156,13 +156,31 @@ Existe porque a CLI só roda quando alguém lembra dela. Em setembro de 2026 o c
 a volta de Silo (julho de 2027), sem duas temporadas já datadas e sem o resumo do próximo Dark
 Matter, e a faixa de estreias da tela inicial só enxergava o que o catálogo sabia.
 
-- **Série encerrada ou cancelada fica de fora**, porque não ganha episódio. Se uma delas voltar,
-  rode o `enrich --force`.
+- **Série encerrada, cancelada, concluída ou parada é consultada uma vez por semana**, e não a
+  cada 12 horas. "Encerrada" é o que o TMDB acha hoje: em outubro de 2026 Cyberpunk: Edgerunners,
+  "Ended" desde 2022, ganhou a temporada 2.
 - **O marco é `series.updated_at`**, que só o enriquecimento escreve. Se a API fechar no meio de
   uma rodada, a próxima retoma de onde parou.
 - **Falha numa série não para as outras.** Ela vira aviso no log da API (`docker compose logs app`,
   ou o console do `dotnet run`) e é tentada de novo na
   rodada seguinte (hoje é o caso de *Monster*, cujo id no TMDB deixou de existir).
+
+### Série concluída que ganha temporada nova volta sozinha
+
+Concluída e Arquivada saem da fila e da agenda, então a temporada nova de uma delas chegaria ao
+catálogo sem ninguém ver. Depois de cada rodada, a API devolve para **Assistindo** a série
+Concluída ou Arquivada cuja **estreia de temporada** (o episódio 1) já saiu, não foi vista e
+estreou **depois da sua última palavra sobre ela** — a última exibição ou a última mudança de
+estado, a mais recente. Ver `SeriesReturns` e `TrackedSeries.ShouldReturnFor`.
+
+- **Automático, e não sugestão**, ao contrário do "mover para Concluídas" do web: voltar por engano
+  só põe a série na fila. A volta fica marcada (`tracked_series.returned_at`, `returnedAt` na lista
+  de séries), e o web conta o que aconteceu: a série sobe para o Continuar com o selo
+  "Temporada nova", e o Acervo avisa quais voltaram.
+- **Por temporada, e não por episódio.** Marcar Concluída de novo grava a data da decisão
+  (`status_changed_at`), e a série só volta na temporada seguinte — numa série semanal, voltar a
+  cada episódio seria insistir oito vezes.
+- **Para depois não volta**: já é uma promessa de voltar.
 
 É isso que alimenta a **Agenda** e a faixa **Saindo em breve** da tela inicial. Quem recorta é o
 cliente: no web, a `PremiereAgenda` mostra na tela inicial os próximos 8 dias e, na Agenda, tudo —
