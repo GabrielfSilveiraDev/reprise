@@ -82,7 +82,10 @@ O [workflow de CI](../.github/workflows/ci.yml) roda em todo PR e em todo push n
 | Web | lint, tipos, testes unitários e build |
 | Web (ponta a ponta) | Playwright no Chromium; guarda os traces quando falha |
 | Contrato OpenAPI | sobe a API, regenera `openapi.json` e os tipos do web, e falha se mudarem |
-| Imagens Docker | compila as imagens da API, da CLI e do web |
+| Imagens Docker | compila as imagens do app (API servindo o web) e da CLI, do `Dockerfile` da raiz |
+
+À parte, o workflow [App Android](../.github/workflows/android.yml) roda só à mão: compila o APK e
+o publica num Release — ver [App no celular](android.md).
 
 Se o job de contrato falhar, a API mudou e o cliente não acompanhou: com a API de pé, rode
 `pnpm --filter @reprise/web api:sync` e versione o resultado. Ver [Cliente web](web.md#contrato-da-api).

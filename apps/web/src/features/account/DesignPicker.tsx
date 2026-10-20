@@ -11,6 +11,16 @@ import { useDesign } from '@/lib/useDesign'
  */
 export function DesignPicker() {
   const current = useDesign()
+  // No app instalado o design é fixo (ver AppMode); a escolha continua valendo no navegador.
+  if (design.locked) {
+    const info = DESIGNS.find((d) => d.id === current)
+    return (
+      <p className="text-sm text-ink-2">
+        O app usa sempre o design <span className="font-semibold text-ink">{info?.name}</span>. Os outros dois continuam à
+        escolha quando o Reprise é aberto no navegador.
+      </p>
+    )
+  }
   return (
     <RadioGroup.Root
       value={current}

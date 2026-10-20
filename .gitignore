@@ -38,3 +38,9 @@ Thumbs.db
 # GDPR export nunca vai pro repo (dados pessoais)
 gdpr-data/
 *.gdpr.zip
+
+# Chave que assina o APK do Android (apps/android/gerar-chave.mjs) e o APK compilado. A chave é de
+# quem hospeda e nunca vai pro repositório.
+*.keystore
+*.keystore.txt
+*.jks

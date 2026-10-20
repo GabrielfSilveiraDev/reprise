@@ -73,8 +73,9 @@ Login, cadastro, código de validação e reenvio têm **limite de tentativas**:
 endereço (`Api__AuthAttemptsPerMinute`), com o rate limiter do próprio ASP.NET Core. Sem ele, a
 senha e o código de seis dígitos aceitariam palpites sem fim. Refresh e logout ficam de fora — o
 token não é adivinhável, e o cliente o renova sozinho. Atrás de proxy reverso, a API só enxerga o
-endereço real com `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` (ligado no docker-compose, onde a API
-só é alcançável pelo nginx); numa API exposta direto, deixe desligado. Ver `AuthRateLimit`.
+endereço real com `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` (ligado no Render, onde a API só é
+alcançável pelo proxy dele); numa API exposta direto, como no docker-compose, deixe desligado. Ver
+`AuthRateLimit`.
 
 O cadeado de acesso (`Api__AccessToken`) continua e resolve outra coisa: ele fecha a porta do
 prédio — nem a tela de login fica exposta —, enquanto o JWT diz quem é a pessoa lá dentro.

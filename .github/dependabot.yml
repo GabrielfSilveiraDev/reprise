@@ -32,7 +32,8 @@ updates:
       interval: weekly
 
   - package-ecosystem: docker
-    directories: [/apps/api, /apps/web]
+    # O Dockerfile da raiz: imagens do Node, do SDK e do runtime do .NET.
+    directory: /
     schedule:
       interval: weekly
     ignore:

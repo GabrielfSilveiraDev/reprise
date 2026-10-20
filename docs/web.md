@@ -21,8 +21,11 @@ pnpm dev            # http://localhost:5173 — a API precisa estar em http://lo
 
 O navegador fala só com o Vite, que repassa `/api/*` para a API: a sessão nunca cruza origem e a
 API não precisa de CORS. `REPRISE_API_URL` troca o destino; num build de produção, `VITE_API_URL`
-diz onde a API está. Na imagem Docker (`apps/web/Dockerfile`), quem faz o papel do Vite é o nginx:
-serve o build e repassa `/api/*` para o serviço `api` do compose.
+diz onde a API está. Na imagem Docker (o `Dockerfile` da raiz), quem faz o papel do Vite é a própria
+API: ela serve o build e responde sob `/api` (ver `WebClientHosting`, na API).
+
+O app instalável (PWA) e o APK do Android, sempre no design Brasa, estão em
+[App no celular](android.md).
 
 ## Telas
 

@@ -14,7 +14,7 @@ I built it when TV Time shut down and took everyone's watch history with it.
 ![React 19](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
 ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
 
-[Português](README.pt-BR.md) · [Quick start](#quick-start) · [Architecture](#architecture) · [Docs](#documentation)
+[Português](README.pt-BR.md) · [Get started](#get-started) · [On your computer](#on-your-computer) · [From anywhere](#from-anywhere-for-free) · [On your phone](#on-your-phone) · [Docs](#documentation)
 
 <img src="docs/images/home-brasa.png" alt="Reprise home screen: the up-next queue with one card per show in progress" width="900">
 
@@ -46,6 +46,8 @@ streaks and monthly stats are all *derived* from that log — never mutable stat
 - **Stats** — screen time, streaks, a yearly heatmap, and where your time went, each chart with
   the table behind it.
 - **Three designs**, each with light and dark themes, picked per browser.
+- **Phone app** — installable from the browser (Android and iPhone) or as an APK, and it updates
+  itself.
 - **Your data, portable** — a complete, rebuildable JSON export of every watch.
 - **Multi-user** — each person with their own login and history.
 
@@ -67,58 +69,101 @@ streaks and monthly stats are all *derived* from that log — never mutable stat
 
 *Screenshots come from the end-to-end test suite, running against a mocked API with made-up shows.*
 
-## Quick start
+## Get started
 
-You only need [Docker](https://www.docker.com/).
+Pick how you want to use it. You can start with one and move to another later, history included.
 
-```bash
-git clone https://github.com/GabrielfSilveiraDev/reprise.git
-cd reprise
-cp .env.example .env
-# Edit .env and set Jwt__Secret — generate one with: openssl rand -base64 48
-docker compose up -d --build
-```
+| I want to… | Path | Cost | Needs |
+|---|---|---|---|
+| Use it on my computer | [On your computer](#on-your-computer) | free | Docker |
+| Use it from anywhere, no PC left on | [From anywhere](#from-anywhere-for-free) | free | Neon and Render accounts |
+| Use it on my phone | [On your phone](#on-your-phone) | free | a hosted Reprise (row above) |
 
-Reprise is now at **http://localhost:8080**. Sign-up is closed by default, so create your account
-from the CLI:
+## On your computer
 
-```bash
-docker compose run --rm cli passwd --email me@reprise.local --password "choose-a-password" --user yourname
-```
+1. **Install Docker.** Get [Docker Desktop](https://www.docker.com/products/docker-desktop/) for
+   Windows, macOS or Linux, install it and open it.
+2. **Get Reprise** — `git clone https://github.com/GabrielfSilveiraDev/reprise.git && cd reprise`,
+   or **Code → Download ZIP** on the project page and open a terminal in the unzipped folder.
+3. **Start it:**
 
-`me@reprise.local` is the built-in owner account — the one the TV Time import writes to. Log in
-with the username you picked.
+   ```bash
+   docker compose up -d --build
+   ```
 
-**Bringing your TV Time history:** put the export `.zip` in `./gdpr-data`, then:
+   The first run takes a few minutes. Then open **http://localhost:8080**. Nothing needs
+   configuring first: the token signing secret is generated on first start. To change the port or
+   other options, copy [`.env.example`](.env.example) to `.env`.
+4. **Create your account.** Sign-up is closed by default, so the account comes from the CLI:
 
-```bash
-docker compose run --rm cli /data/your-export.zip --dry-run   # check, writes nothing
-docker compose run --rm cli /data/your-export.zip             # import
-docker compose run --rm cli enrich                            # fill the catalog from TMDB
-```
+   ```bash
+   docker compose run --rm cli passwd --email me@reprise.local --password "at-least-10-chars" --user yourname
+   ```
 
-The TMDB step (and searching for new shows) needs a free
-[TMDB API key](https://www.themoviedb.org/settings/api) in `Tmdb__ApiKey`. Everything else works
-without one.
+   Log in with the username and password. `me@reprise.local` is the built-in owner account — the
+   one the TV Time import writes to.
+5. **Bring your TV Time history (optional).** Put the export `.zip` in `./gdpr-data`, then:
+
+   ```bash
+   docker compose run --rm cli /data/your-export.zip --dry-run   # check, writes nothing
+   docker compose run --rm cli /data/your-export.zip             # import
+   docker compose run --rm cli enrich                            # fill the catalog from TMDB
+   ```
+
+   `enrich` and searching for new shows need a free
+   [TMDB API key](https://www.themoviedb.org/settings/api) in `Tmdb__ApiKey` (in `.env`).
+   Everything else works without one.
+
+To update: `git pull` then `docker compose up -d --build --remove-orphans` (the flag clears
+containers of services that no longer exist, such as the old `api` and `web`). Logs: `docker compose logs app`. Your
+history lives in the `reprise_reprise-pgdata` Docker volume — never use Docker Desktop's "Reset to
+factory defaults", which deletes volumes.
+
+## From anywhere, for free
+
+Reprise hosted on [Render](https://render.com) with the database on [Neon](https://neon.com). Both
+have free plans with no credit card, and your PC can stay off:
+
+1. Create a Neon project and copy its connection URL.
+2. On Render, **New → Blueprint**, pick the repository and paste the URL. The
+   [`render.yaml`](render.yaml) sets up the rest.
+3. Move your local history there with one command
+   (`docker compose run --rm copiar-banco "<neon url>"`), or create a fresh account.
+
+Render's free plan sleeps after 15 idle minutes, and the first visit after that takes about a
+minute. Every push to `main` that passes CI is deployed automatically. With `DATABASE_URL=<neon
+url>` in `.env`, your local Reprise uses the cloud database too — that's how several computers
+share one history. Step by step (in Portuguese): [Hosting](docs/hospedagem.md).
+
+## On your phone
+
+Once hosted, Reprise becomes a phone app — always in the Brasa design — that **updates itself** on
+every deploy:
+
+- **From the browser** (Android and iPhone): open your address and use **Install app** /
+  **Add to Home Screen**. Nothing to configure.
+- **Android APK**: GitHub Actions builds it and publishes it to Releases. One-time setup.
+
+Step by step (in Portuguese): [Phone app](docs/android.md).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    browser["Browser"] --> web["web<br/>nginx + React"]
-    web -- "/api" --> api["api<br/>ASP.NET Core"]
-    api --> db[("PostgreSQL")]
+    browser["Browser / app"] --> app["app<br/>ASP.NET Core + React"]
+    app --> db[("PostgreSQL")]
     cli["cli<br/>import · enrich"] --> db
-    api -.-> ext["TMDB<br/>TVmaze"]
+    app -.-> ext["TMDB<br/>TVmaze"]
     cli -.-> ext
 ```
 
 | | Stack |
 |---|---|
 | **API** (`apps/api`) | .NET 10, ASP.NET Core Minimal APIs, EF Core, PostgreSQL, ASP.NET Identity + JWT |
-| **Web** (`apps/web`) | React 19, TypeScript, Vite, TanStack Router and Query, Tailwind CSS 4, Radix UI, Recharts |
+| **Web** (`apps/web`) | React 19, TypeScript, Vite, TanStack Router and Query, Tailwind CSS 4, Radix UI, Recharts, vite-plugin-pwa |
+| **Android** (`apps/android`) | Trusted Web Activity built with Bubblewrap |
 | **Tests** | xUnit + Testcontainers (real Postgres), Vitest, Playwright |
-| **Delivery** | Docker Compose, GitHub Actions, Dependabot |
+| **Delivery** | Docker (one image: the API serving the web app), Render, GitHub Actions, Dependabot |
 
 ### Engineering highlights
 
@@ -131,6 +176,9 @@ flowchart LR
 - **Multi-tenant from day one.** A global EF Core query filter scopes every query to the current
   user. Going from single-user to multi-user meant swapping one `ICurrentUser` implementation —
   no query changed.
+- **One image, from laptop to cloud.** The API also serves the web app, on the same origin: one
+  process fits the free plan's 512 MB, the session never crosses domains and the API needs no
+  CORS. The same container runs under docker-compose and on Render.
 - **Typed contract, end to end.** The web client's types are generated from the API's OpenAPI
   document, and CI fails if the committed contract drifts from what the API serves.
 - **Tests against the real thing.** Integration tests run on a throwaway PostgreSQL via
@@ -145,6 +193,8 @@ flowchart LR
 
 In-depth docs are in Portuguese:
 
+- [Hosting](docs/hospedagem.md) — Neon + Render, moving your history, the access lock
+- [Phone app](docs/android.md) — installing from the browser, the APK, updates
 - [Architecture and decisions](docs/arquitetura.md) — the event log, the .NET projects, auth, export
 - [Import and catalog](docs/importacao-e-catalogo.md) — TV Time import, TMDB enrichment, TVmaze schedule
 - [Web client](docs/web.md) — screens, the three designs, the API contract

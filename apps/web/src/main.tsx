@@ -17,6 +17,7 @@ import { createRoot } from 'react-dom/client'
 import { Toaster } from 'sonner'
 import { api } from './api/RepriseApi'
 import { queryClient, router } from './app/router'
+import { AppUpdates } from './lib/AppUpdates'
 import { design } from './lib/DesignController'
 import { theme } from './lib/ThemeController'
 import { TooltipProvider } from './ui/Controls'
@@ -42,6 +43,7 @@ design.subscribe(paintBrowserChrome)
 
 theme.apply()
 design.apply()
+AppUpdates.start()
 
 function ThemedToaster() {
   const resolved = useSyncExternalStore(theme.subscribe, () => theme.resolved)

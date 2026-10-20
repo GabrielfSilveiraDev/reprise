@@ -101,16 +101,19 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           </PaletteItem>
         </Command.Group>
 
-        <Command.Group heading="Design">
-          {DESIGNS.map((d) => (
-            <PaletteItem key={d.id} value={`design aparencia ${d.name} ${d.tagline}`} icon={<Palette />} onSelect={() => go(() => design.set(d.id))}>
-              <span className="flex-1">
-                {d.name} <span className="text-ink-3">· {d.tagline}</span>
-              </span>
-              {currentDesign === d.id && <Check className="!text-accent-ink" aria-label="em uso" />}
-            </PaletteItem>
-          ))}
-        </Command.Group>
+        {/* No app instalado o design é fixo (AppMode): oferecer a troca seria um botão que não faz nada. */}
+        {!design.locked && (
+          <Command.Group heading="Design">
+            {DESIGNS.map((d) => (
+              <PaletteItem key={d.id} value={`design aparencia ${d.name} ${d.tagline}`} icon={<Palette />} onSelect={() => go(() => design.set(d.id))}>
+                <span className="flex-1">
+                  {d.name} <span className="text-ink-3">· {d.tagline}</span>
+                </span>
+                {currentDesign === d.id && <Check className="!text-accent-ink" aria-label="em uso" />}
+              </PaletteItem>
+            ))}
+          </Command.Group>
+        )}
       </Command.List>
     </Command.Dialog>
   )

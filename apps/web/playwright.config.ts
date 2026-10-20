@@ -24,6 +24,9 @@ export default defineConfig({
     locale: 'pt-BR',
     timezoneId: 'America/Sao_Paulo',
     trace: 'retain-on-failure',
+    // O service worker do app instalável fica de fora: requisição que passa por ele escapa do
+    // `page.route` da API simulada. O e2e/pwa.spec.ts o liga, porque ali ele é o assunto.
+    serviceWorkers: 'block',
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], channel, viewport: { width: 1440, height: 900 } } },

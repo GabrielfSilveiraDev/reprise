@@ -1,9 +1,9 @@
-# O Reprise inteiro com um comando:
+# O Reprise inteiro com um comando, sem configurar nada antes:
 #
-#   cp .env.example .env        # e preencha pelo menos Jwt__Secret
 #   docker compose up -d --build
 #
-# Abre em http://localhost:8080 (REPRISE_PORT muda a porta). Para desenvolver, suba só o banco
+# Abre em http://localhost:8080 (REPRISE_PORT muda a porta). O `.env` é opcional — ver o
+# .env.example para o que dá para ajustar. Para desenvolver, suba só o banco
 # (`docker compose up -d db`) e rode API e web direto — ver docs/desenvolvimento.md.
 #
 # Nome de projeto fixo. Sem ele o Compose usa o nome da PASTA — e num worktree do git (outra pasta,
@@ -11,13 +11,16 @@
 # histórico. Com o nome fixo, qualquer checkout do Reprise sobe o mesmo `reprise_reprise-pgdata`.
 name: reprise
 
-# A API e a CLI falam com o banco pela rede do compose, no host `db`. Sem GSS: o Postgres daqui não
+# O app e a CLI falam com o banco pela rede do compose, no host `db`. Sem GSS: o Postgres daqui não
 # usa Kerberos, e o Npgsql, por padrão, tenta — e escreve um erro inofensivo no log a cada conexão.
-x-db-connection: &db-connection "Host=db;Port=5432;Database=${POSTGRES_DB:-reprise};Username=${POSTGRES_USER:-reprise};Password=${POSTGRES_PASSWORD:-reprise};GSS Encryption Mode=Disable"
+#
+# DATABASE_URL (no .env) troca esse banco por outro — o hospedado no Neon, por exemplo — para o
+# app, as migrações e a CLI de uma vez: é como usar o mesmo histórico em vários computadores, cada
+# um com o próprio Reprise local. O `db` continua subindo, só que ninguém fala com ele.
+x-db-connection: &db-connection "${DATABASE_URL:-Host=db;Port=5432;Database=${POSTGRES_DB:-reprise};Username=${POSTGRES_USER:-reprise};Password=${POSTGRES_PASSWORD:-reprise};GSS Encryption Mode=Disable}"
 
 x-cli-build: &cli-build
   context: .
-  dockerfile: apps/api/Dockerfile
   target: cli
 
 services:
@@ -41,8 +44,8 @@ services:
       timeout: 5s
       retries: 10
 
-  # Cria o banco ou aplica as migrações pendentes, e sai. A API só sobe depois que isto terminar
-  # bem — ela não migra o banco sozinha.
+  # Cria o banco ou aplica as migrações pendentes, e sai. O app só sobe depois que isto terminar
+  # bem — aqui ele não migra o banco sozinho.
   migrate:
     build: *cli-build
     image: reprise-cli
@@ -54,20 +57,24 @@ services:
         condition: service_healthy
     restart: "no"
 
-  api:
+  # A API servindo também o cliente web, numa imagem só — a mesma que vai para a hospedagem.
+  app:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
-      target: api
-    image: reprise-api
+      target: app
+    image: reprise
     restart: unless-stopped
     depends_on:
       migrate:
         condition: service_completed_successfully
+    ports:
+      - "${REPRISE_PORT:-8080}:8080"
     environment:
       ConnectionStrings__Default: *db-connection
-      # Obrigatório, com 32 caracteres ou mais: sem ele a API se recusa a subir e diz por quê.
+      # Vazio, a API gera um segredo na primeira partida e o guarda no volume `reprise-data` — não
+      # é preciso rodar openssl antes de subir. Preenchido no .env (32+ caracteres), vale o seu.
       Jwt__Secret: ${Jwt__Secret:-}
+      Jwt__SecretFile: /data/jwt-secret
       Jwt__Issuer: ${Jwt__Issuer:-reprise}
       Jwt__Audience: ${Jwt__Audience:-reprise-clients}
       Jwt__AllowRegistration: ${Jwt__AllowRegistration:-false}
@@ -81,21 +88,8 @@ services:
       Smtp__FromAddress: ${Smtp__FromAddress:-}
       Smtp__FromName: ${Smtp__FromName:-Reprise}
       Smtp__UseSsl: ${Smtp__UseSsl:-true}
-      # A API só é alcançável pelo nginx do `web` (não publica porta), então pode confiar no
-      # X-Forwarded-For que ele manda. É isso que dá a cada pessoa a própria cota no limite de
-      # tentativas do login. Numa API exposta direto, deixe desligado.
-      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    image: reprise-web
-    restart: unless-stopped
-    depends_on:
-      - api
-    ports:
-      - "${REPRISE_PORT:-8080}:8080"
+    volumes:
+      - reprise-data:/data
 
   # Os comandos da CLI (importar o export do TV Time, enriquecer pelo TMDB, definir senha, emitir o
   # passe de entrada do launcher do Windows). Não sobe com o `up`; roda sob demanda:
@@ -115,5 +109,40 @@ services:
       # O export do TV Time entra por aqui, só leitura: ponha o .zip em ./gdpr-data.
       - ./gdpr-data:/data:ro
 
+  # Copia o banco local INTEIRO (o do serviço `db`, mesmo com DATABASE_URL definida) para outro
+  # Postgres — o hospedado no Neon, por exemplo —, substituindo o que houver lá (as tabelas do
+  # Reprise; o resto do banco não é tocado). Roda sob demanda:
+  #   docker compose run --rm copiar-banco "postgresql://usuario:senha@host/banco?sslmode=require"
+  # Tudo dentro de um container, sem arquivo intermediário na máquina: no PowerShell do Windows,
+  # redirecionar um dump binário com `>` o regrava como texto e o corrompe. Numa transação só —
+  # falhou no meio, o destino fica como estava.
+  copiar-banco:
+    image: postgres:17-alpine
+    profiles: ["cli"]
+    depends_on:
+      db:
+        condition: service_healthy
+    # A origem vem destas variáveis (as do próprio pg_dump); o destino, da URL passada no comando.
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-reprise}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-reprise}
+      PGDATABASE: ${POSTGRES_DB:-reprise}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -eo pipefail
+        if [ -z "$$1" ]; then
+          echo 'Uso: docker compose run --rm copiar-banco "postgresql://usuario:senha@host/banco?sslmode=require"' >&2
+          exit 2
+        fi
+        pg_dump --format=custom --no-owner --no-privileges \
+          | pg_restore --clean --if-exists --no-owner --no-privileges --single-transaction --dbname="$$1"
+        echo "Banco copiado."
+      - copiar-banco
+
 volumes:
   reprise-pgdata:
+  # O segredo dos tokens que a API gerou. Perder este volume só desloga quem estava logado.
+  reprise-data:

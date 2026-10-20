@@ -1,0 +1,87 @@
+name: App Android
+
+# Compila o APK do Reprise e o publica num Release do GitHub, de onde o celular o instala (e o
+# Obtainium o atualiza). Roda à mão, em Actions → App Android → Run workflow.
+#
+# Rodar de novo é raro: o APK abre o site hospedado, então cada deploy do site já atualiza o app.
+# Só precisa de APK novo quem mudou o endereço, o ícone, as cores ou o nome do app.
+#
+# Configuração, uma vez (passo a passo em docs/android.md), em Settings → Secrets and variables → Actions:
+#   variável REPRISE_URL               o endereço do Reprise hospedado (https://….onrender.com)
+#   segredo  ANDROID_KEYSTORE_BASE64   a chave de assinatura em base64 (apps/android/gerar-chave.mjs)
+#   segredo  ANDROID_KEYSTORE_PASSWORD a senha da chave
+#   variável ANDROID_SDK_LICENSE       "aceita" — você aceita a licença do Android SDK do Google
+#                                      (https://developer.android.com/studio/terms); sem ela o SDK
+#                                      não instala as ferramentas de build
+#   variável ANDROID_PACKAGE_ID        opcional; o pacote do app, se não for o padrão
+on:
+  workflow_dispatch:
+
+# Um release por vez: dois ao mesmo tempo disputariam o número da versão.
+concurrency:
+  group: android
+  cancel-in-progress: false
+
+permissions:
+  contents: write # criar o Release com o APK
+
+jobs:
+  apk:
+    name: Compila e publica o APK
+    runs-on: ubuntu-latest
+    env:
+      REPRISE_URL: ${{ vars.REPRISE_URL }}
+      ANDROID_PACKAGE_ID: ${{ vars.ANDROID_PACKAGE_ID }}
+      ANDROID_SDK_LICENSE: ${{ vars.ANDROID_SDK_LICENSE }}
+      # O Android só instala por cima um APK de versão igual ou maior: o número da execução sobe sozinho.
+      APP_VERSION_CODE: ${{ github.run_number }}
+      APP_VERSION_NAME: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Confere a configuração
+        env:
+          HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+          HAS_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
+        run: |
+          faltando=0
+          [ -n "$REPRISE_URL" ] || { echo "::error::Falta a variável REPRISE_URL (o endereço do Reprise hospedado)."; faltando=1; }
+          [ "$HAS_KEYSTORE" = true ] || { echo "::error::Falta o segredo ANDROID_KEYSTORE_BASE64 — ver docs/android.md."; faltando=1; }
+          [ "$HAS_PASSWORD" = true ] || { echo "::error::Falta o segredo ANDROID_KEYSTORE_PASSWORD — ver docs/android.md."; faltando=1; }
+          [ "$ANDROID_SDK_LICENSE" = aceita ] || { echo "::error::Falta a variável ANDROID_SDK_LICENSE=aceita (a licença do Android SDK) — ver docs/android.md."; faltando=1; }
+          exit $faltando
+
+      - name: Chave de assinatura
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > apps/android/reprise.keystore
+
+      # A imagem do Bubblewrap traz JDK e Android SDK; é a mesma que roda na máquina de quem testa.
+      - name: Compila o APK
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: >-
+          docker run --rm -v "$PWD:/repo" -w /repo
+          -e REPRISE_URL -e ANDROID_PACKAGE_ID -e APP_VERSION_CODE -e APP_VERSION_NAME -e ANDROID_SDK_LICENSE
+          -e BUBBLEWRAP_KEYSTORE_PASSWORD
+          --entrypoint node ghcr.io/googlechromelabs/bubblewrap:1.25.0 apps/android/compilar-apk.mjs
+
+      - name: Publica o Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          impressao=$(cat apps/android/dist/impressao-sha256.txt)
+          gh release create "android-v$APP_VERSION_NAME" "apps/android/dist/reprise-$APP_VERSION_NAME.apk" \
+            --title "App Android $APP_VERSION_NAME" \
+            --notes "APK do Reprise. Instale no celular abrindo este arquivo, ou acompanhe este repositório pelo Obtainium para receber as próximas versões sozinho (filtro de tag: \`android-v\`). Passo a passo em docs/android.md."
+          {
+            echo "### APK $APP_VERSION_NAME publicado"
+            echo
+            echo "Impressão SHA-256 do certificado — é o valor de \`Android__CertFingerprints\` no Render:"
+            echo
+            echo "\`$impressao\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apaga a chave do disco
+        if: always()
+        run: sudo rm -f apps/android/reprise.keystore

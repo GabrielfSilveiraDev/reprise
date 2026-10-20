@@ -5,22 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Reprise — seu diário de séries. Cada exibição conta." />
     <meta name="theme-color" content="#F6F4F0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <title>Reprise</title>
     <script>
       // Antes do primeiro pixel: aplica o tema e o design salvos (ou os padrões) para a página
-      // não piscar em outra cor antes de assumir a sua. ThemeController e DesignController
-      // assumem daqui em diante — e é deles a lista de designs válidos; esta é só a cópia mínima.
+      // não piscar em outra cor antes de assumir a sua. ThemeController, DesignController e AppMode
+      // assumem daqui em diante — e é deles a lista de designs válidos e a detecção do app instalado
+      // (que é sempre Brasa); esta é só a cópia mínima.
       ;(function () {
         var pref = 'system'
         var design = 'brasa'
+        var app = false
         try {
           pref = localStorage.getItem('reprise.theme') || 'system'
           design = localStorage.getItem('reprise.design') || 'brasa'
+          app =
+            ['standalone', 'fullscreen', 'minimal-ui'].some(function (m) {
+              return matchMedia('(display-mode: ' + m + ')').matches
+            }) ||
+            navigator.standalone === true ||
+            document.referrer.indexOf('android-app://') === 0 ||
+            sessionStorage.getItem('reprise.app') === '1'
         } catch (e) {}
         var dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.dataset.theme = dark ? 'dark' : 'light'
-        document.documentElement.dataset.design = /^(brasa|sessao|grade)$/.test(design) ? design : 'brasa'
+        document.documentElement.dataset.design = app ? 'brasa' : /^(brasa|sessao|grade)$/.test(design) ? design : 'brasa'
       })()
     </script>
   </head>

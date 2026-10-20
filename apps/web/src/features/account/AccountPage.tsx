@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Queries } from '@/api/queries'
 import { api } from '@/api/RepriseApi'
 import { initialsOf, useSession } from '@/app/useSession'
+import { design } from '@/lib/DesignController'
 import { Fmt } from '@/lib/format'
 import { theme, type ThemePreference } from '@/lib/ThemeController'
 import { Button } from '@/ui/Button'
@@ -47,7 +48,11 @@ export function AccountPage() {
 
       <Card
         title="Aparência"
-        description="Três desenhos do mesmo Reprise — os dados e as regras são os mesmos, muda a forma. A escolha vale para este navegador."
+        description={
+          design.locked
+            ? 'O tema claro ou escuro vale para este aparelho.'
+            : 'Três desenhos do mesmo Reprise — os dados e as regras são os mesmos, muda a forma. A escolha vale para este navegador.'
+        }
         className="mb-6"
       >
         <DesignPicker />
