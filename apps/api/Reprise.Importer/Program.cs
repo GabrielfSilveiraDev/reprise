@@ -20,9 +20,9 @@ using Reprise.Infrastructure.Tvmaze;
 //   reprise-import enrich [--force] [--tvdb <id>]      casa as séries no TMDB e completa o catálogo
 //   reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]
 //       recoloca exibições que aconteceram mas o export perdeu, com data inferida dos vizinhos
-//   reprise-import passwd --email <e> --password <p> [--name <nome>] [--user <usuario>]
+//   reprise-import passwd --email <e> [--password <p>] [--name <nome>] [--user <usuario>]
 //       define a senha de uma conta (cria se não existir). É como o dono entra na própria conta
-//       depois que a autenticação passou a existir.
+//       depois que a autenticação passou a existir. Sem --password, pergunta (sem mostrar).
 //   reprise-import entrar [--email <e>]
 //       emite o passe de entrada do launcher do Windows: um refresh token de uso único, que vale
 //       5 minutos, para a única conta confirmada (ou a do --email). Imprime só o passe.
@@ -41,7 +41,7 @@ if (positional.Length == 0)
     Console.Error.WriteLine("     reprise-import migrate");
     Console.Error.WriteLine("     reprise-import enrich [--force] [--tvdb <id>]");
     Console.Error.WriteLine("     reprise-import backfill --series <id> [--season <n>] [--episodes <id,id>] [--dry-run]");
-    Console.Error.WriteLine("     reprise-import passwd --email <e> --password <p> [--name <nome>] [--user <usuario>]");
+    Console.Error.WriteLine("     reprise-import passwd --email <e> [--password <p>] [--name <nome>] [--user <usuario>]");
     Console.Error.WriteLine("     reprise-import entrar [--email <e>]");
     Console.Error.WriteLine("     reprise-import paises [--force]");
     Console.Error.WriteLine("     reprise-import agenda [--force] [--mudou <day|week|month>]");
@@ -114,11 +114,22 @@ static async Task<int> RunPasswdAsync(string[] args, string conn)
     }
 
     var email = Flag(args, "--email");
-    var password = Flag(args, "--password");
-    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+    if (string.IsNullOrWhiteSpace(email))
     {
-        Console.Error.WriteLine("passwd exige --email e --password.");
+        Console.Error.WriteLine("passwd exige --email.");
         return 1;
+    }
+
+    // Sem --password, pergunta: a senha não fica no histórico do terminal nem na lista de processos.
+    var password = Flag(args, "--password");
+    if (string.IsNullOrWhiteSpace(password))
+    {
+        password = PasswordPrompt.FromConsole().AskTwice();
+        if (password is null)
+        {
+            Console.Error.WriteLine("As senhas não conferem (ou ficaram vazias). Nada mudou.");
+            return 1;
+        }
     }
 
     var services = new ServiceCollection();

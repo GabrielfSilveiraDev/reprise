@@ -114,10 +114,11 @@ O cadastro pela tela vem fechado (numa instância exposta, aberto é porta abert
 linha de comando:
 
 ```bash
-docker compose run --rm cli passwd --email me@reprise.local --password "uma-senha-com-10-ou-mais" --user seunome
+docker compose run --rm cli passwd --email me@reprise.local --user seunome
 ```
 
-Entre em http://localhost:8080 com o **usuário** (`seunome`) e a senha. `me@reprise.local` é a
+Ele pede a senha duas vezes (10 caracteres ou mais), sem mostrá-la na tela. É o mesmo comando para
+trocar a senha depois. Entre em http://localhost:8080 com o **usuário** (`seunome`) e a senha. `me@reprise.local` é a
 conta-dona, criada junto com o banco — é nela que a importação do TV Time grava.
 
 ### 5. Traga o seu histórico do TV Time (opcional)
