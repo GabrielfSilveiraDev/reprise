@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight, Check } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import type { ShelfItem } from '@/domain/NextUpShelf'
-import type { AgendaEntry } from '@/domain/PremiereAgenda'
+import type { SeriesAgendaEntry } from '@/domain/PremiereAgenda'
 import type { ReleaseClock } from '@/domain/ReleaseClock'
 import { EpisodeCode } from '@/domain/EpisodeCode'
 import { TmdbImage } from '@/domain/TmdbImage'
@@ -189,8 +189,8 @@ function QueueTile({ entry, small = false }: { entry: ShelfItem; small?: boolean
   )
 }
 
-function PremiereTile({ entry, clock }: { entry: AgendaEntry; clock: ReleaseClock }) {
-  const { premiere, instant } = entry
+function PremiereTile({ entry, clock }: { entry: SeriesAgendaEntry; clock: ReleaseClock }) {
+  const { premiere, instant, more } = entry
   return (
     <li className="w-[140px] shrink-0 snap-start">
       <Link to="/serie/$seriesId" params={{ seriesId: premiere.seriesId }} search={{ ep: premiere.episodeId }} className="group block">
@@ -203,6 +203,7 @@ function PremiereTile({ entry, clock }: { entry: AgendaEntry; clock: ReleaseCloc
         <p className="text-xs text-ink-3">
           <span className="code">{EpisodeCode.of(premiere).toString()}</span>
           {premiere.isSeasonPremiere && ' · estreia de temporada'}
+          {more > 0 && ` · +${more} ep.`}
         </p>
       </Link>
     </li>

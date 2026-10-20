@@ -26,6 +26,32 @@ public sealed record SeriesSearchResultDto(
     long? SeriesId,
     string? TrackedStatus);
 
+/// <summary>
+/// Uma série do TMDB vista antes de ser adicionada — o que a busca mostra ao tocar num resultado.
+/// Nada disto é gravado: a série só entra no catálogo quando alguém a adiciona.
+/// </summary>
+/// <param name="ProductionStatus">Situação no TMDB, em inglês como ele manda ("Returning Series", "Ended"…).</param>
+/// <param name="NextAirDate">O próximo episódio inédito com data, a partir de hoje (UTC), ou nulo.</param>
+/// <param name="SeriesId">Ver <see cref="SeriesSearchResultDto.SeriesId"/>.</param>
+/// <param name="TrackedStatus">Ver <see cref="SeriesSearchResultDto.TrackedStatus"/>.</param>
+public sealed record SeriesPreviewDto(
+    int TmdbId,
+    string Name,
+    string? OriginalName,
+    string? Overview,
+    string? PosterPath,
+    DateOnly? FirstAirDate,
+    string? ProductionStatus,
+    string? OriginCountry,
+    int? AverageRuntimeMinutes,
+    DateOnly? NextAirDate,
+    IReadOnlyList<SeasonPreviewDto> Seasons,
+    long? SeriesId,
+    string? TrackedStatus);
+
+/// <summary>Uma temporada na prévia. Especiais (temporada 0) ficam de fora, como no resto do app.</summary>
+public sealed record SeasonPreviewDto(int SeasonNumber, int EpisodeCount, DateOnly? FirstAirDate, DateOnly? LastAirDate);
+
 /// <summary>O que aconteceu ao adicionar. <paramref name="AlreadyTracked"/> torna o repetir visível.</summary>
 public sealed record AddSeriesResultDto(
     long SeriesId,
@@ -104,6 +130,62 @@ public sealed class SeriesCatalogService
                 seriesId,
                 status);
         }).ToList();
+    }
+
+    /// <summary>
+    /// A prévia de uma série do TMDB, sem gravar nada — para decidir antes de adicionar. Devolve
+    /// <c>null</c> quando o TMDB não conhece o id.
+    /// </summary>
+    public async Task<SeriesPreviewDto?> PreviewAsync(int tmdbId, DateOnly today, CancellationToken ct = default)
+    {
+        var show = await _tmdb.GetShowAsync(tmdbId, ct);
+        if (show is null) return null;
+
+        var episodes = await _tmdb.GetEpisodesAsync(tmdbId, ct);
+        // A MESMA política de nome da busca e do enriquecimento: a série não pode mudar de nome
+        // entre a prévia e o instante em que é adicionada.
+        var englishName = SeriesNamePolicy.IsLatinScript(show.OriginalName)
+            ? null
+            : await _tmdb.GetEnglishNameAsync(tmdbId, ct);
+
+        var seasons = episodes
+            .Where(e => e.SeasonNumber > 0)
+            .GroupBy(e => e.SeasonNumber)
+            .OrderBy(g => g.Key)
+            .Select(g => new SeasonPreviewDto(
+                g.Key,
+                g.Count(),
+                g.Min(e => e.AirDate),
+                g.Max(e => e.AirDate)))
+            .ToList();
+
+        var nextAirDate = episodes
+            .Where(e => e.SeasonNumber > 0 && e.AirDate is DateOnly d && d >= today)
+            .Min(e => e.AirDate);
+
+        var local = await _db.Series
+            .Where(s => s.TmdbId == tmdbId)
+            .Select(s => new { s.Id })
+            .FirstOrDefaultAsync(ct);
+        // O filtro global de tenant já restringe ao usuário atual.
+        var tracked = local is null
+            ? null
+            : await _db.TrackedSeries.Where(t => t.SeriesId == local.Id).Select(t => (SeriesStatus?)t.Status).FirstOrDefaultAsync(ct);
+
+        return new SeriesPreviewDto(
+            show.TmdbId,
+            SeriesNamePolicy.Choose(show.OriginalName, englishName, fallback: show.Name),
+            show.OriginalName,
+            show.Overview,
+            show.PosterPath,
+            show.FirstAirDate,
+            show.Status,
+            show.OriginCountry,
+            show.AverageRuntimeSeconds is int seconds ? (int)Math.Round(seconds / 60.0) : null,
+            nextAirDate,
+            seasons,
+            local?.Id,
+            tracked?.ToString());
     }
 
     /// <summary>

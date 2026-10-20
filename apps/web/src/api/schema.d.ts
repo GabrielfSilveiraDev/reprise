@@ -444,6 +444,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/series/tmdb/{tmdbId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Prévia de uma série do TMDB (sinopse, situação, temporadas), sem adicionar ao acervo. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tmdbId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SeriesPreviewDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/series/{id}": {
         parameters: {
             query?: never;
@@ -1271,6 +1318,16 @@ export interface components {
             isSpecials: boolean;
             episodes: components["schemas"]["EpisodeDto"][];
         };
+        SeasonPreviewDto: {
+            /** Format: int32 */
+            seasonNumber: number;
+            /** Format: int32 */
+            episodeCount: number;
+            /** Format: date */
+            firstAirDate: null | string;
+            /** Format: date */
+            lastAirDate: null | string;
+        };
         SeriesDetailDto: {
             /** Format: int64 */
             id: number;
@@ -1317,6 +1374,26 @@ export interface components {
             /** Format: date-time */
             lastWatchedAt: null | string;
             nextUp: null | components["schemas"]["EpisodeRefDto"];
+        };
+        SeriesPreviewDto: {
+            /** Format: int32 */
+            tmdbId: number;
+            name: string;
+            originalName: null | string;
+            overview: null | string;
+            posterPath: null | string;
+            /** Format: date */
+            firstAirDate: null | string;
+            productionStatus: null | string;
+            originCountry: null | string;
+            /** Format: int32 */
+            averageRuntimeMinutes: null | number;
+            /** Format: date */
+            nextAirDate: null | string;
+            seasons: components["schemas"]["SeasonPreviewDto"][];
+            /** Format: int64 */
+            seriesId: null | number;
+            trackedStatus: null | string;
         };
         SeriesSearchResultDto: {
             /** Format: int32 */

@@ -61,6 +61,59 @@ public sealed class CatalogRefreshTests : IClassFixture<PostgresFixture>, IAsync
     }
 
     [Fact]
+    public async Task Encerrada_concluida_ou_parada_volta_a_ser_consultada_uma_vez_por_semana()
+    {
+        var agora = DateTimeOffset.UtcNow;
+        var semanaPassada = agora.AddDays(-8);
+
+        await SemearAsync(tmdbId: 1, "Encerrada há tempo", "Ended", semanaPassada);
+        await SemearAsync(tmdbId: 2, "Concluída", "Returning Series", semanaPassada, SeriesStatus.Finished);
+        await SemearAsync(tmdbId: 3, "Parada", "Canceled", semanaPassada, SeriesStatus.Archived);
+        await SemearAsync(tmdbId: 4, "Encerrada, consultada há 6 dias", "Ended", agora.AddDays(-6));
+
+        var r = await RodarAsync(agora);
+
+        Assert.Equal([1, 2, 3], _tmdb.Consultadas.Order());
+        Assert.Equal(3, r.Atualizadas);
+    }
+
+    [Fact]
+    public async Task Serie_encerrada_e_concluida_que_ganhou_temporada_nova_recebe_os_episodios()
+    {
+        // O caso real: Cyberpunk: Edgerunners, "Ended" desde 2022 e concluída, ganhou a temporada 2
+        // em outubro de 2026 — e o TMDB passou a dizer que ela voltou.
+        var serie = await SemearAsync(tmdbId: 40, "Cyberpunk: Edgerunners", "Ended", DateTimeOffset.UtcNow.AddDays(-90), SeriesStatus.Finished);
+        _tmdb.Shows[40] = _tmdb.Shows[40] with { Status = "Returning Series" };
+        _tmdb.Episodios[40] =
+        [
+            new TmdbEpisode(400, 1, 1, "Piloto", new DateOnly(2023, 5, 5), 1500),
+            new TmdbEpisode(401, 2, 1, "Episódio 1", new DateOnly(2026, 10, 20), 1500),
+            new TmdbEpisode(402, 2, 2, "Episódio 2", new DateOnly(2026, 10, 20), 1500),
+        ];
+
+        await RodarAsync(DateTimeOffset.UtcNow);
+
+        await using var db = _pg.CreateContext(_dono);
+        Assert.Equal(2, await db.Episodes.CountAsync(e => e.SeriesId == serie && e.SeasonNumber == 2));
+        Assert.Equal("Returning Series", (await db.Series.SingleAsync(s => s.Id == serie)).Status);
+    }
+
+    [Fact]
+    public async Task Rodada_atualiza_no_maximo_o_teto_comecando_pelas_mais_velhas()
+    {
+        var agora = DateTimeOffset.UtcNow;
+        for (var i = 1; i <= CatalogRefresh.MaximoPorRodada + 5; i++)
+            await SemearAsync(tmdbId: 100 + i, $"Série {i}", "Ended", agora.AddDays(-30 - i));
+
+        var r = await RodarAsync(agora);
+
+        Assert.Equal(CatalogRefresh.MaximoPorRodada, r.Vencidas);
+        // As cinco que ficaram de fora são as consultadas mais recentemente (i = 1..5).
+        Assert.DoesNotContain(101, _tmdb.Consultadas);
+        Assert.Contains(100 + CatalogRefresh.MaximoPorRodada + 5, _tmdb.Consultadas);
+    }
+
+    [Fact]
     public async Task Traz_o_episodio_novo_com_resumo_e_a_data_do_TVmaze()
     {
         var serie = await SemearAsync(tmdbId: 10, "Silo", "Returning Series", DateTimeOffset.UtcNow.AddDays(-3));

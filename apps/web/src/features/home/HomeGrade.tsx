@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight, Check } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import type { ShelfItem } from '@/domain/NextUpShelf'
-import type { AgendaEntry } from '@/domain/PremiereAgenda'
+import type { SeriesAgendaEntry } from '@/domain/PremiereAgenda'
 import type { ReleaseClock } from '@/domain/ReleaseClock'
 import { EpisodeCode } from '@/domain/EpisodeCode'
 import { Fmt } from '@/lib/format'
@@ -174,11 +174,11 @@ function ListingRow({ entry, index }: { entry: ShelfItem; index: number }) {
 }
 
 /** Estreias como grade de horários: o dia só aparece na primeira linha dele. */
-function Timetable({ entries, clock }: { entries: AgendaEntry[]; clock: ReleaseClock }) {
+function Timetable({ entries, clock }: { entries: SeriesAgendaEntry[]; clock: ReleaseClock }) {
   const days = entries.map((e) => clock.dayLabel(e.instant))
   return (
     <ol className="border-t-2 border-line-strong">
-      {entries.map(({ premiere, instant }, i) => {
+      {entries.map(({ premiere, instant, more }, i) => {
         const day = days[i]!
         const firstOfDay = i === 0 || day !== days[i - 1]
         return (
@@ -199,6 +199,7 @@ function Timetable({ entries, clock }: { entries: AgendaEntry[]; clock: ReleaseC
             <span className="col-start-3 flex items-center gap-2 text-xs text-ink-3 sm:col-start-auto">
               <span className="code">{EpisodeCode.of(premiere).toString()}</span>
               {premiere.isSeasonPremiere && <Badge tone="accent">estreia</Badge>}
+              {more > 0 && <span className="code">+{more} ep.</span>}
             </span>
           </li>
         )

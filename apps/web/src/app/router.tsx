@@ -100,11 +100,22 @@ const searchRoute = createRoute({
   component: lazyRouteComponent(() => import('@/features/search/SearchPage'), 'SearchPage'),
 })
 
+const seriesPreviewRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/buscar/$tmdbId',
+  params: {
+    parse: (p: { tmdbId: string }) => ({ tmdbId: Number(p.tmdbId) }),
+    stringify: (p: { tmdbId: number }) => ({ tmdbId: String(p.tmdbId) }),
+  },
+  loader: ({ context, params }) => void context.queryClient.prefetchQuery(Queries.seriesPreview(params.tmdbId)),
+  component: lazyRouteComponent(() => import('@/features/search/SeriesPreviewPage'), 'SeriesPreviewPage'),
+})
+
 const accountRoute = createRoute({ getParentRoute: () => appRoute, path: '/conta', component: lazyRouteComponent(() => import('@/features/account/AccountPage'), 'AccountPage') })
 
 const routeTree = rootRoute.addChildren([
   publicRoute.addChildren([loginRoute, registerRoute, confirmRoute]),
-  appRoute.addChildren([homeRoute, libraryRoute, seriesRoute, agendaRoute, statsRoute, searchRoute, accountRoute]),
+  appRoute.addChildren([homeRoute, libraryRoute, seriesRoute, agendaRoute, statsRoute, searchRoute, seriesPreviewRoute, accountRoute]),
 ])
 
 export const router = createRouter({

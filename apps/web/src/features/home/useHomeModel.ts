@@ -4,7 +4,7 @@ import { Queries } from '@/api/queries'
 import type { NextUpItem } from '@/api/types'
 import { useSession } from '@/app/useSession'
 import { NextUpShelf } from '@/domain/NextUpShelf'
-import { type AgendaEntry, PremiereAgenda } from '@/domain/PremiereAgenda'
+import { PremiereAgenda, type SeriesAgendaEntry } from '@/domain/PremiereAgenda'
 import { ReleaseClock } from '@/domain/ReleaseClock'
 import { Fmt } from '@/lib/format'
 
@@ -29,8 +29,8 @@ export interface HomeModel {
   firstName: string
   nextUp: UseQueryResult<NextUpItem[]>
   shelf: NextUpShelf | null
-  /** Estreias dos próximos {@link SOON_DAYS} dias, no fuso de quem olha. */
-  soon: AgendaEntry[]
+  /** Estreias dos próximos {@link SOON_DAYS} dias, no fuso de quem olha — o próximo episódio de cada série. */
+  soon: SeriesAgendaEntry[]
   /** Uma frase sobre o dia ("2 séries em andamento · 5 episódios esperando…"), ou nulo sem fila. */
   summary: string | null
 }
@@ -49,7 +49,7 @@ export function useHomeModel(): HomeModel {
 
   const shelf = useMemo(() => (nextUp.data ? new NextUpShelf(nextUp.data, series.data, now) : null), [nextUp.data, series.data, now])
   const clock = useMemo(() => new ReleaseClock(now), [now])
-  const soon = useMemo(() => (premieres.data ? new PremiereAgenda(premieres.data, clock).within(SOON_DAYS) : []), [premieres.data, clock])
+  const soon = useMemo(() => (premieres.data ? new PremiereAgenda(premieres.data, clock).nextPerSeries(SOON_DAYS) : []), [premieres.data, clock])
 
   return {
     now,

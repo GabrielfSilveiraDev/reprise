@@ -8,6 +8,7 @@ import type {
   SearchResult,
   SeriesDetail,
   SeriesListItem,
+  SeriesPreview,
   StatsOverview,
   TrackingChange,
   WatchState,
@@ -30,6 +31,11 @@ export class SeriesResource extends Resource {
 
   search(q: string): Promise<SearchResult[]> {
     return this.call(this.http.GET('/series/search', { params: { query: { q } } }))
+  }
+
+  /** A série do TMDB antes de adicionar: sinopse, situação e temporadas. Não grava nada. */
+  preview(tmdbId: number): Promise<SeriesPreview> {
+    return this.call(this.http.GET('/series/tmdb/{tmdbId}', { params: { path: { tmdbId } } }))
   }
 
   add(tmdbId: number): Promise<AddSeriesResult> {

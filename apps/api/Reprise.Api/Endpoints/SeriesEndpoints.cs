@@ -46,6 +46,23 @@ public static class SeriesEndpoints
             })
             .WithSummary("Busca séries no TMDB para adicionar ao acervo. Marca as que você já tem.");
 
+        // A prévia de um resultado da busca, antes de adicionar. Pelo id do TMDB, porque a série
+        // ainda pode não existir no catálogo local — e, existindo, a resposta diz qual é o id dela.
+        g.MapGet("/tmdb/{tmdbId:int}", async Task<Results<Ok<SeriesPreviewDto>, NotFound<string>, ProblemHttpResult>> (
+                int tmdbId, IServiceProvider sp, TimeProvider clock, CancellationToken ct) =>
+            {
+                var catalogo = sp.GetService<SeriesCatalogService>();
+                if (catalogo is null)
+                    return TypedResults.Problem(SemTmdb, statusCode: StatusCodes.Status503ServiceUnavailable);
+
+                var hoje = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+                var previa = await catalogo.PreviewAsync(tmdbId, hoje, ct);
+                return previa is null
+                    ? TypedResults.NotFound($"O TMDB não conhece a série {tmdbId}.")
+                    : TypedResults.Ok(previa);
+            })
+            .WithSummary("Prévia de uma série do TMDB (sinopse, situação, temporadas), sem adicionar ao acervo.");
+
         // POST e não PUT: o cliente manda o id do TMDB e o servidor decide o id local. Quem escolhe
         // o endereço do recurso criado é o servidor, e é isso que POST significa.
         g.MapPost("/", async Task<Results<Ok<AddSeriesResultDto>, NotFound<string>, ProblemHttpResult>> (

@@ -1,16 +1,19 @@
 import { Link } from '@tanstack/react-router'
 import { EpisodeCode } from '@/domain/EpisodeCode'
-import type { AgendaEntry } from '@/domain/PremiereAgenda'
+import type { SeriesAgendaEntry } from '@/domain/PremiereAgenda'
 import type { ReleaseClock } from '@/domain/ReleaseClock'
 import { Fmt } from '@/lib/format'
 import { Badge } from '@/ui/Controls'
 import { Poster } from '@/ui/Poster'
 
-/** Faixa horizontal de estreias próximas. No celular rola de lado, com encaixe por cartão. */
-export function PremiereRail({ entries, clock }: { entries: AgendaEntry[]; clock: ReleaseClock }) {
+/**
+ * Faixa horizontal de estreias próximas, um cartão por série (os outros episódios dela no período
+ * viram o "+N ep."). No celular rola de lado, com encaixe por cartão.
+ */
+export function PremiereRail({ entries, clock }: { entries: SeriesAgendaEntry[]; clock: ReleaseClock }) {
   return (
     <ul className="scrollbar-none -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:mx-0 lg:scroll-px-0 lg:px-0">
-      {entries.map(({ premiere, instant }) => {
+      {entries.map(({ premiere, instant, more }) => {
         const code = EpisodeCode.of(premiere)
         const day = clock.dayLabel(instant)
         return (
@@ -26,6 +29,7 @@ export function PremiereRail({ entries, clock }: { entries: AgendaEntry[]; clock
               <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-3">
                 <span className="code">{code.toString()}</span>
                 {premiere.isSeasonPremiere && <Badge tone="accent">estreia</Badge>}
+                {more > 0 && <span>+{more} ep.</span>}
               </p>
             </Link>
           </li>

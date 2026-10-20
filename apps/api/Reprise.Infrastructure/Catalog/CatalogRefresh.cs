@@ -25,10 +25,21 @@ public sealed record CatalogRefreshReport(int Vencidas, int Atualizadas, IReadOn
 /// </para>
 ///
 /// <para>
-/// <b>Quais séries.</b> As que alguém acompanha (<c>Following</c>) e que o TMDB não dá por
-/// encerradas. Série terminada ou cancelada não ganha episódio, e reprocessá-la todo dia seria
-/// pagar dezenas de requisições para reescrever os mesmos campos. A revogação de um cancelamento
-/// fica para o <c>enrich --force</c> manual — é rara o bastante para não justificar a varredura.
+/// <b>Quais séries, e em que ritmo.</b> Duas velocidades. As que alguém está assistindo
+/// (<c>Following</c>) e que o TMDB dá como em produção são consultadas a cada <see cref="Validade"/>:
+/// é delas que sai a próxima estreia e o resumo do próximo episódio. Todo o resto que alguém
+/// acompanha — encerrada, cancelada, concluída, para depois, parada — a cada <see cref="ValidadeLenta"/>.
+/// "Encerrada" é o que o TMDB acha hoje, não uma promessa: em outubro de 2026 Cyberpunk: Edgerunners,
+/// "Ended" desde 2022 e marcada como concluída, ganhou a temporada 2 — e, sem a velocidade lenta, o
+/// Reprise nunca ficaria sabendo. Uma vez por semana é barato (umas cinco requisições por série) e
+/// basta: a volta de uma série é anunciada com meses de antecedência.
+/// </para>
+///
+/// <para>
+/// <b>Quantas por rodada.</b> No máximo <see cref="MaximoPorRodada"/>, as mais velhas primeiro. A
+/// primeira rodada depois desta mudança encontra o acervo inteiro vencido; sem o teto, seriam
+/// centenas de requisições seguidas — e o TVmaze limita a 20 a cada 10 segundos. O resto fica para
+/// as rodadas seguintes, de hora em hora.
 /// </para>
 ///
 /// <para>
@@ -53,6 +64,12 @@ public sealed class CatalogRefresh
     /// custo é baixo — umas cinco requisições por série, meia centena de séries.
     /// </summary>
     public static readonly TimeSpan Validade = TimeSpan.FromHours(12);
+
+    /// <summary>Uma semana: o ritmo das séries que não devem ganhar episódio tão cedo — ver o cabeçalho.</summary>
+    public static readonly TimeSpan ValidadeLenta = TimeSpan.FromDays(7);
+
+    /// <summary>Teto de séries por rodada. A rodada é de hora em hora, então o atraso máximo é pequeno.</summary>
+    public const int MaximoPorRodada = 40;
 
     /// <summary>Os status do TMDB de série que não volta. O campo não é traduzido: vem em inglês mesmo pedindo pt-BR.</summary>
     private static readonly string[] Encerradas = ["Ended", "Canceled"];
@@ -132,17 +149,29 @@ public sealed class CatalogRefresh
     private async Task<List<long>> VencidasAsync(DateTimeOffset now, CancellationToken ct)
     {
         var limite = now - Validade;
+        var limiteLento = now - ValidadeLenta;
 
-        return await _db.TrackedSeries
+        // Uma linha por acompanhamento: a mesma série acompanhada por duas pessoas, uma assistindo e
+        // outra que já concluiu, vale pela velocidade mais rápida — basta uma delas precisar.
+        var candidatas = await _db.TrackedSeries
             .IgnoreQueryFilters()
-            .Where(t => t.Status == SeriesStatus.Following)
-            .Select(t => t.Series)
-            .Where(s => s.TmdbId != null && s.UpdatedAt < limite)
-            .Where(s => s.Status == null || !Encerradas.Contains(s.Status))
-            .Select(s => new { s.Id, s.UpdatedAt })
-            .Distinct()
-            .OrderBy(s => s.UpdatedAt)
-            .Select(s => s.Id)
+            .Where(t => t.Series.TmdbId != null && t.Series.UpdatedAt < limite)
+            .Select(t => new
+            {
+                t.SeriesId,
+                t.Series.UpdatedAt,
+                Rapida = t.Status == SeriesStatus.Following
+                         && (t.Series.Status == null || !Encerradas.Contains(t.Series.Status)),
+            })
             .ToListAsync(ct);
+
+        return candidatas
+            .GroupBy(c => c.SeriesId)
+            .Select(g => new { Id = g.Key, g.First().UpdatedAt, Rapida = g.Any(c => c.Rapida) })
+            .Where(s => s.Rapida || s.UpdatedAt < limiteLento)
+            .OrderBy(s => s.UpdatedAt)
+            .Take(MaximoPorRodada)
+            .Select(s => s.Id)
+            .ToList();
     }
 }
