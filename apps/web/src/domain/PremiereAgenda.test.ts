@@ -37,6 +37,25 @@ describe('PremiereAgenda', () => {
     expect(names).toEqual(['Domingo', 'Longe'])
   })
 
+  it('na faixa da tela inicial, um episódio por série: o próximo, e quantos mais vêm no período', () => {
+    // A temporada inteira de uma vez, como a Netflix faz, e uma série semanal.
+    const drop = [1, 2, 3].map((n) =>
+      Make.premiere({ seriesId: 7, seriesName: 'Tudo de uma vez', episodeNumber: n, releasesAt: '2026-09-25T07:00:00Z', airDate: '2026-09-25' }),
+    )
+    const weekly = [
+      Make.premiere({ seriesId: 8, seriesName: 'Semanal', episodeNumber: 5, releasesAt: '2026-09-26T01:00:00Z', airDate: '2026-09-25' }),
+      Make.premiere({ seriesId: 8, seriesName: 'Semanal', episodeNumber: 6, releasesAt: '2026-10-02T01:00:00Z', airDate: '2026-10-01' }),
+    ]
+    const shelf = new PremiereAgenda([...weekly, ...drop], clock).nextPerSeries(8)
+
+    expect(shelf.map((e) => [e.premiere.seriesName, e.premiere.episodeNumber, e.more])).toEqual([
+      ['Tudo de uma vez', 1, 2],
+      ['Semanal', 5, 1],
+    ])
+    // Fora do período, o episódio seguinte não conta: em 3 dias, a semanal tem só o de sexta.
+    expect(new PremiereAgenda(weekly, clock).nextPerSeries(3).map((e) => e.more)).toEqual([0])
+  })
+
   it('recorta pelos próximos dias de calendário', () => {
     expect(agenda.within(2).map((e) => e.premiere.seriesName)).toEqual(['Hoje à noite', 'Silo'])
     expect(agenda.within(7)).toHaveLength(3)

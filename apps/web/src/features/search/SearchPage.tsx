@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
-import { KeyRound, Plus, Search, X } from 'lucide-react'
+import { Info, KeyRound, Plus, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '@/api/ApiError'
 import { useAddSeries } from '@/api/mutations'
@@ -114,23 +114,40 @@ function ResultRow({ result: r }: { result: SearchResult }) {
       </Link>
     </Button>
   ) : (
-    <Button
-      variant="primary"
-      size="sm"
-      loading={add.isPending}
-      icon={<Plus className="size-4" />}
-      onClick={() => add.mutate(r.tmdbId, { onSuccess: (res) => void navigate({ to: '/serie/$seriesId', params: { seriesId: res.seriesId } }) })}
-    >
-      Adicionar
-    </Button>
+    <div className="flex flex-wrap gap-2">
+      <Button
+        variant="primary"
+        size="sm"
+        loading={add.isPending}
+        icon={<Plus className="size-4" />}
+        onClick={() => add.mutate(r.tmdbId, { onSuccess: (res) => void navigate({ to: '/serie/$seriesId', params: { seriesId: res.seriesId } }) })}
+      >
+        Adicionar
+      </Button>
+      <Button asChild variant="outline" size="sm" icon={<Info className="size-4" />}>
+        <Link to="/buscar/$tmdbId" params={{ tmdbId: r.tmdbId }}>
+          Detalhes
+        </Link>
+      </Button>
+    </div>
   )
+  // Pôster e título levam aos detalhes: a página da série, se ela já está no acervo; a prévia do
+  // TMDB, se não está — para decidir antes de adicionar.
+  const details = tracked
+    ? ({ to: '/serie/$seriesId', params: { seriesId: r.seriesId! } } as const)
+    : ({ to: '/buscar/$tmdbId', params: { tmdbId: r.tmdbId } } as const)
 
   return (
     <li className="flex animate-rise gap-4 rounded-card border border-line bg-surface p-3 sm:p-4">
-      <Poster path={r.posterPath} name={r.name} size="w154" sizes="80px" className="w-16 shrink-0 sm:w-20" />
+      <Link {...details} tabIndex={-1} aria-hidden className="w-16 shrink-0 sm:w-20">
+        <Poster path={r.posterPath} name={r.name} size="w154" sizes="80px" />
+      </Link>
       <div className="min-w-0 flex-1">
         <p className="headline text-xl">
-          {r.name} {year && <span className="font-sans text-sm font-normal text-ink-3">{year}</span>}
+          <Link {...details} className="hover:text-accent-ink hover:underline">
+            {r.name}
+          </Link>{' '}
+          {year && <span className="font-sans text-sm font-normal text-ink-3">{year}</span>}
         </p>
         {r.originalName && r.originalName !== r.name && <p className="text-xs text-ink-3 italic">{r.originalName}</p>}
         {r.overview && <p className="mt-1.5 line-clamp-3 text-sm text-ink-2">{r.overview}</p>}

@@ -25,7 +25,7 @@ export class Fmt {
     return format(date, pattern, { locale: ptBR })
   }
 
-  /** "12 de mar." no ano corrente; "12 de mar. de 2019" fora dele. */
+  /** "12 de mar" no ano corrente; "12 de mar de 2019" fora dele. */
   static day(date: Date, now: Date = new Date()): string {
     return isSameYear(date, now) ? Fmt.pattern(date, "d 'de' MMM") : Fmt.pattern(date, "d 'de' MMM 'de' yyyy")
   }

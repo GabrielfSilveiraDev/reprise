@@ -9,6 +9,12 @@ export interface AgendaEntry {
   instant: Date
 }
 
+/** Uma série na faixa de estreias: o próximo episódio dela e quantos mais saem no mesmo período. */
+export interface SeriesAgendaEntry extends AgendaEntry {
+  /** Episódios da mesma série que liberam depois deste, dentro do período pedido. */
+  more: number
+}
+
 export interface AgendaSection {
   key: string
   kind: 'day' | 'month'
@@ -49,6 +55,23 @@ export class PremiereAgenda {
   /** O que libera nos próximos `days` dias de calendário (hoje incluso). */
   within(days: number): AgendaEntry[] {
     return this.entries.filter((e) => this.clock.daysUntil(e.instant) < days)
+  }
+
+  /**
+   * O próximo episódio de cada série nos próximos `days` dias — um por série, na ordem de
+   * liberação. É o que a tela inicial mostra: quem solta a temporada inteira de uma vez (a
+   * Netflix, quase sempre) viraria dez cartões iguais, um por episódio, e empurraria as outras
+   * séries para fora da faixa. Os demais episódios da série viram o `more`; a agenda completa,
+   * dia a dia, continua mostrando cada um.
+   */
+  nextPerSeries(days: number): SeriesAgendaEntry[] {
+    const bySeries = new Map<number, SeriesAgendaEntry>()
+    for (const entry of this.within(days)) {
+      const first = bySeries.get(entry.premiere.seriesId)
+      if (first) first.more++
+      else bySeries.set(entry.premiere.seriesId, { ...entry, more: 0 })
+    }
+    return [...bySeries.values()]
   }
 
   sections(options: { seasonPremieresOnly?: boolean } = {}): AgendaSection[] {

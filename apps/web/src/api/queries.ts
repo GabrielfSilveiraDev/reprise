@@ -15,6 +15,7 @@ export class Queries {
     stats: ['stats'] as const,
     me: ['me'] as const,
     search: (q: string) => ['search', q] as const,
+    preview: (tmdbId: number) => ['search', 'preview', tmdbId] as const,
   }
 
   static seriesList() {
@@ -49,6 +50,16 @@ export class Queries {
 
   static me() {
     return queryOptions({ queryKey: Queries.keys.me, queryFn: () => api.account.me() })
+  }
+
+  /** Sob a chave da busca de propósito: adicionar invalida `['search']`, e a prévia passa a dizer "abrir". */
+  static seriesPreview(tmdbId: number) {
+    return queryOptions({
+      queryKey: Queries.keys.preview(tmdbId),
+      queryFn: () => api.series.preview(tmdbId),
+      staleTime: 10 * 60_000,
+      retry: (count, error) => !(error instanceof ApiError && (error.isUnavailable || error.status < 500)) && count < 1,
+    })
   }
 
   static search(q: string) {

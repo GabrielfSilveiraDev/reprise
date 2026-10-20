@@ -306,6 +306,10 @@ export class MockApi {
     if (method === 'GET' && path === '/premieres') return this.json(route, this.premieres())
     if (method === 'GET' && path === '/series/search') return this.json(route, this.search(url.searchParams.get('q') ?? ''))
     if (method === 'POST' && path === '/series') return this.json(route, this.add(body.tmdbId))
+    if ((m = /^\/series\/tmdb\/(\d+)$/.exec(path)) && method === 'GET') {
+      const preview = this.preview(Number(m[1]))
+      return preview ? this.json(route, preview) : route.fulfill({ status: 404 })
+    }
     if (method === 'PATCH' && path === '/series/status') {
       for (const c of body as { seriesId: number; status: string }[]) this.setStatus(c.seriesId, c.status)
       return this.json(route, { updated: body.length, notFound: [] })
@@ -417,6 +421,31 @@ export class MockApi {
       { tmdbId: 502, name: 'Farol Distante', originalName: 'Faraway Beacon', overview: 'Dois irmãos reformam um farol abandonado e encontram um diário.', posterPath: '/p-502.jpg', firstAirDate: '2019-05-02', seriesId: null, trackedStatus: null },
       { tmdbId: 503, name: 'Faróis', originalName: null, overview: 'Documentário sobre os últimos faroleiros do litoral brasileiro.', posterPath: null, firstAirDate: '2024-03-15', seriesId: null, trackedStatus: null },
     ]
+  }
+
+  /** A prévia de um resultado da busca: só o que ainda não está no acervo (502) e o que já está (501). */
+  private preview(tmdbId: number): S['SeriesPreviewDto'] | null {
+    const hit = this.search('farol').find((r) => r.tmdbId === tmdbId)
+    if (!hit) return null
+    const added = this.state.details.has(tmdbId)
+    return {
+      tmdbId,
+      name: hit.name,
+      originalName: hit.originalName,
+      overview: hit.overview,
+      posterPath: hit.posterPath,
+      firstAirDate: hit.firstAirDate,
+      productionStatus: 'Returning Series',
+      originCountry: 'PT',
+      averageRuntimeMinutes: 48,
+      nextAirDate: '2026-10-08',
+      seasons: [
+        { seasonNumber: 1, episodeCount: 6, firstAirDate: '2019-05-02', lastAirDate: '2019-06-06' },
+        { seasonNumber: 2, episodeCount: 6, firstAirDate: '2026-10-08', lastAirDate: '2026-11-12' },
+      ],
+      seriesId: added ? tmdbId : hit.seriesId,
+      trackedStatus: added ? 'Following' : hit.trackedStatus,
+    }
   }
 
   private add(tmdbId: number): S['AddSeriesResultDto'] {

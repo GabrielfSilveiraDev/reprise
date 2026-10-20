@@ -256,6 +256,30 @@ test('Buscar: adicionar leva à página da série', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Farol Distante', level: 1 })).toBeVisible()
 })
 
+test('Buscar: os detalhes de uma série antes de adicionar, e adicionar de lá', async ({ page }) => {
+  await open(page, '/buscar?q=farol')
+  const row = page.getByRole('listitem').filter({ hasText: 'Farol Distante' })
+  await row.getByRole('link', { name: 'Detalhes' }).click()
+
+  await expect(page).toHaveURL(/\/buscar\/502$/)
+  await expect(page.getByRole('heading', { name: 'Farol Distante', level: 1 })).toBeVisible()
+  await expect(page.getByText('Em produção')).toBeVisible()
+  const seasons = page.getByRole('region', { name: 'Temporadas' })
+  await expect(seasons.getByRole('listitem')).toHaveCount(2)
+  await expect(seasons.getByText('Temporada 2')).toBeVisible()
+  await expect(seasons.getByText('6 episódios · estreia em 8 de out')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Adicionar ao acervo' }).click()
+  await expect(page).toHaveURL(/\/serie\/502/)
+  await expect(page.getByRole('heading', { name: 'Farol Distante', level: 1 })).toBeVisible()
+})
+
+test('Buscar: o título de uma série que já está no acervo leva à página dela', async ({ page }) => {
+  await open(page, '/buscar?q=farol')
+  await page.getByRole('listitem').filter({ hasText: 'Farol do Norte' }).getByRole('link', { name: 'Farol do Norte' }).click()
+  await expect(page).toHaveURL(/\/serie\/1(\?|$)/)
+})
+
 test('Conta: tema, exportação e sair', async ({ page }) => {
   await open(page, '/conta')
   await page.getByRole('radio', { name: 'Escuro' }).click()
@@ -289,6 +313,7 @@ test.describe('capturas', () => {
         ['agenda', '/agenda'],
         ['numeros', '/numeros'],
         ['buscar', '/buscar?q=farol'],
+        ['previa', '/buscar/502'],
         ['conta', '/conta'],
         ['entrar', '/entrar'],
       ] as const) {
