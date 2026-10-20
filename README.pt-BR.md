@@ -169,7 +169,8 @@ Em resumo (o passo a passo está em [Hospedagem](docs/hospedagem.md)):
 2. No Render, **New → Blueprint**, escolha o repositório e cole a URL. O
    [`render.yaml`](render.yaml) configura o resto.
 3. Leve o histórico do computador para lá com um comando
-   (`docker compose run --rm copiar-banco "<url do Neon>"`), ou crie uma conta nova.
+   (`DATABASE_URL=<url do Neon>` no `.env` e `docker compose run --rm copiar-banco`), ou crie uma
+   conta nova.
 
 O plano gratuito do Render dorme depois de 15 minutos sem uso, e a primeira abertura depois disso
 leva cerca de um minuto. Cada push na `main` que passa no CI é publicado sozinho.

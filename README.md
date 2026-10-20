@@ -128,7 +128,8 @@ have free plans with no credit card, and your PC can stay off:
 2. On Render, **New → Blueprint**, pick the repository and paste the URL. The
    [`render.yaml`](render.yaml) sets up the rest.
 3. Move your local history there with one command
-   (`docker compose run --rm copiar-banco "<neon url>"`), or create a fresh account.
+   (`DATABASE_URL=<neon url>` in `.env`, then `docker compose run --rm copiar-banco`), or create a
+   fresh account.
 
 Render's free plan sleeps after 15 idle minutes, and the first visit after that takes about a
 minute. Every push to `main` that passes CI is deployed automatically. With `DATABASE_URL=<neon

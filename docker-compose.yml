@@ -111,8 +111,11 @@ services:
 
   # Copia o banco local INTEIRO (o do serviço `db`, mesmo com DATABASE_URL definida) para outro
   # Postgres — o hospedado no Neon, por exemplo —, substituindo o que houver lá (as tabelas do
-  # Reprise; o resto do banco não é tocado). Roda sob demanda:
+  # Reprise; o resto do banco não é tocado). Roda sob demanda. O destino é a DATABASE_URL do .env:
+  #   docker compose run --rm copiar-banco
+  # ou uma URL passada no comando, que vence a do .env:
   #   docker compose run --rm copiar-banco "postgresql://usuario:senha@host/banco?sslmode=require"
+  # Pelo .env é o jeito recomendado: a senha do banco não fica no histórico do terminal.
   # Tudo dentro de um container, sem arquivo intermediário na máquina: no PowerShell do Windows,
   # redirecionar um dump binário com `>` o regrava como texto e o corrompe. Numa transação só —
   # falhou no meio, o destino fica como estava.
@@ -122,23 +125,28 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # A origem vem destas variáveis (as do próprio pg_dump); o destino, da URL passada no comando.
+    # A origem vem destas variáveis (as do próprio pg_dump); o destino, do comando ou do .env.
     environment:
       PGHOST: db
       PGUSER: ${POSTGRES_USER:-reprise}
       PGPASSWORD: ${POSTGRES_PASSWORD:-reprise}
       PGDATABASE: ${POSTGRES_DB:-reprise}
+      DESTINO: ${DATABASE_URL:-}
     entrypoint:
       - sh
       - -c
       - |
         set -eo pipefail
-        if [ -z "$$1" ]; then
-          echo 'Uso: docker compose run --rm copiar-banco "postgresql://usuario:senha@host/banco?sslmode=require"' >&2
+        destino="$${1:-$$DESTINO}"
+        if [ -z "$$destino" ]; then
+          echo 'Sem destino. Ponha DATABASE_URL=<url do banco> no .env, ou passe a URL:' >&2
+          echo '  docker compose run --rm copiar-banco "postgresql://usuario:senha@host/banco?sslmode=require"' >&2
           exit 2
         fi
+        # Só o host aparece, nunca a URL inteira: ela carrega a senha.
+        echo "Copiando o banco local para $$(echo "$$destino" | sed -E 's#^[a-z]+://([^@]*@)?([^/:?]+).*#\2#')..."
         pg_dump --format=custom --no-owner --no-privileges \
-          | pg_restore --clean --if-exists --no-owner --no-privileges --single-transaction --dbname="$$1"
+          | pg_restore --clean --if-exists --no-owner --no-privileges --single-transaction --dbname="$$destino"
         echo "Banco copiado."
       - copiar-banco
 

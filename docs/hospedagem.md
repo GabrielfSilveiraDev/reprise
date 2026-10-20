@@ -55,27 +55,27 @@ checksPass`) — e, com ele, o app do celular, que abre este mesmo site.
 
 ## 4. Seus dados no banco novo
 
-Escolha um dos dois caminhos.
-
-**Você já usava o Reprise no computador** — leve o histórico inteiro, com contas e senhas. Com o
-Reprise local de pé (`docker compose up -d`), na pasta do projeto:
+Primeiro, ponha a URL do Neon no `.env` da pasta do projeto (crie o arquivo se ele não existir):
 
 ```bash
-docker compose run --rm copiar-banco "postgresql://neondb_owner:senha@ep-algo-123456.us-east-1.aws.neon.tech/neondb?sslmode=require"
+DATABASE_URL=postgresql://neondb_owner:senha@ep-algo-123456.us-east-1.aws.neon.tech/neondb?sslmode=require
+```
+
+Pelo `.env`, e não colada nos comandos, a senha do banco não fica no histórico do terminal. Daí em
+diante, escolha um dos dois caminhos.
+
+**Você já usava o Reprise no computador** — leve o histórico inteiro, com contas e senhas. Na pasta
+do projeto:
+
+```bash
+docker compose run --rm copiar-banco
 ```
 
 A cópia **substitui** as tabelas do Reprise no Neon pelas do banco local, numa transação só: se
 falhar no meio, o Neon fica como estava. Pode rodar antes ou depois do deploy no Render. Depois,
 entre no endereço do Render com o mesmo usuário e senha de sempre.
 
-**Começando do zero** — crie a sua conta no banco da nuvem. Ponha a URL do Neon no `.env` da
-pasta do projeto (crie o arquivo se ele não existir):
-
-```bash
-DATABASE_URL=postgresql://neondb_owner:senha@ep-algo-123456.us-east-1.aws.neon.tech/neondb?sslmode=require
-```
-
-e rode:
+**Começando do zero** — crie a sua conta no banco da nuvem:
 
 ```bash
 docker compose run --rm cli migrate
@@ -83,8 +83,10 @@ docker compose run --rm cli passwd --email me@reprise.local --password "uma-senh
 ```
 
 Com o `DATABASE_URL` no `.env`, **todo** o Reprise local passa a usar o banco da nuvem — o app em
-`localhost:8080` e a CLI (importar o TV Time, `enrich`…). É assim que vários computadores usam o
-mesmo histórico. Apague a linha para voltar ao banco local.
+`localhost:8080` e a CLI (importar o TV Time, `enrich`…). É o que se quer depois da cópia: um
+histórico só, o mesmo no computador, no site e no celular, em vez de dois que se afastam. É assim
+também que vários computadores usam o mesmo histórico. O banco local fica intocado, como estava no
+momento da cópia; apague a linha para voltar a ele.
 
 ## 5. Ajustes opcionais
 
