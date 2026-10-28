@@ -8,7 +8,7 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <!-- Os pacotes do ASP.NET Core, do EF Core e do Microsoft.Extensions saem juntos, na mesma versão. -->
-    <DotNetPackagesVersion>10.0.12</DotNetPackagesVersion>
+    <DotNetPackagesVersion>10.0.14</DotNetPackagesVersion>
   </PropertyGroup>
 
   <ItemGroup Label="ASP.NET Core, EF Core e Microsoft.Extensions">
