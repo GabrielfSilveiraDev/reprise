@@ -7,6 +7,7 @@
   <ItemGroup>
     <PackageReference Include="CsvHelper" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" VersionOverride="11.0.0" />
   </ItemGroup>
 
 </Project>
